@@ -9,6 +9,7 @@ Flask-WTF==1.2.1
 
 # Database
 SQLAlchemy>=2.0.23,<2.1
+psycopg[binary]>=3.1.0
 
 # Document Generation
 python-docx==1.1.0
@@ -20,4 +21,3 @@ Werkzeug==3.0.1
 python-dotenv==1.0.0
 requests==2.31.0
 gunicorn==21.2.0
-psycopg2-binary==2.9.9
