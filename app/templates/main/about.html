@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}About Us - Prosno.io{% endblock %}
+
+{% block content %}
+<section class="about-section py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="about-header text-center mb-5">
+                    <h1><i class="bi bi-info-circle"></i> About Prosno.io</h1>
+                    <p class="lead">Making question paper generation effortless for educators</p>
+                </div>
+                
+                <div class="about-content">
+                    <h3>Our Mission</h3>
+                    <p>
+                        Prosno.io is dedicated to simplifying the process of creating professional MCQ question papers 
+                        for teachers, coaching centers, and educational institutions. We believe that educators should 
+                        spend more time teaching and less time on administrative tasks like formatting question papers.
+                    </p>
+                    
+                    <h3>What We Offer</h3>
+                    <ul class="feature-list">
+                        <li><i class="bi bi-check-circle-fill text-success"></i> Professional two-column layout papers</li>
+                        <li><i class="bi bi-check-circle-fill text-success"></i> Full Bengali language and numeral support</li>
+                        <li><i class="bi bi-check-circle-fill text-success"></i> OMR-style answer options</li>
+                        <li><i class="bi bi-check-circle-fill text-success"></i> Separate student and teacher copies</li>
+                        <li><i class="bi bi-check-circle-fill text-success"></i> Instant Microsoft Word download</li>
+                        <li><i class="bi bi-check-circle-fill text-success"></i> Comprehensive question bank</li>
+                    </ul>
+                    
+                    <h3>Technology</h3>
+                    <p>
+                        Our platform is built using modern web technologies including Python Flask for the backend, 
+                        python-docx for document generation, and a responsive frontend that works on all devices. 
+                        We use SQLite/PostgreSQL for secure data storage and implement industry-standard security practices.
+                    </p>
+                    
+                    <h3>Open Source</h3>
+                    <p>
+                        The core question paper generation logic is based on an open-source project and is available 
+                        under the MIT license. We believe in giving back to the community and welcome contributions 
+                        from developers worldwide.
+                    </p>
+                    
+                    <div class="text-center mt-5">
+                        <a href="{{ url_for('main.generate') }}" class="btn btn-primary btn-lg">
+                            <i class="bi bi-file-earmark-plus me-2"></i>
+                            Start Generating Papers
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

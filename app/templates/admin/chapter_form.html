@@ -1,0 +1,78 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ 'Edit' if chapter else 'Add' }} Chapter - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ 'Edit' if chapter else 'Add New' }} Chapter</h1>
+    <p>{{ 'Update chapter information' if chapter else 'Create a new chapter for your question bank' }}</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="subject_id" class="form-label">Subject</label>
+                    <select class="form-select" id="subject_id" name="subject_id" required>
+                        <option value="">-- Select Subject --</option>
+                        {% for s in subjects %}
+                        <option value="{{ s.id }}" {{ 'selected' if chapter and chapter.subject_id == s.id else '' }}>
+                            {{ s.class_ref.name }} - {{ s.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="chapter_number" class="form-label">Chapter Number</label>
+                    <input type="number" class="form-control" id="chapter_number" name="chapter_number" 
+                           value="{{ chapter.chapter_number if chapter else '' }}" min="1"
+                           placeholder="e.g., 1, 2, 3">
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="name" class="form-label">Chapter Name (English)</label>
+                    <input type="text" class="form-control" id="name" name="name" 
+                           value="{{ chapter.name if chapter else '' }}" required
+                           placeholder="e.g., Introduction to Algebra">
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="name_bn" class="form-label">Chapter Name (Bengali)</label>
+                    <input type="text" class="form-control" id="name_bn" name="name_bn" 
+                           value="{{ chapter.name_bn if chapter else '' }}"
+                           placeholder="e.g., বীজগণিতের ভূমিকা">
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="order" class="form-label">Display Order</label>
+                    <input type="number" class="form-control" id="order" name="order" 
+                           value="{{ chapter.order if chapter else 0 }}" min="0">
+                </div>
+                
+                {% if chapter %}
+                <div class="col-md-6 d-flex align-items-end">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="is_active" name="is_active"
+                               {{ 'checked' if chapter.is_active else '' }}>
+                        <label class="form-check-label" for="is_active">Active</label>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="col-12">
+                    <hr>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>
+                        {{ 'Update' if chapter else 'Create' }} Chapter
+                    </button>
+                    <a href="{{ url_for('admin.chapters') }}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

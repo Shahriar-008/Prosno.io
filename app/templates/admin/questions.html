@@ -1,0 +1,144 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Questions - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1>Questions</h1>
+        <p>Manage your question bank</p>
+    </div>
+    <div>
+        <a href="{{ url_for('admin.bulk_upload_questions') }}" class="btn btn-outline-primary me-2">
+            <i class="bi bi-upload me-1"></i> Bulk Upload
+        </a>
+        <a href="{{ url_for('admin.add_question') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> Add Question
+        </a>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label for="chapter" class="form-label">Filter by Chapter</label>
+                <select class="form-select" id="chapter" name="chapter" onchange="this.form.submit()">
+                    <option value="">All Chapters</option>
+                    {% for c in chapters %}
+                    <option value="{{ c.id }}" {{ 'selected' if current_chapter == c.id else '' }}>
+                        {{ c.subject.class_ref.name }} - {{ c.subject.name }} - {{ c.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if questions.items %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th style="max-width: 400px;">Question</th>
+                        <th>Type</th>
+                        <th>Chapter</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in questions.items %}
+                    <tr>
+                        <td>{{ q.id }}</td>
+                        <td style="max-width: 400px;">
+                            <span class="text-truncate d-inline-block" style="max-width: 380px;">
+                                {{ q.question_text }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {{ 'bg-info' if q.question_type == 'complex' else 'bg-secondary' }}">
+                                {{ q.question_type }}
+                            </span>
+                        </td>
+                        <td>{{ q.chapter.name }}</td>
+                        <td>
+                            {% if q.is_active %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('admin.edit_question', id=q.id) }}" class="btn btn-outline-primary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form action="{{ url_for('admin.delete_question', id=q.id) }}" method="POST" 
+                                      onsubmit="return confirm('Are you sure?');" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if questions.pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if questions.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ questions.prev_num }}{% if current_chapter %}&chapter={{ current_chapter }}{% endif %}">
+                        Previous
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in questions.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                    <li class="page-item {{ 'active' if page_num == questions.page else '' }}">
+                        <a class="page-link" href="?page={{ page_num }}{% if current_chapter %}&chapter={{ current_chapter }}{% endif %}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if questions.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ questions.next_num }}{% if current_chapter %}&chapter={{ current_chapter }}{% endif %}">
+                        Next
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-question-circle display-1 text-muted"></i>
+            <h4 class="mt-3">No Questions Yet</h4>
+            <p class="text-muted">Start by adding your first question.</p>
+            <a href="{{ url_for('admin.add_question') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i> Add Question
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

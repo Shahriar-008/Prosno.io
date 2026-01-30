@@ -1,0 +1,189 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ 'Edit' if question else 'Add' }} Question - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ 'Edit' if question else 'Add New' }} Question</h1>
+    <p>{{ 'Update question details' if question else 'Create a new MCQ question' }}</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="row g-3">
+                <!-- Chapter Selection -->
+                <div class="col-md-6">
+                    <label for="chapter_id" class="form-label">Chapter</label>
+                    <select class="form-select" id="chapter_id" name="chapter_id" required>
+                        <option value="">-- Select Chapter --</option>
+                        {% for c in chapters %}
+                        <option value="{{ c.id }}" {{ 'selected' if question and question.chapter_id == c.id else '' }}>
+                            {{ c.subject.class_ref.name }} - {{ c.subject.name }} - {{ c.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Question Type -->
+                <div class="col-md-3">
+                    <label for="question_type" class="form-label">Question Type</label>
+                    <select class="form-select" id="question_type" name="question_type">
+                        <option value="simple" {{ 'selected' if not question or question.question_type == 'simple' else '' }}>
+                            Simple
+                        </option>
+                        <option value="complex" {{ 'selected' if question and question.question_type == 'complex' else '' }}>
+                            Complex
+                        </option>
+                    </select>
+                </div>
+                
+                <!-- Difficulty -->
+                <div class="col-md-3">
+                    <label for="difficulty" class="form-label">Difficulty</label>
+                    <select class="form-select" id="difficulty" name="difficulty">
+                        <option value="easy" {{ 'selected' if question and question.difficulty == 'easy' else '' }}>Easy</option>
+                        <option value="medium" {{ 'selected' if not question or question.difficulty == 'medium' else '' }}>Medium</option>
+                        <option value="hard" {{ 'selected' if question and question.difficulty == 'hard' else '' }}>Hard</option>
+                    </select>
+                </div>
+                
+                <!-- Question Text -->
+                <div class="col-12">
+                    <label for="question_text" class="form-label">Question Text</label>
+                    <textarea class="form-control" id="question_text" name="question_text" rows="3" required>{{ question.question_text if question else '' }}</textarea>
+                </div>
+                
+                <!-- Complex Question Fields -->
+                <div class="col-12 complex-fields" style="display: {{ 'block' if question and question.question_type == 'complex' else 'none' }};">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6>Complex Question Options</h6>
+                            <div class="mb-3">
+                                <label class="form-label">Sub-Options</label>
+                                <div id="subOptionsContainer">
+                                    {% if question and question.sub_options %}
+                                        {% for opt in question.sub_options %}
+                                        <div class="input-group mb-2">
+                                            <input type="text" class="form-control" name="sub_options" value="{{ opt }}">
+                                            <button type="button" class="btn btn-outline-danger" onclick="this.parentElement.remove()">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="input-group mb-2">
+                                            <input type="text" class="form-control" name="sub_options" placeholder="i. First statement">
+                                        </div>
+                                        <div class="input-group mb-2">
+                                            <input type="text" class="form-control" name="sub_options" placeholder="ii. Second statement">
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addSubOption()">
+                                    <i class="bi bi-plus"></i> Add Sub-Option
+                                </button>
+                            </div>
+                            <div>
+                                <label for="final_prompt" class="form-label">Final Prompt</label>
+                                <input type="text" class="form-control" id="final_prompt" name="final_prompt" 
+                                       value="{{ question.final_prompt if question else 'নিচের কোনটি সঠিক?' }}"
+                                       placeholder="Which of the above is correct?">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Answer Options -->
+                <div class="col-12">
+                    <label class="form-label">Answer Options</label>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text">ক)</span>
+                                <input type="text" class="form-control" name="option_1" required
+                                       value="{{ question.answer_options[0] if question and question.answer_options|length > 0 else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text">খ)</span>
+                                <input type="text" class="form-control" name="option_2" required
+                                       value="{{ question.answer_options[1] if question and question.answer_options|length > 1 else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text">গ)</span>
+                                <input type="text" class="form-control" name="option_3" required
+                                       value="{{ question.answer_options[2] if question and question.answer_options|length > 2 else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text">ঘ)</span>
+                                <input type="text" class="form-control" name="option_4" required
+                                       value="{{ question.answer_options[3] if question and question.answer_options|length > 3 else '' }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Correct Answer -->
+                <div class="col-md-6">
+                    <label for="correct_answer" class="form-label">Correct Answer</label>
+                    <input type="text" class="form-control" id="correct_answer" name="correct_answer" required
+                           value="{{ question.correct_answer if question else '' }}"
+                           placeholder="Enter the exact correct answer text">
+                    <small class="text-muted">Must match exactly one of the options above</small>
+                </div>
+                
+                {% if question %}
+                <div class="col-md-6 d-flex align-items-end">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="is_active" name="is_active"
+                               {{ 'checked' if question.is_active else '' }}>
+                        <label class="form-check-label" for="is_active">Active</label>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="col-12">
+                    <hr>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>
+                        {{ 'Update' if question else 'Create' }} Question
+                    </button>
+                    <a href="{{ url_for('admin.questions') }}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Toggle complex fields
+document.getElementById('question_type').addEventListener('change', function() {
+    const complexFields = document.querySelector('.complex-fields');
+    complexFields.style.display = this.value === 'complex' ? 'block' : 'none';
+});
+
+// Add sub-option input
+function addSubOption() {
+    const container = document.getElementById('subOptionsContainer');
+    const div = document.createElement('div');
+    div.className = 'input-group mb-2';
+    div.innerHTML = `
+        <input type="text" class="form-control" name="sub_options" placeholder="New statement">
+        <button type="button" class="btn btn-outline-danger" onclick="this.parentElement.remove()">
+            <i class="bi bi-x"></i>
+        </button>
+    `;
+    container.appendChild(div);
+}
+</script>
+{% endblock %}

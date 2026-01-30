@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Prosno.io - Professional MCQ Question Paper Generator{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="hero-bg-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+    
+    <div class="container">
+        <div class="row align-items-center min-vh-100">
+            <div class="col-lg-6">
+                <div class="hero-content">
+                    <span class="hero-badge">
+                        <i class="bi bi-stars"></i> Trusted by 1000+ Teachers
+                    </span>
+                    <h1 class="hero-title">
+                        Generate Professional 
+                        <span class="text-gradient">Question Papers</span> 
+                        in Seconds
+                    </h1>
+                    <p class="hero-subtitle">
+                        Create beautifully formatted MCQ question papers with Bengali numeral support, 
+                        OMR-style answer options, and two-column layouts. Perfect for schools and coaching centers.
+                    </p>
+                    <div class="hero-cta">
+                        <a href="{{ url_for('main.generate') }}" class="btn btn-primary btn-lg">
+                            <i class="bi bi-file-earmark-plus me-2"></i>
+                            Generate Paper Now
+                        </a>
+                        <a href="#features" class="btn btn-outline-secondary btn-lg">
+                            <i class="bi bi-play-circle me-2"></i>
+                            Learn More
+                        </a>
+                    </div>
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <span class="stat-number">10,000+</span>
+                            <span class="stat-label">Questions</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">500+</span>
+                            <span class="stat-label">Papers Generated</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-number">100%</span>
+                            <span class="stat-label">Free</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="hero-image">
+                    <div class="paper-preview">
+                        <div class="paper-header">
+                            <div class="paper-title">Home Test</div>
+                            <div class="paper-subtitle">অষ্টম শ্রেণি (মাধ্যমিক) - ২০২৫</div>
+                            <div class="paper-meta">
+                                <span>সময়— ৩০ মিনিট</span>
+                                <span>পূর্ণমান— ৩০</span>
+                            </div>
+                        </div>
+                        <div class="paper-content">
+                            <div class="question-item">
+                                <div class="q-text">১. বাংলাদেশের রাজধানী কোথায়?</div>
+                                <div class="q-options">
+                                    <span>◯ ক) চট্টগ্রাম</span>
+                                    <span>● খ) ঢাকা</span>
+                                    <span>◯ গ) রাজশাহী</span>
+                                    <span>◯ ঘ) খুলনা</span>
+                                </div>
+                            </div>
+                            <div class="question-item">
+                                <div class="q-text">২. Which is the largest planet?</div>
+                                <div class="q-options">
+                                    <span>◯ ক) Earth</span>
+                                    <span>◯ খ) Mars</span>
+                                    <span>● গ) Jupiter</span>
+                                    <span>◯ ঘ) Saturn</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="floating-badge badge-1">
+                        <i class="bi bi-file-word"></i> .docx
+                    </div>
+                    <div class="floating-badge badge-2">
+                        <i class="bi bi-check-circle"></i> Answer Key
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section id="features" class="features-section">
+    <div class="container">
+        <div class="section-header text-center">
+            <span class="section-badge">Features</span>
+            <h2 class="section-title">Everything You Need for Perfect Papers</h2>
+            <p class="section-subtitle">
+                Our platform offers a comprehensive set of features to create professional-grade question papers.
+            </p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="bi bi-file-earmark-richtext"></i>
+                    </div>
+                    <h3>Two-Column Layout</h3>
+                    <p>Professional two-column format that maximizes paper usage while maintaining readability.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="bi bi-translate"></i>
+                    </div>
+                    <h3>Bengali Support</h3>
+                    <p>Full Bengali numeral conversion and Nirmala UI font support for perfect Bengali text rendering.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="bi bi-ui-radios-grid"></i>
+                    </div>
+                    <h3>OMR-Style Options</h3>
+                    <p>Beautiful 2x2 grid layout for answer choices with OMR-style circles for easy marking.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="bi bi-file-earmark-check"></i>
+                    </div>
+                    <h3>Dual Output</h3>
+                    <p>Generate both student and teacher versions with answer keys marked in the teacher copy.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="bi bi-layers"></i>
+                    </div>
+                    <h3>Chapter Selection</h3>
+                    <p>Select specific chapters to include only the topics you want in your question paper.</p>
+                </div>
+            </div>
+            
+            <div class="col-md-6 col-lg-4">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="bi bi-lightning-charge"></i>
+                    </div>
+                    <h3>Instant Download</h3>
+                    <p>Generate and download your question papers instantly in Microsoft Word format.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works Section -->
+<section class="how-it-works-section">
+    <div class="container">
+        <div class="section-header text-center">
+            <span class="section-badge">How It Works</span>
+            <h2 class="section-title">Generate Papers in 3 Simple Steps</h2>
+        </div>
+        
+        <div class="steps-container">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="step-card">
+                        <div class="step-number">1</div>
+                        <div class="step-icon">
+                            <i class="bi bi-collection"></i>
+                        </div>
+                        <h3>Select Options</h3>
+                        <p>Choose your class, subject, and chapters from our extensive question bank.</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="step-card">
+                        <div class="step-number">2</div>
+                        <div class="step-icon">
+                            <i class="bi bi-sliders"></i>
+                        </div>
+                        <h3>Customize</h3>
+                        <p>Set the number of questions, time limit, and paper title as per your needs.</p>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="step-card">
+                        <div class="step-number">3</div>
+                        <div class="step-icon">
+                            <i class="bi bi-download"></i>
+                        </div>
+                        <h3>Download</h3>
+                        <p>Generate and download your professionally formatted question papers instantly.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-5">
+            <a href="{{ url_for('main.generate') }}" class="btn btn-primary btn-lg">
+                <i class="bi bi-rocket-takeoff me-2"></i>
+                Start Generating Now
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta-section">
+    <div class="container">
+        <div class="cta-card">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <h2>Ready to Create Your Question Paper?</h2>
+                    <p>Join thousands of teachers who trust Prosno.io for their examination needs.</p>
+                </div>
+                <div class="col-lg-4 text-lg-end">
+                    <a href="{{ url_for('main.generate') }}" class="btn btn-light btn-lg">
+                        Get Started Free <i class="bi bi-arrow-right ms-2"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

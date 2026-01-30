@@ -1,0 +1,94 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Bulk Upload Questions - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Bulk Upload Questions</h1>
+    <p>Upload multiple questions at once using JSON format</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="mb-3">
+                        <label for="chapter_id" class="form-label">Target Chapter</label>
+                        <select class="form-select" id="chapter_id" name="chapter_id" required>
+                            <option value="">-- Select Chapter --</option>
+                            {% for c in chapters %}
+                            <option value="{{ c.id }}">
+                                {{ c.subject.class_ref.name }} - {{ c.subject.name }} - {{ c.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="json_data" class="form-label">Questions JSON</label>
+                        <textarea class="form-control font-monospace" id="json_data" name="json_data" rows="20" required
+                                  placeholder='[
+  {
+    "question_text": "What is 2 + 2?",
+    "type": "simple",
+    "answer_options": ["3", "4", "5", "6"],
+    "correct_answer": "4"
+  }
+]'></textarea>
+                        <small class="text-muted">Enter a valid JSON array of question objects</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-1"></i>
+                        Upload Questions
+                    </button>
+                    <a href="{{ url_for('admin.questions') }}" class="btn btn-outline-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">JSON Format Guide</h5>
+            </div>
+            <div class="card-body">
+                <h6>Simple Question</h6>
+                <pre class="bg-light p-3 rounded"><code>{
+  "question_text": "Question here?",
+  "type": "simple",
+  "answer_options": [
+    "Option A",
+    "Option B",
+    "Option C",
+    "Option D"
+  ],
+  "correct_answer": "Option B"
+}</code></pre>
+                
+                <h6 class="mt-4">Complex Question</h6>
+                <pre class="bg-light p-3 rounded"><code>{
+  "question_text": "Consider the following:",
+  "type": "complex",
+  "sub_options": [
+    "i. Statement one",
+    "ii. Statement two"
+  ],
+  "final_prompt": "Which is correct?",
+  "answer_options": [
+    "i only",
+    "ii only",
+    "Both",
+    "Neither"
+  ],
+  "correct_answer": "Both"
+}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

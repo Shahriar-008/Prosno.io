@@ -1,0 +1,66 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ 'Edit' if class_obj else 'Add' }} Class - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ 'Edit' if class_obj else 'Add New' }} Class</h1>
+    <p>{{ 'Update class information' if class_obj else 'Create a new class for your question bank' }}</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="name" class="form-label">Class Name (English)</label>
+                    <input type="text" class="form-control" id="name" name="name" 
+                           value="{{ class_obj.name if class_obj else '' }}" required
+                           placeholder="e.g., Class 8">
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="name_bn" class="form-label">Class Name (Bengali)</label>
+                    <input type="text" class="form-control" id="name_bn" name="name_bn" 
+                           value="{{ class_obj.name_bn if class_obj else '' }}"
+                           placeholder="e.g., অষ্টম শ্রেণি">
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="level" class="form-label">Level</label>
+                    <input type="text" class="form-control" id="level" name="level" 
+                           value="{{ class_obj.level if class_obj else '' }}"
+                           placeholder="e.g., Secondary, মাধ্যমিক">
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="order" class="form-label">Display Order</label>
+                    <input type="number" class="form-control" id="order" name="order" 
+                           value="{{ class_obj.order if class_obj else 0 }}" min="0">
+                </div>
+                
+                {% if class_obj %}
+                <div class="col-12">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="is_active" name="is_active"
+                               {{ 'checked' if class_obj.is_active else '' }}>
+                        <label class="form-check-label" for="is_active">Active</label>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="col-12">
+                    <hr>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>
+                        {{ 'Update' if class_obj else 'Create' }} Class
+                    </button>
+                    <a href="{{ url_for('admin.classes') }}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

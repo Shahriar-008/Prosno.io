@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Question Paper - Prosno.io{% endblock %}
+
+{% block content %}
+<section class="generate-section">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="generate-header text-center">
+                    <h1><i class="bi bi-file-earmark-plus"></i> Generate Question Paper</h1>
+                    <p>Select your options below to create a customized MCQ question paper</p>
+                </div>
+                
+                <div class="generate-card">
+                    <form id="generateForm">
+                        <div class="row g-4">
+                            <!-- Class Selection -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="classSelect" class="form-label">
+                                        <i class="bi bi-mortarboard"></i> Select Class
+                                    </label>
+                                    <select class="form-select" id="classSelect" name="class_id" required>
+                                        <option value="">-- Choose Class --</option>
+                                        {% for c in classes %}
+                                        <option value="{{ c.id }}">{{ c.name_bn or c.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Subject Selection -->
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="subjectSelect" class="form-label">
+                                        <i class="bi bi-book"></i> Select Subject
+                                    </label>
+                                    <select class="form-select" id="subjectSelect" name="subject_id" required disabled>
+                                        <option value="">-- Select Class First --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Chapter Selection -->
+                            <div class="col-12">
+                                <div class="form-group">
+                                    <label class="form-label">
+                                        <i class="bi bi-list-check"></i> Select Chapters
+                                    </label>
+                                    <div class="chapters-container" id="chaptersContainer">
+                                        <div class="chapters-placeholder">
+                                            <i class="bi bi-arrow-up"></i>
+                                            <p>Please select a class and subject first</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Available Questions Info -->
+                            <div class="col-12">
+                                <div class="questions-info" id="questionsInfo" style="display: none;">
+                                    <div class="info-badge">
+                                        <i class="bi bi-database"></i>
+                                        <span id="availableQuestions">0</span> questions available from selected chapters
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <hr class="my-4">
+                            
+                            <!-- Paper Settings -->
+                            <div class="col-12">
+                                <h5 class="settings-title">
+                                    <i class="bi bi-gear"></i> Paper Settings
+                                </h5>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="paperTitle" class="form-label">Paper Title</label>
+                                    <input type="text" class="form-control" id="paperTitle" name="title" 
+                                           value="Home Test" placeholder="Enter paper title">
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="questionCount" class="form-label">Number of Questions</label>
+                                    <input type="number" class="form-control" id="questionCount" name="question_count" 
+                                           value="30" min="1" max="100">
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="timeMinutes" class="form-label">Time (Minutes)</label>
+                                    <input type="number" class="form-control" id="timeMinutes" name="time_minutes" 
+                                           value="30" min="5" max="180">
+                                </div>
+                            </div>
+                            
+                            <!-- Generate Button -->
+                            <div class="col-12 text-center mt-4">
+                                <button type="submit" class="btn btn-primary btn-lg" id="generateBtn">
+                                    <i class="bi bi-file-earmark-plus me-2"></i>
+                                    Generate Question Paper
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Loading State -->
+                    <div class="generating-state" id="generatingState" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p>Generating your question paper...</p>
+                    </div>
+                </div>
+                
+                <!-- Result Section -->
+                <div class="result-card" id="resultCard" style="display: none;">
+                    <div class="result-header">
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                        <h3>Question Paper Generated Successfully!</h3>
+                        <p id="resultInfo">Your paper with <span id="generatedCount">0</span> questions is ready for download.</p>
+                    </div>
+                    
+                    <div class="download-buttons">
+                        <a href="#" id="downloadStudent" class="btn btn-primary btn-lg">
+                            <i class="bi bi-file-earmark-word me-2"></i>
+                            Download Student Copy
+                        </a>
+                        <a href="#" id="downloadTeacher" class="btn btn-success btn-lg">
+                            <i class="bi bi-file-earmark-check me-2"></i>
+                            Download Teacher Copy (With Answers)
+                        </a>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
+                            <i class="bi bi-arrow-repeat me-2"></i>
+                            Generate Another Paper
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const classSelect = document.getElementById('classSelect');
+    const subjectSelect = document.getElementById('subjectSelect');
+    const chaptersContainer = document.getElementById('chaptersContainer');
+    const questionsInfo = document.getElementById('questionsInfo');
+    const availableQuestions = document.getElementById('availableQuestions');
+    const generateForm = document.getElementById('generateForm');
+    const generateBtn = document.getElementById('generateBtn');
+    const generatingState = document.getElementById('generatingState');
+    const resultCard = document.getElementById('resultCard');
+    
+    // Load subjects when class changes
+    classSelect.addEventListener('change', function() {
+        const classId = this.value;
+        
+        // Reset subject and chapters
+        subjectSelect.innerHTML = '<option value="">-- Loading... --</option>';
+        subjectSelect.disabled = true;
+        chaptersContainer.innerHTML = `
+            <div class="chapters-placeholder">
+                <i class="bi bi-arrow-up"></i>
+                <p>Please select a subject</p>
+            </div>
+        `;
+        questionsInfo.style.display = 'none';
+        
+        if (!classId) {
+            subjectSelect.innerHTML = '<option value="">-- Select Class First --</option>';
+            return;
+        }
+        
+        fetch(`/get-subjects/${classId}`)
+            .then(response => response.json())
+            .then(subjects => {
+                subjectSelect.innerHTML = '<option value="">-- Choose Subject --</option>';
+                subjects.forEach(s => {
+                    subjectSelect.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
+                });
+                subjectSelect.disabled = false;
+            })
+            .catch(err => {
+                console.error('Error loading subjects:', err);
+                subjectSelect.innerHTML = '<option value="">-- Error loading subjects --</option>';
+            });
+    });
+    
+    // Load chapters when subject changes
+    subjectSelect.addEventListener('change', function() {
+        const subjectId = this.value;
+        questionsInfo.style.display = 'none';
+        
+        if (!subjectId) {
+            chaptersContainer.innerHTML = `
+                <div class="chapters-placeholder">
+                    <i class="bi bi-arrow-up"></i>
+                    <p>Please select a subject</p>
+                </div>
+            `;
+            return;
+        }
+        
+        chaptersContainer.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div></div>';
+        
+        fetch(`/get-chapters/${subjectId}`)
+            .then(response => response.json())
+            .then(chapters => {
+                if (chapters.length === 0) {
+                    chaptersContainer.innerHTML = `
+                        <div class="chapters-placeholder">
+                            <i class="bi bi-exclamation-circle"></i>
+                            <p>No chapters available for this subject</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = '<div class="chapters-grid">';
+                chapters.forEach(c => {
+                    const label = c.chapter_number 
+                        ? `অধ্যায় ${c.chapter_number}: ${c.name_bn || c.name}`
+                        : c.name_bn || c.name;
+                    html += `
+                        <div class="chapter-checkbox">
+                            <input type="checkbox" id="chapter_${c.id}" name="chapters" value="${c.id}" class="chapter-input">
+                            <label for="chapter_${c.id}">${label}</label>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                html += `
+                    <div class="chapter-actions">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllChapters()">
+                            <i class="bi bi-check-all"></i> Select All
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllChapters()">
+                            <i class="bi bi-x-lg"></i> Deselect All
+                        </button>
+                    </div>
+                `;
+                chaptersContainer.innerHTML = html;
+                
+                // Add change listeners to checkboxes
+                document.querySelectorAll('.chapter-input').forEach(cb => {
+                    cb.addEventListener('change', updateQuestionCount);
+                });
+            })
+            .catch(err => {
+                console.error('Error loading chapters:', err);
+                chaptersContainer.innerHTML = `
+                    <div class="chapters-placeholder">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <p>Error loading chapters</p>
+                    </div>
+                `;
+            });
+    });
+    
+    // Update question count when chapters are selected
+    function updateQuestionCount() {
+        const selectedChapters = Array.from(document.querySelectorAll('.chapter-input:checked'))
+            .map(cb => parseInt(cb.value));
+        
+        if (selectedChapters.length === 0) {
+            questionsInfo.style.display = 'none';
+            return;
+        }
+        
+        fetch('/get-question-count', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ chapter_ids: selectedChapters })
+        })
+        .then(response => response.json())
+        .then(data => {
+            availableQuestions.textContent = data.count;
+            questionsInfo.style.display = 'block';
+        })
+        .catch(err => console.error('Error:', err));
+    }
+    
+    // Form submission
+    generateForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const selectedChapters = Array.from(document.querySelectorAll('.chapter-input:checked'))
+            .map(cb => parseInt(cb.value));
+        
+        if (selectedChapters.length === 0) {
+            alert('Please select at least one chapter');
+            return;
+        }
+        
+        const formData = {
+            class_id: parseInt(classSelect.value),
+            subject_id: parseInt(subjectSelect.value),
+            chapter_ids: selectedChapters,
+            question_count: parseInt(document.getElementById('questionCount').value),
+            time_minutes: parseInt(document.getElementById('timeMinutes').value),
+            title: document.getElementById('paperTitle').value
+        };
+        
+        // Show loading state
+        generateBtn.disabled = true;
+        generateForm.style.display = 'none';
+        generatingState.style.display = 'block';
+        resultCard.style.display = 'none';
+        
+        fetch('/generate-paper', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            generatingState.style.display = 'none';
+            
+            if (data.error) {
+                alert(data.error);
+                generateForm.style.display = 'block';
+                generateBtn.disabled = false;
+                return;
+            }
+            
+            // Show result
+            document.getElementById('generatedCount').textContent = data.question_count;
+            document.getElementById('downloadStudent').href = data.student_download;
+            document.getElementById('downloadTeacher').href = data.teacher_download;
+            resultCard.style.display = 'block';
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            generatingState.style.display = 'none';
+            generateForm.style.display = 'block';
+            generateBtn.disabled = false;
+            alert('An error occurred. Please try again.');
+        });
+    });
+});
+
+function selectAllChapters() {
+    document.querySelectorAll('.chapter-input').forEach(cb => {
+        cb.checked = true;
+    });
+    // Trigger change event on the first checkbox to update count
+    const firstCb = document.querySelector('.chapter-input');
+    if (firstCb) {
+        firstCb.dispatchEvent(new Event('change'));
+    }
+}
+
+function deselectAllChapters() {
+    document.querySelectorAll('.chapter-input').forEach(cb => {
+        cb.checked = false;
+    });
+    document.getElementById('questionsInfo').style.display = 'none';
+}
+
+function resetForm() {
+    document.getElementById('generateForm').style.display = 'block';
+    document.getElementById('resultCard').style.display = 'none';
+    document.getElementById('generateBtn').disabled = false;
+    
+    // Reset form
+    document.getElementById('classSelect').value = '';
+    document.getElementById('subjectSelect').innerHTML = '<option value="">-- Select Class First --</option>';
+    document.getElementById('subjectSelect').disabled = true;
+    document.getElementById('chaptersContainer').innerHTML = `
+        <div class="chapters-placeholder">
+            <i class="bi bi-arrow-up"></i>
+            <p>Please select a class and subject first</p>
+        </div>
+    `;
+    document.getElementById('questionsInfo').style.display = 'none';
+}
+</script>
+{% endblock %}
