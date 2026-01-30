@@ -41,3 +41,7 @@ def create_app(config_class=Config):
         db.create_all()
 
     return app
+
+
+# Create app instance for gunicorn (allows `gunicorn app:app`)
+app = create_app()
