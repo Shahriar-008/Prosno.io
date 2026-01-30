@@ -39,12 +39,17 @@ class ProductionConfig(Config):
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'change-this-in-production'
     
     # Database - Render uses DATABASE_URL with postgres:// prefix
-    # SQLAlchemy requires postgresql:// so we fix it here
+    # SQLAlchemy with psycopg3 requires postgresql+psycopg:// so we fix it here
     _database_url = os.environ.get('DATABASE_URL')
-    if _database_url and _database_url.startswith('postgres://'):
-        SQLALCHEMY_DATABASE_URI = _database_url.replace('postgres://', 'postgresql://', 1)
+    if _database_url:
+        if _database_url.startswith('postgres://'):
+            SQLALCHEMY_DATABASE_URI = _database_url.replace('postgres://', 'postgresql+psycopg://', 1)
+        elif _database_url.startswith('postgresql://'):
+            SQLALCHEMY_DATABASE_URI = _database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+        else:
+            SQLALCHEMY_DATABASE_URI = _database_url
     else:
-        SQLALCHEMY_DATABASE_URI = _database_url
+        SQLALCHEMY_DATABASE_URI = None
 
 
 class TestingConfig(Config):
