@@ -40,12 +40,37 @@ def create_app(config_class=Config):
     with app.app_context():
         db.create_all()
         # Auto-seed if no classes exist
-        from app.models import Class
+        from app.models import Class, User
         if Class.query.count() == 0:
             print("No classes found. Auto-seeding NCTB curriculum...")
             _seed_nctb_data()
+        # Auto-create admin user if none exists
+        if User.query.filter_by(is_admin=True).count() == 0:
+            print("No admin user found. Creating default admin...")
+            _create_admin_user()
 
     return app
+
+
+def _create_admin_user():
+    """Create default admin user if none exists"""
+    import os
+    from app.models import User
+    
+    # Use environment variables for production, fallback for dev
+    username = os.environ.get('ADMIN_USERNAME', 'Admin')
+    password = os.environ.get('ADMIN_PASSWORD', '12345')
+    email = os.environ.get('ADMIN_EMAIL', 'admin@prosno.io')
+    
+    try:
+        user = User(username=username, email=email, is_admin=True)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        print(f"Admin user '{username}' created successfully!")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating admin user: {e}")
 
 
 def _seed_nctb_data():
