@@ -1,0 +1,156 @@
+{% extends "admin/base.html" %}
+
+{% block title %}AI Generator Logs - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-journal-text me-2"></i>AI Generator Logs</h1>
+        <p class="text-muted">Complete history of AI question generation</p>
+    </div>
+    <div>
+        <a href="{{ url_for('admin.ai_generator') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Filter by Status</label>
+                <select class="form-select" name="status">
+                    <option value="">All Statuses</option>
+                    <option value="success" {% if status_filter == 'success' %}selected{% endif %}>Success</option>
+                    <option value="error" {% if status_filter == 'error' %}selected{% endif %}>Error</option>
+                    <option value="duplicate" {% if status_filter == 'duplicate' %}selected{% endif %}>Duplicate</option>
+                    <option value="skipped" {% if status_filter == 'skipped' %}selected{% endif %}>Skipped</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-funnel me-1"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Logs Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Time</th>
+                        <th>Status</th>
+                        <th>Class</th>
+                        <th>Subject</th>
+                        <th>Chapter</th>
+                        <th>Generated</th>
+                        <th>Duplicates</th>
+                        <th>Tokens</th>
+                        <th>Response Time</th>
+                        <th>Error</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs.items %}
+                    <tr>
+                        <td>{{ log.id }}</td>
+                        <td><small>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small></td>
+                        <td>
+                            {% if log.status == 'success' %}
+                            <span class="badge bg-success">Success</span>
+                            {% elif log.status == 'error' %}
+                            <span class="badge bg-danger">Error</span>
+                            {% elif log.status == 'duplicate' %}
+                            <span class="badge bg-warning">Duplicate</span>
+                            {% elif log.status == 'skipped' %}
+                            <span class="badge bg-secondary">Skipped</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ log.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.class_ref.name if log.class_ref else '-' }}</td>
+                        <td>{{ log.subject_ref.name if log.subject_ref else '-' }}</td>
+                        <td>{{ log.chapter_ref.name if log.chapter_ref else '-' }}</td>
+                        <td><span class="text-success fw-bold">+{{ log.questions_generated or 0 }}</span></td>
+                        <td><span class="text-warning">{{ log.duplicates_found or 0 }}</span></td>
+                        <td>{{ log.tokens_used or '-' }}</td>
+                        <td>{{ '%.2f'|format(log.api_response_time) if log.api_response_time else '-' }}s</td>
+                        <td>
+                            {% if log.error_message %}
+                            <button class="btn btn-sm btn-outline-danger" type="button" 
+                                    data-bs-toggle="popover" data-bs-trigger="hover focus" 
+                                    data-bs-content="{{ log.error_message }}">
+                                <i class="bi bi-exclamation-circle"></i>
+                            </button>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="11" class="text-center text-muted py-4">No logs found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    {% if logs.pages > 1 %}
+    <div class="card-footer">
+        <nav>
+            <ul class="pagination mb-0 justify-content-center">
+                {% if logs.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('admin.ai_generator_logs', page=logs.prev_num, status=status_filter) }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page in logs.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page %}
+                    <li class="page-item {% if page == logs.page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('admin.ai_generator_logs', page=page, status=status_filter) }}">
+                            {{ page }}
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if logs.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('admin.ai_generator_logs', page=logs.next_num, status=status_filter) }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize popovers for error messages
+document.addEventListener('DOMContentLoaded', function() {
+    var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+    popoverTriggerList.forEach(function(el) {
+        new bootstrap.Popover(el);
+    });
+});
+</script>
+{% endblock %}

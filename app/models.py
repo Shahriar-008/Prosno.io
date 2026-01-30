@@ -156,3 +156,81 @@ class GeneratedPaper(db.Model):
     
     def __repr__(self):
         return f'<GeneratedPaper {self.id}>'
+
+
+class AIGeneratorConfig(db.Model):
+    """AI Generator configuration and state"""
+    __tablename__ = 'ai_generator_config'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # API Configuration
+    api_key = db.Column(db.String(500))  # Encrypted in production
+    api_provider = db.Column(db.String(50), default='gemini')  # gemini, openai
+    model_name = db.Column(db.String(100), default='gemini-2.0-flash')
+    
+    # Generation Settings
+    prompt_template = db.Column(db.Text)  # Custom prompt for generating questions
+    questions_per_request = db.Column(db.Integer, default=5)
+    interval_minutes = db.Column(db.Integer, default=5)
+    
+    # Rate Limiting
+    max_requests_per_hour = db.Column(db.Integer, default=20)
+    requests_this_hour = db.Column(db.Integer, default=0)
+    hour_started = db.Column(db.DateTime)
+    
+    # Current State
+    is_running = db.Column(db.Boolean, default=False)
+    current_class_id = db.Column(db.Integer, db.ForeignKey('classes.id'))
+    current_subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'))
+    current_chapter_id = db.Column(db.Integer, db.ForeignKey('chapters.id'))
+    started_at = db.Column(db.DateTime)
+    last_run_at = db.Column(db.DateTime)
+    
+    # Statistics
+    total_questions_generated = db.Column(db.Integer, default=0)
+    total_duplicates_skipped = db.Column(db.Integer, default=0)
+    total_errors = db.Column(db.Integer, default=0)
+    
+    # Relationships
+    current_class = db.relationship('Class', foreign_keys=[current_class_id])
+    current_subject = db.relationship('Subject', foreign_keys=[current_subject_id])
+    current_chapter = db.relationship('Chapter', foreign_keys=[current_chapter_id])
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<AIGeneratorConfig {self.id}>'
+
+
+class AIGeneratorLog(db.Model):
+    """Log of AI generator activities"""
+    __tablename__ = 'ai_generator_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # What was processed
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'))
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'))
+    chapter_id = db.Column(db.Integer, db.ForeignKey('chapters.id'))
+    
+    # Results
+    status = db.Column(db.String(20))  # success, error, duplicate, skipped
+    questions_generated = db.Column(db.Integer, default=0)
+    duplicates_found = db.Column(db.Integer, default=0)
+    error_message = db.Column(db.Text)
+    
+    # API Stats
+    tokens_used = db.Column(db.Integer, default=0)
+    api_response_time = db.Column(db.Float)  # seconds
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    class_ref = db.relationship('Class', backref='ai_logs')
+    subject_ref = db.relationship('Subject', backref='ai_logs')
+    chapter_ref = db.relationship('Chapter', backref='ai_logs')
+    
+    def __repr__(self):
+        return f'<AIGeneratorLog {self.id} - {self.status}>'

@@ -78,6 +78,15 @@
                         </a>
                     </li>
                     
+                    <li class="nav-header">AI Tools</li>
+                    
+                    <li class="nav-item">
+                        <a href="{{ url_for('admin.ai_generator') }}" class="nav-link {% if 'ai_generator' in request.endpoint %}active{% endif %}">
+                            <i class="bi bi-robot"></i>
+                            <span>AI Generator</span>
+                        </a>
+                    </li>
+                    
                     <li class="nav-header">Account</li>
                     
                     <li class="nav-item">

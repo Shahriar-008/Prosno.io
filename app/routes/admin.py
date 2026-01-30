@@ -6,7 +6,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
 
 from app import db
-from app.models import User, Class, Subject, Chapter, Question, GeneratedPaper
+from app.models import User, Class, Subject, Chapter, Question, GeneratedPaper, AIGeneratorConfig, AIGeneratorLog
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -440,3 +440,160 @@ def papers():
     ).paginate(page=page, per_page=20)
     
     return render_template('admin/papers.html', papers=papers)
+
+
+# ========== AI Question Generator ==========
+@admin_bp.route('/ai-generator')
+@login_required
+def ai_generator():
+    """AI Generator dashboard"""
+    from app.utils.ai_generator import get_generator_status, DEFAULT_PROMPT_TEMPLATE
+    from flask import current_app
+    
+    config = AIGeneratorConfig.query.first()
+    
+    # Create default config if not exists
+    if not config:
+        config = AIGeneratorConfig(
+            prompt_template=DEFAULT_PROMPT_TEMPLATE,
+            questions_per_request=5,
+            interval_minutes=5,
+            max_requests_per_hour=20
+        )
+        db.session.add(config)
+        db.session.commit()
+    
+    classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
+    status = get_generator_status(current_app._get_current_object())
+    
+    return render_template('admin/ai_generator.html', 
+                          config=config, 
+                          classes=classes, 
+                          status=status,
+                          default_prompt=DEFAULT_PROMPT_TEMPLATE)
+
+
+@admin_bp.route('/ai-generator/settings', methods=['POST'])
+@login_required
+def ai_generator_settings():
+    """Update AI Generator settings"""
+    from app.utils.ai_generator import DEFAULT_PROMPT_TEMPLATE
+    
+    config = AIGeneratorConfig.query.first()
+    if not config:
+        config = AIGeneratorConfig()
+        db.session.add(config)
+    
+    # Update settings
+    config.api_key = request.form.get('api_key', config.api_key)
+    config.api_provider = request.form.get('api_provider', 'openai')
+    config.model_name = request.form.get('model_name', 'gpt-4o-mini')
+    config.questions_per_request = int(request.form.get('questions_per_request', 5))
+    config.interval_minutes = int(request.form.get('interval_minutes', 5))
+    config.max_requests_per_hour = int(request.form.get('max_requests_per_hour', 20))
+    
+    prompt = request.form.get('prompt_template', '').strip()
+    config.prompt_template = prompt if prompt else DEFAULT_PROMPT_TEMPLATE
+    
+    db.session.commit()
+    flash('Settings saved successfully!', 'success')
+    
+    return redirect(url_for('admin.ai_generator'))
+
+
+@admin_bp.route('/ai-generator/start', methods=['POST'])
+@login_required
+def ai_generator_start():
+    """Start the AI generator"""
+    from app.utils.ai_generator import start_generator
+    from flask import current_app
+    
+    start_class_id = request.form.get('start_class_id', type=int)
+    start_subject_id = request.form.get('start_subject_id', type=int)
+    start_chapter_id = request.form.get('start_chapter_id', type=int)
+    
+    success, message = start_generator(
+        current_app._get_current_object(),
+        start_class_id,
+        start_subject_id,
+        start_chapter_id
+    )
+    
+    if success:
+        flash(message, 'success')
+    else:
+        flash(message, 'error')
+    
+    return redirect(url_for('admin.ai_generator'))
+
+
+@admin_bp.route('/ai-generator/stop', methods=['POST'])
+@login_required
+def ai_generator_stop():
+    """Stop the AI generator"""
+    from app.utils.ai_generator import stop_generator
+    from flask import current_app
+    
+    success, message = stop_generator(current_app._get_current_object())
+    
+    if success:
+        flash(message, 'success')
+    else:
+        flash(message, 'error')
+    
+    return redirect(url_for('admin.ai_generator'))
+
+
+@admin_bp.route('/ai-generator/status')
+@login_required
+def ai_generator_status():
+    """Get current AI generator status (JSON)"""
+    from app.utils.ai_generator import get_generator_status
+    from flask import current_app
+    
+    status = get_generator_status(current_app._get_current_object())
+    return jsonify(status)
+
+
+@admin_bp.route('/ai-generator/logs')
+@login_required
+def ai_generator_logs():
+    """View AI generator logs"""
+    page = request.args.get('page', 1, type=int)
+    status_filter = request.args.get('status', '')
+    
+    query = AIGeneratorLog.query
+    
+    if status_filter:
+        query = query.filter_by(status=status_filter)
+    
+    logs = query.order_by(AIGeneratorLog.created_at.desc()).paginate(page=page, per_page=50)
+    
+    return render_template('admin/ai_generator_logs.html', logs=logs, status_filter=status_filter)
+
+
+@admin_bp.route('/ai-generator/reset-stats', methods=['POST'])
+@login_required
+def ai_generator_reset_stats():
+    """Reset AI generator statistics"""
+    config = AIGeneratorConfig.query.first()
+    if config:
+        config.total_questions_generated = 0
+        config.total_duplicates_skipped = 0
+        config.total_errors = 0
+        config.requests_this_hour = 0
+        db.session.commit()
+        flash('Statistics reset successfully!', 'success')
+    
+    return redirect(url_for('admin.ai_generator'))
+
+
+@admin_bp.route('/ai-generator/clear-logs', methods=['POST'])
+@login_required
+def ai_generator_clear_logs():
+    """Clear all AI generator logs"""
+    AIGeneratorLog.query.delete()
+    db.session.commit()
+    flash('Logs cleared successfully!', 'success')
+    
+    return redirect(url_for('admin.ai_generator'))

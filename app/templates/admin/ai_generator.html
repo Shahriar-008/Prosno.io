@@ -1,0 +1,445 @@
+{% extends "admin/base.html" %}
+
+{% block title %}AI Question Generator - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-robot me-2"></i>AI Question Generator</h1>
+        <p class="text-muted">Automatically generate questions using AI</p>
+    </div>
+    <div>
+        <a href="{{ url_for('admin.ai_generator_logs') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-list-ul me-1"></i> View All Logs
+        </a>
+    </div>
+</div>
+
+<!-- Status Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center {% if status.is_running %}bg-success text-white{% endif %}">
+            <div class="card-body">
+                <h3 class="mb-0">
+                    {% if status.is_running %}
+                    <i class="bi bi-play-circle-fill"></i> Running
+                    {% else %}
+                    <i class="bi bi-stop-circle"></i> Stopped
+                    {% endif %}
+                </h3>
+                <small>Status</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0 text-success">{{ status.total_questions_generated or 0 }}</h3>
+                <small>Questions Generated</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0 text-warning">{{ status.total_duplicates_skipped or 0 }}</h3>
+                <small>Duplicates Skipped</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h3 class="mb-0 text-danger">{{ status.total_errors or 0 }}</h3>
+                <small>Errors</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Position & Rate Limit -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Current Position</h5>
+            </div>
+            <div class="card-body">
+                {% if status.current_class %}
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-primary me-2">Class</span>
+                    <strong>{{ status.current_class }}</strong>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-info me-2">Subject</span>
+                    <strong>{{ status.current_subject or 'Not set' }}</strong>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-secondary me-2">Chapter</span>
+                    <strong>{{ status.current_chapter or 'Not set' }}</strong>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No position set. Select a starting point below.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Rate Limiting</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Requests this hour:</span>
+                    <strong>{{ status.requests_this_hour or 0 }} / {{ status.max_requests_per_hour or 20 }}</strong>
+                </div>
+                <div class="progress mb-3" style="height: 10px;">
+                    {% set pct = ((status.requests_this_hour or 0) / (status.max_requests_per_hour or 20) * 100)|int %}
+                    <div class="progress-bar {% if pct > 80 %}bg-danger{% elif pct > 50 %}bg-warning{% else %}bg-success{% endif %}" 
+                         style="width: {{ pct }}%"></div>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Last run:</span>
+                    <strong id="last-run-time">{{ status.last_run_at or 'Never' }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Control Panel -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>Control Panel</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Start Form -->
+                    <div class="col-md-8">
+                        <form method="POST" action="{{ url_for('admin.ai_generator_start') }}" class="row g-3">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            
+                            <div class="col-md-4">
+                                <label class="form-label">Start from Class</label>
+                                <select class="form-select" name="start_class_id" id="start_class_id">
+                                    <option value="">-- Current Position --</option>
+                                    {% for cls in classes %}
+                                    <option value="{{ cls.id }}">{{ cls.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Subject</label>
+                                <select class="form-select" name="start_subject_id" id="start_subject_id" disabled>
+                                    <option value="">-- Select Subject --</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Chapter</label>
+                                <select class="form-select" name="start_chapter_id" id="start_chapter_id" disabled>
+                                    <option value="">-- Select Chapter --</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-success btn-lg" {% if status.is_running %}disabled{% endif %}>
+                                    <i class="bi bi-play-fill me-1"></i> Start Generator
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    
+                    <!-- Stop & Reset -->
+                    <div class="col-md-4 d-flex flex-column justify-content-end">
+                        <form method="POST" action="{{ url_for('admin.ai_generator_stop') }}" class="mb-2">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger btn-lg w-100" {% if not status.is_running %}disabled{% endif %}>
+                                <i class="bi bi-stop-fill me-1"></i> Stop Generator
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ url_for('admin.ai_generator_reset_stats') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-outline-secondary w-100" onclick="return confirm('Reset all statistics?')">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Stats
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Settings & Prompt -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-gear me-2"></i>API Settings</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.ai_generator_settings') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">API Provider</label>
+                        <select class="form-select" name="api_provider" id="api_provider">
+                            <option value="gemini" {% if config.api_provider == 'gemini' %}selected{% endif %}>Google Gemini (Recommended)</option>
+                            <option value="openai" {% if config.api_provider == 'openai' %}selected{% endif %}>OpenAI</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">API Key</label>
+                        <input type="password" class="form-control" name="api_key" 
+                               value="{{ config.api_key or '' }}" placeholder="Enter your API key...">
+                        <small class="text-muted" id="api_key_hint">Get your key from Google AI Studio</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Model</label>
+                        <select class="form-select" name="model_name" id="model_name">
+                            <!-- Gemini Models -->
+                            <optgroup label="Google Gemini" id="gemini_models">
+                                <option value="gemini-2.0-flash" {% if config.model_name == 'gemini-2.0-flash' %}selected{% endif %}>Gemini 2.0 Flash (Recommended)</option>
+                                <option value="gemini-1.5-flash" {% if config.model_name == 'gemini-1.5-flash' %}selected{% endif %}>Gemini 1.5 Flash</option>
+                                <option value="gemini-1.5-pro" {% if config.model_name == 'gemini-1.5-pro' %}selected{% endif %}>Gemini 1.5 Pro</option>
+                            </optgroup>
+                            <!-- OpenAI Models -->
+                            <optgroup label="OpenAI" id="openai_models">
+                                <option value="gpt-4o-mini" {% if config.model_name == 'gpt-4o-mini' %}selected{% endif %}>GPT-4o Mini</option>
+                                <option value="gpt-4o" {% if config.model_name == 'gpt-4o' %}selected{% endif %}>GPT-4o</option>
+                                <option value="gpt-4-turbo" {% if config.model_name == 'gpt-4-turbo' %}selected{% endif %}>GPT-4 Turbo</option>
+                                <option value="gpt-3.5-turbo" {% if config.model_name == 'gpt-3.5-turbo' %}selected{% endif %}>GPT-3.5 Turbo</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Questions/Request</label>
+                            <input type="number" class="form-control" name="questions_per_request" 
+                                   value="{{ config.questions_per_request or 5 }}" min="1" max="20">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Interval (min)</label>
+                            <input type="number" class="form-control" name="interval_minutes" 
+                                   value="{{ config.interval_minutes or 5 }}" min="1" max="60">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Max Req/Hour</label>
+                            <input type="number" class="form-control" name="max_requests_per_hour" 
+                                   value="{{ config.max_requests_per_hour or 20 }}" min="1" max="100">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i> Save Settings
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-chat-text me-2"></i>Prompt Template</h5>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="resetPrompt()">
+                    Reset to Default
+                </button>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.ai_generator_settings') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="api_key" value="{{ config.api_key or '' }}">
+                    <input type="hidden" name="api_provider" value="{{ config.api_provider or 'openai' }}">
+                    <input type="hidden" name="model_name" value="{{ config.model_name or 'gpt-4o-mini' }}">
+                    <input type="hidden" name="questions_per_request" value="{{ config.questions_per_request or 5 }}">
+                    <input type="hidden" name="interval_minutes" value="{{ config.interval_minutes or 5 }}">
+                    <input type="hidden" name="max_requests_per_hour" value="{{ config.max_requests_per_hour or 20 }}">
+                    
+                    <div class="mb-3">
+                        <textarea class="form-control font-monospace" name="prompt_template" id="prompt_template" 
+                                  rows="15" style="font-size: 0.85rem;">{{ config.prompt_template or default_prompt }}</textarea>
+                        <small class="text-muted">
+                            Use placeholders: <code>{count}</code>, <code>{class_name}</code>, <code>{subject_name}</code>, <code>{chapter_name}</code>
+                        </small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i> Save Prompt
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Logs -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i>Recent Activity</h5>
+        <div>
+            <button class="btn btn-sm btn-outline-primary" onclick="refreshStatus()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+            <form method="POST" action="{{ url_for('admin.ai_generator_clear_logs') }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Clear all logs?')">
+                    <i class="bi bi-trash"></i> Clear
+                </button>
+            </form>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="logs-table">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Status</th>
+                        <th>Class</th>
+                        <th>Subject</th>
+                        <th>Chapter</th>
+                        <th>Generated</th>
+                        <th>Duplicates</th>
+                        <th>Tokens</th>
+                        <th>Response Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in status.recent_logs %}
+                    <tr>
+                        <td><small>{{ log.created_at }}</small></td>
+                        <td>
+                            {% if log.status == 'success' %}
+                            <span class="badge bg-success">Success</span>
+                            {% elif log.status == 'error' %}
+                            <span class="badge bg-danger" title="{{ log.error_message }}">Error</span>
+                            {% elif log.status == 'duplicate' %}
+                            <span class="badge bg-warning">Duplicate</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ log.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.class or '-' }}</td>
+                        <td>{{ log.subject or '-' }}</td>
+                        <td>{{ log.chapter or '-' }}</td>
+                        <td><span class="text-success">+{{ log.questions_generated or 0 }}</span></td>
+                        <td><span class="text-warning">{{ log.duplicates_found or 0 }}</span></td>
+                        <td>{{ log.tokens_used or '-' }}</td>
+                        <td>{{ log.api_response_time or '-' }}s</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">No activity yet</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const defaultPrompt = `{{ default_prompt|e }}`;
+
+// Cascading dropdowns
+document.getElementById('start_class_id').addEventListener('change', function() {
+    const classId = this.value;
+    const subjectSelect = document.getElementById('start_subject_id');
+    const chapterSelect = document.getElementById('start_chapter_id');
+    
+    subjectSelect.innerHTML = '<option value="">-- Select Subject --</option>';
+    subjectSelect.disabled = true;
+    chapterSelect.innerHTML = '<option value="">-- Select Chapter --</option>';
+    chapterSelect.disabled = true;
+    
+    if (classId) {
+        fetch(`/get-subjects/${classId}`)
+            .then(r => r.json())
+            .then(data => {
+                data.forEach(s => {
+                    subjectSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+                });
+                subjectSelect.disabled = false;
+            });
+    }
+});
+
+document.getElementById('start_subject_id').addEventListener('change', function() {
+    const subjectId = this.value;
+    const chapterSelect = document.getElementById('start_chapter_id');
+    
+    chapterSelect.innerHTML = '<option value="">-- Select Chapter --</option>';
+    chapterSelect.disabled = true;
+    
+    if (subjectId) {
+        fetch(`/get-chapters/${subjectId}`)
+            .then(r => r.json())
+            .then(data => {
+                data.forEach(c => {
+                    chapterSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+                });
+                chapterSelect.disabled = false;
+            });
+    }
+});
+
+// Provider toggle - show/hide appropriate models
+const providerSelect = document.getElementById('api_provider');
+const modelSelect = document.getElementById('model_name');
+const apiKeyHint = document.getElementById('api_key_hint');
+const geminiModels = document.getElementById('gemini_models');
+const openaiModels = document.getElementById('openai_models');
+
+function updateProviderUI() {
+    const provider = providerSelect.value;
+    
+    if (provider === 'gemini') {
+        apiKeyHint.textContent = 'Get your key from Google AI Studio (aistudio.google.com)';
+        geminiModels.style.display = '';
+        openaiModels.style.display = 'none';
+        // Select first Gemini model if current selection is OpenAI
+        if (!modelSelect.value.startsWith('gemini')) {
+            modelSelect.value = 'gemini-2.0-flash';
+        }
+    } else {
+        apiKeyHint.textContent = 'Get your key from OpenAI (platform.openai.com)';
+        geminiModels.style.display = 'none';
+        openaiModels.style.display = '';
+        // Select first OpenAI model if current selection is Gemini
+        if (modelSelect.value.startsWith('gemini')) {
+            modelSelect.value = 'gpt-4o-mini';
+        }
+    }
+}
+
+providerSelect.addEventListener('change', updateProviderUI);
+updateProviderUI(); // Initialize on page load
+
+function resetPrompt() {
+    document.getElementById('prompt_template').value = defaultPrompt;
+}
+
+function refreshStatus() {
+    fetch('{{ url_for("admin.ai_generator_status") }}')
+        .then(r => r.json())
+        .then(data => {
+            // Reload page to update all elements
+            location.reload();
+        });
+}
+
+// Auto-refresh every 30 seconds if running
+{% if status.is_running %}
+setInterval(refreshStatus, 30000);
+{% endif %}
+</script>
+{% endblock %}
