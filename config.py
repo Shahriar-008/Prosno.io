@@ -37,19 +37,8 @@ class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
     # In production, set these via environment variables
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'fallback-secret-key-change-this'
-    
-    # Support both DATABASE_URL and POSTGRES_URL (Vercel uses POSTGRES_URL)
-    _db_url = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL') or os.environ.get('POSTGRES_PRISMA_URL')
-    
-    # Vercel Postgres uses postgres:// but SQLAlchemy needs postgresql://
-    if _db_url and _db_url.startswith('postgres://'):
-        SQLALCHEMY_DATABASE_URI = _db_url.replace('postgres://', 'postgresql://', 1)
-    elif _db_url:
-        SQLALCHEMY_DATABASE_URI = _db_url
-    else:
-        # Fallback to SQLite for testing (won't persist on serverless)
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///prosno.db'
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
 
 
 class TestingConfig(Config):
