@@ -1,0 +1,12 @@
+# Auto detect text files and normalize to LF on commit
+* text=auto
+
+# Shell scripts must use LF (Linux line endings)
+*.sh text eol=lf
+
+# Keep these as-is
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+*.docx binary
