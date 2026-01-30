@@ -36,9 +36,15 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
-    # In production, set these via environment variables
-    SECRET_KEY = os.environ.get('SECRET_KEY')
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'change-this-in-production'
+    
+    # Database - Render uses DATABASE_URL with postgres:// prefix
+    # SQLAlchemy requires postgresql:// so we fix it here
+    _database_url = os.environ.get('DATABASE_URL')
+    if _database_url and _database_url.startswith('postgres://'):
+        SQLALCHEMY_DATABASE_URI = _database_url.replace('postgres://', 'postgresql://', 1)
+    else:
+        SQLALCHEMY_DATABASE_URI = _database_url
 
 
 class TestingConfig(Config):
