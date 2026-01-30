@@ -60,9 +60,42 @@
                             <!-- Available Questions Info -->
                             <div class="col-12">
                                 <div class="questions-info" id="questionsInfo" style="display: none;">
-                                    <div class="info-badge">
+                                    <div class="info-badge" id="questionsBadge">
                                         <i class="bi bi-database"></i>
                                         <span id="availableQuestions">0</span> questions available from selected chapters
+                                    </div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm ms-3" id="loadQuestionsBtn" onclick="loadQuestions()">
+                                        <i class="bi bi-eye"></i> View & Select Questions
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Question Selection Panel -->
+                            <div class="col-12" id="questionSelectionPanel" style="display: none;">
+                                <div class="question-selection-card">
+                                    <div class="question-selection-header">
+                                        <h5><i class="bi bi-list-check"></i> Select Questions</h5>
+                                        <div class="question-selection-actions">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllQuestions()">
+                                                <i class="bi bi-check-all"></i> Select All
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllQuestions()">
+                                                <i class="bi bi-x-lg"></i> Deselect All
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-success" onclick="randomizeQuestions()">
+                                                <i class="bi bi-shuffle"></i> Random Select
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="selected-count-bar">
+                                        <span><i class="bi bi-check-circle"></i> Selected: <strong id="selectedQuestionCount">0</strong> questions</span>
+                                        <div class="form-check form-switch ms-auto">
+                                            <input class="form-check-input" type="checkbox" id="randomizeOrder">
+                                            <label class="form-check-label" for="randomizeOrder">Randomize order in paper</label>
+                                        </div>
+                                    </div>
+                                    <div class="questions-list" id="questionsList">
+                                        <!-- Questions will be loaded here -->
                                     </div>
                                 </div>
                             </div>
@@ -163,6 +196,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const generateBtn = document.getElementById('generateBtn');
     const generatingState = document.getElementById('generatingState');
     const resultCard = document.getElementById('resultCard');
+    const questionSelectionPanel = document.getElementById('questionSelectionPanel');
+    const questionsList = document.getElementById('questionsList');
+    
+    let allQuestions = [];  // Store loaded questions
+    let chaptersInfo = {};  // Store chapter info
     
     // Load subjects when class changes
     classSelect.addEventListener('change', function() {
@@ -178,6 +216,8 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
         questionsInfo.style.display = 'none';
+        questionSelectionPanel.style.display = 'none';
+        allQuestions = [];
         
         if (!classId) {
             subjectSelect.innerHTML = '<option value="">-- Select Class First --</option>';
@@ -203,6 +243,8 @@ document.addEventListener('DOMContentLoaded', function() {
     subjectSelect.addEventListener('change', function() {
         const subjectId = this.value;
         questionsInfo.style.display = 'none';
+        questionSelectionPanel.style.display = 'none';
+        allQuestions = [];
         
         if (!subjectId) {
             chaptersContainer.innerHTML = `
@@ -275,10 +317,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedChapters = Array.from(document.querySelectorAll('.chapter-input:checked'))
             .map(cb => parseInt(cb.value));
         
+        const questionsBadge = document.getElementById('questionsBadge');
+        
         if (selectedChapters.length === 0) {
             questionsInfo.style.display = 'none';
+            questionSelectionPanel.style.display = 'none';
             return;
         }
+        
+        // Always show the info section when chapters are selected
+        questionsInfo.style.display = 'flex';
         
         fetch('/get-question-count', {
             method: 'POST',
@@ -290,7 +338,15 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             availableQuestions.textContent = data.count;
-            questionsInfo.style.display = 'block';
+            
+            // Style badge based on count
+            if (data.count === 0) {
+                questionsBadge.classList.add('no-questions');
+                questionsBadge.classList.remove('has-questions');
+            } else {
+                questionsBadge.classList.remove('no-questions');
+                questionsBadge.classList.add('has-questions');
+            }
         })
         .catch(err => console.error('Error:', err));
     }
@@ -307,13 +363,25 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // Get selected question IDs if question panel is visible
+        const selectedQuestionIds = Array.from(document.querySelectorAll('.question-input:checked'))
+            .map(cb => parseInt(cb.value));
+        
+        // If questions panel is visible but no questions selected
+        if (questionSelectionPanel.style.display !== 'none' && selectedQuestionIds.length === 0) {
+            alert('Please select at least one question');
+            return;
+        }
+        
         const formData = {
             class_id: parseInt(classSelect.value),
             subject_id: parseInt(subjectSelect.value),
             chapter_ids: selectedChapters,
+            question_ids: selectedQuestionIds.length > 0 ? selectedQuestionIds : [],
             question_count: parseInt(document.getElementById('questionCount').value),
             time_minutes: parseInt(document.getElementById('timeMinutes').value),
-            title: document.getElementById('paperTitle').value
+            title: document.getElementById('paperTitle').value,
+            randomize: document.getElementById('randomizeOrder')?.checked || false
         };
         
         // Show loading state
@@ -356,6 +424,159 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Load questions for selected chapters
+function loadQuestions() {
+    const selectedChapters = Array.from(document.querySelectorAll('.chapter-input:checked'))
+        .map(cb => parseInt(cb.value));
+    
+    if (selectedChapters.length === 0) {
+        alert('Please select at least one chapter first');
+        return;
+    }
+    
+    const questionsList = document.getElementById('questionsList');
+    const questionSelectionPanel = document.getElementById('questionSelectionPanel');
+    
+    questionsList.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div><p>Loading questions...</p></div>';
+    questionSelectionPanel.style.display = 'block';
+    
+    fetch('/get-questions-for-chapters', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ chapter_ids: selectedChapters })
+    })
+    .then(response => response.json())
+    .then(data => {
+        window.allQuestions = data.questions;
+        window.chaptersInfo = data.chapters;
+        
+        if (data.questions.length === 0) {
+            questionsList.innerHTML = `
+                <div class="text-center p-4 text-muted">
+                    <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                    <p>No questions found in selected chapters</p>
+                </div>
+            `;
+            return;
+        }
+        
+        renderQuestionsList(data.questions, data.chapters);
+        updateSelectedCount();
+    })
+    .catch(err => {
+        console.error('Error loading questions:', err);
+        questionsList.innerHTML = `
+            <div class="text-center p-4 text-danger">
+                <i class="bi bi-exclamation-triangle"></i>
+                <p>Error loading questions</p>
+            </div>
+        `;
+    });
+}
+
+// Render questions list grouped by chapter
+function renderQuestionsList(questions, chapters) {
+    const questionsList = document.getElementById('questionsList');
+    
+    // Group questions by chapter
+    const grouped = {};
+    questions.forEach(q => {
+        if (!grouped[q.chapter_id]) {
+            grouped[q.chapter_id] = [];
+        }
+        grouped[q.chapter_id].push(q);
+    });
+    
+    let html = '';
+    for (const [chapterId, chapterQuestions] of Object.entries(grouped)) {
+        const chapter = chapters[chapterId];
+        const chapterLabel = chapter.chapter_number 
+            ? `অধ্যায় ${chapter.chapter_number}: ${chapter.name}`
+            : chapter.name;
+        
+        html += `
+            <div class="chapter-questions-group">
+                <div class="chapter-group-header">
+                    <span class="chapter-group-title">${chapterLabel}</span>
+                    <span class="badge bg-secondary">${chapterQuestions.length} questions</span>
+                </div>
+                <div class="chapter-group-questions">
+        `;
+        
+        chapterQuestions.forEach((q, idx) => {
+            const difficultyClass = q.difficulty === 'easy' ? 'success' : q.difficulty === 'hard' ? 'danger' : 'warning';
+            html += `
+                <div class="question-item">
+                    <div class="question-checkbox">
+                        <input type="checkbox" id="question_${q.id}" value="${q.id}" class="question-input" onchange="updateSelectedCount()">
+                    </div>
+                    <label for="question_${q.id}" class="question-label">
+                        <span class="question-number">${idx + 1}.</span>
+                        <span class="question-text" title="${q.full_text}">${q.question_text}</span>
+                        <span class="badge bg-${difficultyClass} question-difficulty">${q.difficulty}</span>
+                    </label>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    questionsList.innerHTML = html;
+}
+
+// Update selected question count
+function updateSelectedCount() {
+    const count = document.querySelectorAll('.question-input:checked').length;
+    document.getElementById('selectedQuestionCount').textContent = count;
+    
+    // Update question count input
+    if (count > 0) {
+        document.getElementById('questionCount').value = count;
+    }
+}
+
+// Select all questions
+function selectAllQuestions() {
+    document.querySelectorAll('.question-input').forEach(cb => {
+        cb.checked = true;
+    });
+    updateSelectedCount();
+}
+
+// Deselect all questions
+function deselectAllQuestions() {
+    document.querySelectorAll('.question-input').forEach(cb => {
+        cb.checked = false;
+    });
+    updateSelectedCount();
+}
+
+// Randomize question selection
+function randomizeQuestions() {
+    const countInput = document.getElementById('questionCount');
+    const desiredCount = parseInt(countInput.value) || 30;
+    const allCheckboxes = Array.from(document.querySelectorAll('.question-input'));
+    
+    // First deselect all
+    allCheckboxes.forEach(cb => cb.checked = false);
+    
+    // Shuffle and select random questions
+    const shuffled = allCheckboxes.sort(() => Math.random() - 0.5);
+    const toSelect = Math.min(desiredCount, shuffled.length);
+    
+    for (let i = 0; i < toSelect; i++) {
+        shuffled[i].checked = true;
+    }
+    
+    updateSelectedCount();
+}
+
 function selectAllChapters() {
     document.querySelectorAll('.chapter-input').forEach(cb => {
         cb.checked = true;
@@ -378,6 +599,7 @@ function resetForm() {
     document.getElementById('generateForm').style.display = 'block';
     document.getElementById('resultCard').style.display = 'none';
     document.getElementById('generateBtn').disabled = false;
+    document.getElementById('questionSelectionPanel').style.display = 'none';
     
     // Reset form
     document.getElementById('classSelect').value = '';
@@ -390,6 +612,8 @@ function resetForm() {
         </div>
     `;
     document.getElementById('questionsInfo').style.display = 'none';
+    document.getElementById('questionsList').innerHTML = '';
+    window.allQuestions = [];
 }
 </script>
 {% endblock %}

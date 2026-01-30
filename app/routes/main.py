@@ -73,6 +73,44 @@ def get_question_count():
     return jsonify({'count': count})
 
 
+@main_bp.route('/get-questions-for-chapters', methods=['POST'])
+def get_questions_for_chapters():
+    """Get all questions for selected chapters"""
+    data = request.get_json()
+    chapter_ids = data.get('chapter_ids', [])
+    
+    if not chapter_ids:
+        return jsonify({'questions': []})
+    
+    questions = Question.query.filter(
+        Question.chapter_id.in_(chapter_ids),
+        Question.is_active == True
+    ).order_by(Question.chapter_id, Question.id).all()
+    
+    # Group by chapter
+    chapters_info = {}
+    for q in questions:
+        if q.chapter_id not in chapters_info:
+            chapter = Chapter.query.get(q.chapter_id)
+            chapters_info[q.chapter_id] = {
+                'id': chapter.id,
+                'name': chapter.name_bn or chapter.name,
+                'chapter_number': chapter.chapter_number
+            }
+    
+    return jsonify({
+        'questions': [{
+            'id': q.id,
+            'question_text': q.question_text[:100] + '...' if len(q.question_text) > 100 else q.question_text,
+            'full_text': q.question_text,
+            'type': q.question_type,
+            'chapter_id': q.chapter_id,
+            'difficulty': q.difficulty
+        } for q in questions],
+        'chapters': chapters_info
+    })
+
+
 @main_bp.route('/generate-paper', methods=['POST'])
 def generate_paper():
     """Generate question paper"""
@@ -81,9 +119,11 @@ def generate_paper():
     class_id = data.get('class_id')
     subject_id = data.get('subject_id')
     chapter_ids = data.get('chapter_ids', [])
+    question_ids = data.get('question_ids', [])  # Specific question IDs if selected
     question_count = data.get('question_count', 30)
     time_minutes = data.get('time_minutes', 30)
     paper_title = data.get('title', 'Home Test')
+    randomize = data.get('randomize', False)
     
     # Validate input
     if not all([class_id, subject_id, chapter_ids]):
@@ -96,11 +136,26 @@ def generate_paper():
     if not class_obj or not subject_obj:
         return jsonify({'error': 'Invalid class or subject'}), 400
     
-    # Fetch questions from selected chapters
-    questions = Question.query.filter(
-        Question.chapter_id.in_(chapter_ids),
-        Question.is_active == True
-    ).order_by(db.func.random()).limit(question_count).all()
+    # Fetch questions - either specific IDs or from chapters
+    if question_ids:
+        # User selected specific questions
+        questions = Question.query.filter(
+            Question.id.in_(question_ids),
+            Question.is_active == True
+        ).all()
+        # Preserve order if not randomizing
+        if not randomize:
+            question_order = {qid: idx for idx, qid in enumerate(question_ids)}
+            questions = sorted(questions, key=lambda q: question_order.get(q.id, 0))
+        else:
+            import random
+            random.shuffle(questions)
+    else:
+        # Random selection from chapters (legacy behavior)
+        questions = Question.query.filter(
+            Question.chapter_id.in_(chapter_ids),
+            Question.is_active == True
+        ).order_by(db.func.random()).limit(question_count).all()
     
     if not questions:
         return jsonify({'error': 'No questions found for selected criteria'}), 404
