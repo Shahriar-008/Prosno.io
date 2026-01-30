@@ -213,10 +213,14 @@ def download_paper(paper_id, paper_type):
         file_path = paper.file_path_answers
         filename = f"Question_Paper_With_Answers_{paper.id}.docx"
     else:
-        abort(400)
+        abort(400, description="Invalid paper type")
     
     if not file_path or not os.path.exists(file_path):
-        abort(404)
+        # File may have been deleted (ephemeral storage on Render)
+        # Return a helpful error message
+        return jsonify({
+            'error': 'File not found. Generated files are temporary and may have been deleted. Please generate a new paper.'
+        }), 404
     
     # Update download count
     paper.download_count += 1

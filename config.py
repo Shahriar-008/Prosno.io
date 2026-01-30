@@ -30,10 +30,15 @@ class Config:
     
     # Upload settings
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
-    UPLOAD_FOLDER = os.path.join(basedir, 'uploads')
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or os.path.join(basedir, 'uploads')
     
-    # Generated files folder
-    OUTPUT_FOLDER = os.path.join(basedir, 'output')
+    # Generated files folder - use /tmp on production for ephemeral storage
+    OUTPUT_FOLDER = os.environ.get('OUTPUT_FOLDER') or os.path.join(basedir, 'output')
+    
+    # On Render/Heroku, use /tmp for file generation (ephemeral but writable)
+    if os.environ.get('RENDER') or os.environ.get('DYNO'):
+        OUTPUT_FOLDER = '/tmp/prosno_output'
+        UPLOAD_FOLDER = '/tmp/prosno_uploads'
 
 
 class DevelopmentConfig(Config):

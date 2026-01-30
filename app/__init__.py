@@ -36,6 +36,13 @@ def create_app(config_class=Config):
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(api_bp, url_prefix='/api')
 
+    # Ensure output folder exists
+    import os
+    output_folder = app.config.get('OUTPUT_FOLDER', 'output')
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+        print(f"Created output folder: {output_folder}")
+
     # Create database tables and seed if empty
     with app.app_context():
         db.create_all()
