@@ -4,7 +4,7 @@ Main routes for Prosno.io
 from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort
 import os
 
-from app import db
+from app import db, csrf
 from app.models import Class, Subject, Chapter, Question, GeneratedPaper
 from app.utils.document_generator import generate_paper_from_db
 
@@ -57,6 +57,7 @@ def get_chapters(subject_id):
 
 
 @main_bp.route('/get-question-count', methods=['POST'])
+@csrf.exempt
 def get_question_count():
     """Get count of available questions for selected chapters"""
     data = request.get_json()
@@ -74,6 +75,7 @@ def get_question_count():
 
 
 @main_bp.route('/get-questions-for-chapters', methods=['POST'])
+@csrf.exempt
 def get_questions_for_chapters():
     """Get all questions for selected chapters"""
     data = request.get_json()
@@ -112,6 +114,7 @@ def get_questions_for_chapters():
 
 
 @main_bp.route('/generate-paper', methods=['POST'])
+@csrf.exempt
 def generate_paper():
     """Generate question paper"""
     data = request.get_json()

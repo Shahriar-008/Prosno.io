@@ -425,8 +425,8 @@ def bulk_upload_questions():
         except Exception as e:
             flash(f'Error uploading questions: {str(e)}', 'error')
     
-    chapters = Chapter.query.filter_by(is_active=True).all()
-    return render_template('admin/bulk_upload.html', chapters=chapters)
+    classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
+    return render_template('admin/bulk_upload.html', classes=classes)
 
 
 # ========== Generated Papers ==========

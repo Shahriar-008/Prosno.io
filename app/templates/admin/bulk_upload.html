@@ -15,16 +15,28 @@
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     
-                    <div class="mb-3">
-                        <label for="chapter_id" class="form-label">Target Chapter</label>
-                        <select class="form-select" id="chapter_id" name="chapter_id" required>
-                            <option value="">-- Select Chapter --</option>
-                            {% for c in chapters %}
-                            <option value="{{ c.id }}">
-                                {{ c.subject.class_ref.name }} - {{ c.subject.name }} - {{ c.name }}
-                            </option>
-                            {% endfor %}
-                        </select>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="class_id" class="form-label">Class</label>
+                            <select class="form-select" id="class_id" name="class_id" required>
+                                <option value="">-- Select Class --</option>
+                                {% for cls in classes %}
+                                <option value="{{ cls.id }}">{{ cls.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="subject_id" class="form-label">Subject</label>
+                            <select class="form-select" id="subject_id" name="subject_id" required disabled>
+                                <option value="">-- Select Subject --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="chapter_id" class="form-label">Chapter</label>
+                            <select class="form-select" id="chapter_id" name="chapter_id" required disabled>
+                                <option value="">-- Select Chapter --</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -91,4 +103,62 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const classSelect = document.getElementById('class_id');
+    const subjectSelect = document.getElementById('subject_id');
+    const chapterSelect = document.getElementById('chapter_id');
+    
+    // Class change handler
+    classSelect.addEventListener('change', function() {
+        const classId = this.value;
+        
+        // Reset and disable dependent dropdowns
+        subjectSelect.innerHTML = '<option value="">-- Select Subject --</option>';
+        subjectSelect.disabled = true;
+        chapterSelect.innerHTML = '<option value="">-- Select Chapter --</option>';
+        chapterSelect.disabled = true;
+        
+        if (classId) {
+            fetch(`/get-subjects/${classId}`)
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(subject => {
+                        const option = document.createElement('option');
+                        option.value = subject.id;
+                        option.textContent = subject.name;
+                        subjectSelect.appendChild(option);
+                    });
+                    subjectSelect.disabled = false;
+                });
+        }
+    });
+    
+    // Subject change handler
+    subjectSelect.addEventListener('change', function() {
+        const subjectId = this.value;
+        
+        // Reset and disable chapter dropdown
+        chapterSelect.innerHTML = '<option value="">-- Select Chapter --</option>';
+        chapterSelect.disabled = true;
+        
+        if (subjectId) {
+            fetch(`/get-chapters/${subjectId}`)
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(chapter => {
+                        const option = document.createElement('option');
+                        option.value = chapter.id;
+                        option.textContent = chapter.name;
+                        chapterSelect.appendChild(option);
+                    });
+                    chapterSelect.disabled = false;
+                });
+        }
+    });
+});
+</script>
 {% endblock %}
