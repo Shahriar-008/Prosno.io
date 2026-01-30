@@ -12,9 +12,17 @@ class Config:
     # Security
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-super-secret-key-change-in-production'
     
-    # Database
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(basedir, 'instance', 'prosno.db')
+    # Database - Handle PostgreSQL URL for psycopg3 driver
+    _database_url = os.environ.get('DATABASE_URL')
+    if _database_url:
+        if _database_url.startswith('postgres://'):
+            SQLALCHEMY_DATABASE_URI = _database_url.replace('postgres://', 'postgresql+psycopg://', 1)
+        elif _database_url.startswith('postgresql://'):
+            SQLALCHEMY_DATABASE_URI = _database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+        else:
+            SQLALCHEMY_DATABASE_URI = _database_url
+    else:
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'instance', 'prosno.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Session
