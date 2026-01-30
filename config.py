@@ -38,7 +38,13 @@ class ProductionConfig(Config):
     DEBUG = False
     # In production, set these via environment variables
     SECRET_KEY = os.environ.get('SECRET_KEY')
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    # Support both DATABASE_URL and POSTGRES_URL (Vercel uses POSTGRES_URL)
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL')
+    
+    def __init__(self):
+        # Vercel Postgres uses postgres:// but SQLAlchemy needs postgresql://
+        if self.SQLALCHEMY_DATABASE_URI and self.SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
+            self.SQLALCHEMY_DATABASE_URI = self.SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
 
 
 class TestingConfig(Config):

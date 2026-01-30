@@ -15,43 +15,65 @@ _generator_thread: Optional[threading.Thread] = None
 _stop_event = threading.Event()
 
 
-DEFAULT_PROMPT_TEMPLATE = """You are an expert question generator for the Bangladesh NCTB curriculum.
-Generate {count} unique multiple choice questions (MCQ) for:
-
-Class: {class_name}
-Subject: {subject_name}  
+DEFAULT_PROMPT_TEMPLATE = """Subject: {subject_name}
 Chapter: {chapter_name}
+Class: {class_name}
+Total_Questions: {count}
 
-Requirements:
-1. Questions must be relevant to the chapter content
-2. Each question must have exactly 4 options
-3. Include a mix of difficulty levels
-4. Questions should be in Bengali (বাংলা) language
-5. Make sure answers are factually correct
+My Task: You are an expert on the Bangladesh NCTB {class_name} curriculum. Your task is to generate {count} Multiple Choice Questions (MCQs) in Bangla based on the subject and chapter provided above.
 
-Return ONLY a valid JSON array with this format:
-[
-  {{
-    "question_text": "প্রশ্নটি এখানে লিখুন?",
-    "type": "simple",
-    "answer_options": ["অপশন ১", "অপশন ২", "অপশন ৩", "অপশন ৪"],
-    "correct_answer": "সঠিক অপশন"
-  }}
-]
+Output Format: The only output must be a single JSON array. Do not include any text, explanations, or code formatting before or after the JSON array.
 
-For complex questions with sub-options, use:
-[
-  {{
-    "question_text": "নিচের কোনটি সঠিক?",
-    "type": "complex",
-    "sub_options": ["i. প্রথম বিবৃতি", "ii. দ্বিতীয় বিবৃতি", "iii. তৃতীয় বিবৃতি"],
-    "final_prompt": "উপরের কোনটি সঠিক?",
-    "answer_options": ["শুধু i", "শুধু ii", "i ও ii", "সবগুলো"],
-    "correct_answer": "i ও ii"
-  }}
-]
+JSON Structure:
+Each question must be an object in the array with the following fields:
+- question_text: (String) The main body of the question.
+- type: (String) Must be "simple" for regular questions or "complex" for questions that use sub-options (like "i, ii, iii").
+- sub_options: (Array of Strings) Only include this field if type is "complex". It should contain the "i, ii, iii" statements.
+- final_prompt: (String) Only include this field if type is "complex". This is the follow-up question (e.g., "নিচের কোনটি সঠিক?", "উপরের কোনটি সঠিক?").
+- answer_options: (Array of 4 Strings) This array must contain the four answer choices. Do NOT include prefixes (like "ক)", "খ)", "○ ক)", etc.) in the strings.
+- correct_answer: (String) This string must match exactly one of the strings inside the answer_options array.
 
-Generate exactly {count} questions. Return ONLY the JSON array, no other text."""
+Content Rules:
+1. NCTB Alignment: All questions must strictly follow the content of the specified {class_name} NCTB textbook for the given chapter.
+2. Question Mix: Include a good mix of easy, medium, and hard questions. Generate several "complex" type questions (at least 20-30% of the total) to mimic board exam styles.
+3. Accuracy: Ensure the correct_answer field contains the factually correct option based on the textbook.
+4. Unicode Characters: For scientific or mathematical content, use only standard Unicode characters. Do NOT use LaTeX, MathJax, or other markup (like $...$, \\text{{}}, _, or ^).
+   - Correct: CO₂, H₂SO₄, NH₃
+   - Incorrect: $\\text{{CO}}_2$, H_2_SO_4, NH^3
+
+Example simple question object:
+{{
+  "question_text": "S-এর ইলেকট্রন বিন্যাস কোনটি?",
+  "type": "simple",
+  "answer_options": [
+    "২,৮,১",
+    "২,৮,২",
+    "২,৮,৩",
+    "২,৮,৬"
+  ],
+  "correct_answer": "২,৮,৬"
+}}
+
+Example complex question object:
+{{
+  "question_text": "নিচের কোনগুলো সমযোজী যৌগ?",
+  "type": "complex",
+  "sub_options": [
+    "i. CO₂",
+    "ii. Na₂O",
+    "iii. NH₃"
+  ],
+  "final_prompt": "নিচের কোনটি সঠিক?",
+  "answer_options": [
+    "i ও ii",
+    "i ও iii",
+    "ii ও iii",
+    "i, ii ও iii"
+  ],
+  "correct_answer": "i ও iii"
+}}
+
+Now, generate exactly {count} questions in this JSON format. Return ONLY the JSON array."""
 
 
 def get_question_hash(question_text: str) -> str:
