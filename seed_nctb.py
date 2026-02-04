@@ -765,8 +765,8 @@ NCTB_DATA = {
         "name_bn": "এইচএসসি",
         "level": "Higher Secondary",
         "subjects": {
-            "Bangla": {
-                "name_bn": "বাংলা",
+            "Bangla 1st Paper": {
+                "name_bn": "বাংলা ১ম পত্র",
                 "chapters": [
                     ("অপরিচিতা", "Oporichita - Tagore"),
                     ("বিলাসী", "Bilashi - Sarat Chandra"),
@@ -777,11 +777,24 @@ NCTB_DATA = {
                     ("বিড়াল", "The Cat - Bankim"),
                     ("চাষার দুক্ষু", "Farmer's Sorrow"),
                     ("সোনার তরী", "Golden Boat - Tagore"),
-                    ("বাংলা ভাষার জন্মকথা", "Birth of Bengali Language"),
+                    ("আঠারো বছর বয়স", "Eighteen Years Old - Sukanta"),
                 ]
             },
-            "English": {
-                "name_bn": "ইংরেজি",
+            "Bangla 2nd Paper": {
+                "name_bn": "বাংলা ২য় পত্র",
+                "chapters": [
+                    ("বাংলা ভাষার ইতিহাস", "History of Bengali Language"),
+                    ("শব্দ ও পদ প্রকরণ", "Word and Parts of Speech"),
+                    ("বাক্য প্রকরণ", "Sentence Structure"),
+                    ("প্রবন্ধ রচনা", "Essay Writing"),
+                    ("সারাংশ ও সারমর্ম", "Summary and Précis"),
+                    ("ভাব-সম্প্রসারণ", "Idea Expansion"),
+                    ("পত্র লিখন", "Letter Writing"),
+                    ("প্রতিবেদন প্রণয়ন", "Report Writing"),
+                ]
+            },
+            "English 1st Paper": {
+                "name_bn": "ইংরেজি ১ম পত্র",
                 "chapters": [
                     ("The Luncheon", "The Luncheon - Maugham"),
                     ("A Mother in Mannville", "A Mother in Mannville"),
@@ -789,14 +802,26 @@ NCTB_DATA = {
                     ("The Ant and the Grasshopper", "The Ant and the Grasshopper"),
                     ("I Have a Dream", "I Have a Dream - MLK"),
                     ("The Lake Isle of Innisfree", "The Lake Isle of Innisfree"),
+                    ("God's Minute", "God's Minute"),
+                    ("The Charge of the Light Brigade", "The Charge of the Light Brigade"),
+                ]
+            },
+            "English 2nd Paper": {
+                "name_bn": "ইংরেজি ২য় পত্র",
+                "chapters": [
+                    ("Tense", "Tense"),
+                    ("Right Forms of Verbs", "Right Forms of Verbs"),
+                    ("Narration", "Narration"),
+                    ("Transformation", "Transformation"),
+                    ("Sentence Connectors", "Sentence Connectors"),
                     ("Paragraph Writing", "Paragraph Writing"),
                     ("Report Writing", "Report Writing"),
                     ("Application and Letter", "Application and Letter"),
                     ("Essay Writing", "Essay Writing"),
                 ]
             },
-            "Physics": {
-                "name_bn": "পদার্থবিজ্ঞান",
+            "Physics 1st Paper": {
+                "name_bn": "পদার্থবিজ্ঞান ১ম পত্র",
                 "chapters": [
                     ("ভৌত জগৎ ও পরিমাপ", "Physical World and Measurement"),
                     ("ভেক্টর", "Vectors"),
@@ -810,49 +835,103 @@ NCTB_DATA = {
                     ("আদর্শ গ্যাস ও গ্যাসের গতিতত্ত্ব", "Ideal Gas and Kinetic Theory"),
                 ]
             },
-            "Chemistry": {
-                "name_bn": "রসায়ন",
+            "Physics 2nd Paper": {
+                "name_bn": "পদার্থবিজ্ঞান ২য় পত্র",
+                "chapters": [
+                    ("তাপগতিবিদ্যা", "Thermodynamics"),
+                    ("স্থির তড়িৎ", "Static Electricity"),
+                    ("চল তড়িৎ", "Current Electricity"),
+                    ("তড়িৎ প্রবাহের চৌম্বক ক্রিয়া ও চুম্বকত্ব", "Magnetic Effect of Current and Magnetism"),
+                    ("তাড়িতচৌম্বকীয় আবেশ ও পরিবর্তী প্রবাহ", "Electromagnetic Induction and AC"),
+                    ("জ্যামিতিক আলোকবিজ্ঞান", "Geometric Optics"),
+                    ("ভৌত আলোকবিজ্ঞান", "Physical Optics"),
+                    ("আধুনিক পদার্থবিজ্ঞানের সূচনা", "Introduction to Modern Physics"),
+                    ("পরমাণুর মডেল ও নিউক্লিয়ার পদার্থবিজ্ঞান", "Atomic Model and Nuclear Physics"),
+                    ("সেমিকন্ডাক্টর ও ইলেকট্রনিক্স", "Semiconductor and Electronics"),
+                ]
+            },
+            "Chemistry 1st Paper": {
+                "name_bn": "রসায়ন ১ম পত্র",
                 "chapters": [
                     ("ল্যাবরেটরির নিরাপদ ব্যবহার", "Safe Use of Laboratory"),
                     ("গুণগত রসায়ন", "Qualitative Chemistry"),
-                    ("মৌলের পর্যায়বৃত্ত ধর্ম", "Periodic Properties"),
-                    ("রাসায়নিক বন্ধন", "Chemical Bonding"),
+                    ("মৌলের পর্যায়বৃত্ত ধর্ম ও রাসায়নিক বন্ধন", "Periodic Properties and Chemical Bonding"),
                     ("রাসায়নিক পরিবর্তন", "Chemical Changes"),
                     ("কর্মমুখী রসায়ন", "Applied Chemistry"),
+                    ("পরিমাণগত রসায়ন", "Quantitative Chemistry"),
                     ("তড়িৎ রসায়ন", "Electrochemistry"),
-                    ("জৈব রসায়ন", "Organic Chemistry"),
-                    ("পরিবেশ রসায়ন", "Environmental Chemistry"),
-                    ("পলিমার", "Polymers"),
+                    ("অর্থনৈতিক রসায়ন", "Economic Chemistry"),
                 ]
             },
-            "Biology": {
-                "name_bn": "জীববিজ্ঞান",
+            "Chemistry 2nd Paper": {
+                "name_bn": "রসায়ন ২য় পত্র",
+                "chapters": [
+                    ("পরিবেশ রসায়ন", "Environmental Chemistry"),
+                    ("জৈব রসায়ন", "Organic Chemistry"),
+                    ("হাইড্রোকার্বন", "Hydrocarbons"),
+                    ("অ্যালকোহল, ফেনল ও ইথার", "Alcohol, Phenol and Ether"),
+                    ("অ্যালডিহাইড ও কিটোন", "Aldehyde and Ketone"),
+                    ("কার্বক্সিলিক এসিড", "Carboxylic Acid"),
+                    ("জৈব নাইট্রোজেন যৌগ", "Organic Nitrogen Compounds"),
+                    ("পলিমার", "Polymers"),
+                    ("জৈব রসায়নে গুরুত্বপূর্ণ যৌগ", "Important Compounds in Biochemistry"),
+                ]
+            },
+            "Biology 1st Paper": {
+                "name_bn": "জীববিজ্ঞান ১ম পত্র",
                 "chapters": [
                     ("কোষ ও এর গঠন", "Cell and Its Structure"),
                     ("কোষ বিভাজন", "Cell Division"),
+                    ("কোষ রসায়ন", "Cell Chemistry"),
                     ("অণুজীব", "Microorganisms"),
                     ("শৈবাল ও ছত্রাক", "Algae and Fungi"),
                     ("ব্রায়োফাইটা ও টেরিডোফাইটা", "Bryophyta and Pteridophyta"),
                     ("নগ্নবীজী ও আবৃতবীজী উদ্ভিদ", "Gymnosperms and Angiosperms"),
+                    ("টিস্যু ও টিস্যুতন্ত্র", "Tissue and Tissue System"),
                     ("উদ্ভিদ শারীরতত্ত্ব", "Plant Physiology"),
-                    ("জীবপ্রযুক্তি", "Biotechnology"),
-                    ("প্রাণীর বৈচিত্র্য", "Animal Diversity"),
-                    ("মানব শারীরতত্ত্ব", "Human Physiology"),
+                    ("উদ্ভিদ প্রজনন", "Plant Reproduction"),
                 ]
             },
-            "Higher Mathematics": {
-                "name_bn": "উচ্চতর গণিত",
+            "Biology 2nd Paper": {
+                "name_bn": "জীববিজ্ঞান ২য় পত্র",
+                "chapters": [
+                    ("প্রাণীর বৈচিত্র্য", "Animal Diversity"),
+                    ("প্রাণীর পরিচিতি", "Introduction to Animals"),
+                    ("মানব শারীরতত্ত্ব: পরিপাক ও শোষণ", "Human Physiology: Digestion and Absorption"),
+                    ("মানব শারীরতত্ত্ব: রক্ত ও সংবহন", "Human Physiology: Blood and Circulation"),
+                    ("মানব শারীরতত্ত্ব: শ্বসন ও শ্বাসক্রিয়া", "Human Physiology: Respiration"),
+                    ("মানব শারীরতত্ত্ব: রেচন ও অভিস্রবণ নিয়ন্ত্রণ", "Human Physiology: Excretion"),
+                    ("মানব শারীরতত্ত্ব: চলন ও অঙ্গ সঞ্চালন", "Human Physiology: Locomotion"),
+                    ("মানব শারীরতত্ত্ব: সমন্বয় ও নিয়ন্ত্রণ", "Human Physiology: Coordination"),
+                    ("মানব জীবনের ধারাবাহিকতা", "Continuity of Human Life"),
+                    ("জীনতত্ত্ব ও বিবর্তন", "Genetics and Evolution"),
+                ]
+            },
+            "Higher Mathematics 1st Paper": {
+                "name_bn": "উচ্চতর গণিত ১ম পত্র",
                 "chapters": [
                     ("ম্যাট্রিক্স ও নির্ণায়ক", "Matrix and Determinant"),
                     ("সরলরেখা", "Straight Line"),
                     ("বৃত্ত", "Circle"),
                     ("কনিক", "Conics"),
                     ("বিপরীত ত্রিকোণমিতিক ফাংশন", "Inverse Trigonometric Functions"),
+                    ("ত্রিকোণমিতিক সমীকরণ", "Trigonometric Equations"),
+                    ("অসীম ধারা", "Infinite Series"),
                     ("সীমা ও অন্তরকলন", "Limit and Differentiation"),
+                ]
+            },
+            "Higher Mathematics 2nd Paper": {
+                "name_bn": "উচ্চতর গণিত ২য় পত্র",
+                "chapters": [
+                    ("অন্তরীকরণ", "Differentiation"),
+                    ("অন্তরকলের প্রয়োগ", "Application of Differentiation"),
                     ("যোগজীকরণ", "Integration"),
+                    ("যোগজীকরণের প্রয়োগ", "Application of Integration"),
                     ("স্থিতিবিদ্যা", "Statics"),
                     ("গতিবিদ্যা", "Dynamics"),
-                    ("সম্ভাবনা ও পরিসংখ্যান", "Probability and Statistics"),
+                    ("বিন্যাস ও সমাবেশ", "Permutation and Combination"),
+                    ("সম্ভাবনা", "Probability"),
+                    ("পরিসংখ্যান", "Statistics"),
                 ]
             },
             "ICT": {
@@ -866,8 +945,8 @@ NCTB_DATA = {
                     ("ডেটাবেজ ম্যানেজমেন্ট সিস্টেম", "Database Management System"),
                 ]
             },
-            "Accounting": {
-                "name_bn": "হিসাববিজ্ঞান",
+            "Accounting 1st Paper": {
+                "name_bn": "হিসাববিজ্ঞান ১ম পত্র",
                 "chapters": [
                     ("হিসাববিজ্ঞান পরিচিতি", "Introduction to Accounting"),
                     ("লেনদেন ও হিসাব সমীকরণ", "Transaction and Accounting Equation"),
@@ -876,24 +955,50 @@ NCTB_DATA = {
                     ("খতিয়ান", "Ledger"),
                     ("নগদান বই", "Cash Book"),
                     ("রেওয়ামিল", "Trial Balance"),
+                    ("সমন্বয় দাখিলা", "Adjusting Entries"),
+                    ("কার্যপত্র", "Worksheet"),
                     ("আর্থিক বিবরণী", "Financial Statements"),
-                    ("একতরফা দাখিলা পদ্ধতি", "Single Entry System"),
-                    ("অংশীদারি ব্যবসায়ের হিসাব", "Partnership Accounting"),
                 ]
             },
-            "Economics": {
-                "name_bn": "অর্থনীতি",
+            "Accounting 2nd Paper": {
+                "name_bn": "হিসাববিজ্ঞান ২য় পত্র",
                 "chapters": [
-                    ("অর্থনীতি পরিচয়", "Introduction to Economics"),
+                    ("অংশীদারি ব্যবসায়ের হিসাব", "Partnership Accounting"),
+                    ("অংশীদারের সুদ ও বেতন", "Partner's Interest and Salary"),
+                    ("অংশীদারের পরিবর্তন", "Change in Partnership"),
+                    ("যৌথ মূলধন কোম্পানি", "Joint Stock Company"),
+                    ("শেয়ার মূলধন", "Share Capital"),
+                    ("ঋণপত্র", "Debenture"),
+                    ("কোম্পানির আর্থিক বিবরণী", "Company Financial Statements"),
+                    ("নির্মাণ হিসাব", "Manufacturing Account"),
+                    ("উৎপাদন ব্যয় বিবরণী", "Cost Statement"),
+                    ("অনুপাত বিশ্লেষণ", "Ratio Analysis"),
+                ]
+            },
+            "Economics 1st Paper": {
+                "name_bn": "অর্থনীতি ১ম পত্র",
+                "chapters": [
+                    ("মৌলিক অর্থনৈতিক সমস্যা ও এর সমাধান", "Basic Economic Problems and Solutions"),
                     ("ভোক্তা ও উৎপাদকের আচরণ", "Consumer and Producer Behavior"),
-                    ("উৎপাদন ও সংগঠন", "Production and Organization"),
+                    ("উপযোগ ও চাহিদা", "Utility and Demand"),
+                    ("উৎপাদন, উৎপাদন ব্যয় ও আয়", "Production, Cost and Revenue"),
                     ("বাজার", "Market"),
                     ("জাতীয় আয়", "National Income"),
-                    ("অর্থ ও ব্যাংকিং", "Money and Banking"),
+                    ("মুদ্রা ও ব্যাংক", "Money and Bank"),
                     ("সরকারি অর্থব্যবস্থা", "Public Finance"),
-                    ("আন্তর্জাতিক বাণিজ্য", "International Trade"),
-                    ("বাংলাদেশের অর্থনীতি", "Bangladesh Economy"),
-                    ("উন্নয়ন ও পরিকল্পনা", "Development and Planning"),
+                ]
+            },
+            "Economics 2nd Paper": {
+                "name_bn": "অর্থনীতি ২য় পত্র",
+                "chapters": [
+                    ("বাংলাদেশের অর্থনীতি পরিচয়", "Introduction to Bangladesh Economy"),
+                    ("বাংলাদেশের কৃষি", "Agriculture of Bangladesh"),
+                    ("বাংলাদেশের শিল্প", "Industry of Bangladesh"),
+                    ("জনসংখ্যা, মানবসম্পদ ও আত্মকর্মসংস্থান", "Population, Human Resource and Self-employment"),
+                    ("খাদ্য নিরাপত্তা", "Food Security"),
+                    ("বাংলাদেশের বৈদেশিক বাণিজ্য", "Foreign Trade of Bangladesh"),
+                    ("সামষ্টিক অর্থনীতি: অর্থ ও ব্যাংক ব্যবস্থা", "Macro Economy: Money and Banking"),
+                    ("উন্নয়ন পরিকল্পনা ও বাজেট", "Development Planning and Budget"),
                 ]
             },
         }

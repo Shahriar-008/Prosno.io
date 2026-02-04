@@ -69,15 +69,7 @@ def get_question_count():
     return jsonify({'count': count})
 
 
-@api_bp.route('/questions/<int:chapter_id>')
-def get_questions(chapter_id):
-    """Get questions for a chapter"""
-    questions = Question.query.filter_by(
-        chapter_id=chapter_id,
-        is_active=True
-    ).all()
-    
-    return jsonify([q.to_dict() for q in questions])
+# Removed: /questions/<chapter_id> endpoint - security risk (allows bulk question extraction)
 
 
 @api_bp.route('/stats')
