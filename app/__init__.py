@@ -55,7 +55,7 @@ def create_app(config_class=Config):
     with app.app_context():
         db.create_all()
         # Auto-seed if no classes exist
-        from app.models import Class, User
+        from app.models import Class, User, ROLE_ADMIN
         if Class.query.count() == 0:
             print("No classes found. Auto-seeding NCTB curriculum...")
             _seed_nctb_data()
@@ -63,6 +63,14 @@ def create_app(config_class=Config):
         if User.query.filter_by(is_admin=True).count() == 0:
             print("No admin user found. Creating default admin...")
             _create_admin_user()
+        
+        # Auto-upgrade existing admin users to have 'admin' role (migration fix)
+        admin_users = User.query.filter_by(is_admin=True).all()
+        for user in admin_users:
+            if not hasattr(user, 'role') or user.role != ROLE_ADMIN:
+                user.role = ROLE_ADMIN
+                print(f"Upgraded user '{user.username}' to admin role")
+        db.session.commit()
 
     return app
 
