@@ -51,9 +51,13 @@ def create_app(config_class=Config):
         os.makedirs(output_folder)
         print(f"Created output folder: {output_folder}")
 
-    # Create database tables and seed if empty
+    # Create database tables and apply migrations for new columns
     with app.app_context():
         db.create_all()
+        
+        # Add missing columns to existing tables (migration for existing databases)
+        _apply_schema_migrations(db)
+        
         # Auto-seed if no classes exist
         from app.models import Class, User, ROLE_ADMIN
         if Class.query.count() == 0:
@@ -65,12 +69,15 @@ def create_app(config_class=Config):
             _create_admin_user()
         
         # Auto-upgrade existing admin users to have 'admin' role (migration fix)
-        admin_users = User.query.filter_by(is_admin=True).all()
-        for user in admin_users:
-            if not hasattr(user, 'role') or user.role != ROLE_ADMIN:
-                user.role = ROLE_ADMIN
-                print(f"Upgraded user '{user.username}' to admin role")
-        db.session.commit()
+        try:
+            admin_users = User.query.filter_by(is_admin=True).all()
+            for user in admin_users:
+                if user.role != ROLE_ADMIN:
+                    user.role = ROLE_ADMIN
+                    print(f"Upgraded user '{user.username}' to admin role")
+            db.session.commit()
+        except Exception as e:
+            print(f"Admin role upgrade skipped: {e}")
 
     return app
 
@@ -166,6 +173,46 @@ def _seed_nctb_data():
     except Exception as e:
         db.session.rollback()
         print(f"Error seeding database: {e}")
+
+
+def _apply_schema_migrations(db):
+    """Apply database schema migrations for new columns (works without shell access)"""
+    from sqlalchemy import text, inspect
+    
+    try:
+        inspector = inspect(db.engine)
+        
+        # Define migrations: (table_name, column_name, column_definition)
+        migrations = [
+            # User table migrations
+            ('users', 'role', "VARCHAR(20) DEFAULT 'editor'"),
+            ('users', 'is_active_user', "BOOLEAN DEFAULT TRUE"),
+            ('users', 'created_by_id', "INTEGER REFERENCES users(id)"),
+            # Subject table migrations
+            ('subjects', 'created_by_id', "INTEGER REFERENCES users(id)"),
+            # Chapter table migrations  
+            ('chapters', 'created_by_id', "INTEGER REFERENCES users(id)"),
+        ]
+        
+        for table_name, column_name, column_def in migrations:
+            # Check if table exists
+            if table_name not in inspector.get_table_names():
+                continue
+            
+            # Check if column already exists
+            existing_columns = [col['name'] for col in inspector.get_columns(table_name)]
+            if column_name not in existing_columns:
+                # Add the column
+                sql = text(f'ALTER TABLE {table_name} ADD COLUMN {column_name} {column_def}')
+                db.session.execute(sql)
+                print(f"Added column '{column_name}' to table '{table_name}'")
+        
+        db.session.commit()
+        print("Schema migrations applied successfully!")
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Schema migration error (may be OK if columns exist): {e}")
 
 
 # Create app instance for gunicorn (allows `gunicorn app:app`)
