@@ -2,13 +2,14 @@
 API routes for Prosno.io
 """
 from flask import Blueprint, request, jsonify
-from app import db
+from app import db, limiter
 from app.models import Class, Subject, Chapter, Question
 
 api_bp = Blueprint('api', __name__)
 
 
 @api_bp.route('/classes')
+@limiter.limit("60 per minute")
 def get_classes():
     """Get all active classes"""
     classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
