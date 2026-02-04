@@ -471,8 +471,8 @@ NCTB_DATA = {
         }
     },
     9: {
-        "name": "Class 9",
-        "name_bn": "৯ম শ্রেণি",
+        "name": "SSC",
+        "name_bn": "এসএসসি",
         "level": "Secondary",
         "subjects": {
             "Bangla": {
@@ -760,118 +760,10 @@ NCTB_DATA = {
             },
         }
     },
-    10: {
-        "name": "Class 10",
-        "name_bn": "১০ম শ্রেণি",
-        "level": "Secondary",
-        "subjects": {
-            "Bangla": {
-                "name_bn": "বাংলা",
-                "chapters": [
-                    ("বই পড়া", "Book Reading"),
-                    ("প্রবাস বন্ধু", "Friend Abroad"),
-                    ("সাম্যবাদী", "Equality"),
-                    ("ঐকতান", "Harmony"),
-                    ("বাংলা ব্যাকরণ ও রচনা", "Grammar and Essay"),
-                    ("সারাংশ ও সারমর্ম", "Summary"),
-                    ("পত্র লিখন", "Letter Writing"),
-                    ("প্রতিবেদন", "Report Writing"),
-                ]
-            },
-            "English": {
-                "name_bn": "ইংরেজি",
-                "chapters": [
-                    ("At a Railway Station", "At a Railway Station"),
-                    ("The Cabuliwallah", "The Cabuliwallah"),
-                    ("Sheikh Saadi", "Sheikh Saadi"),
-                    ("Trees", "Trees"),
-                    ("Completing Sentences", "Completing Sentences"),
-                    ("Passage Narration", "Passage Narration"),
-                    ("Composition", "Composition"),
-                    ("Dialogue and Email", "Dialogue and Email"),
-                ]
-            },
-            "Mathematics": {
-                "name_bn": "গণিত",
-                "chapters": [
-                    ("সেট ও ফাংশন", "Sets and Functions"),
-                    ("বীজগাণিতিক সূত্রাবলি", "Algebraic Formulas"),
-                    ("সরল সহসমীকরণ", "Simultaneous Linear Equations"),
-                    ("সূচক ও লগারিদম", "Exponents and Logarithms"),
-                    ("অনুপাত, সমানুপাত ও প্রয়োগ", "Ratio and Proportion"),
-                    ("জ্যামিতি - সর্বসমতা ও সদৃশতা", "Congruence and Similarity"),
-                    ("পিথাগোরাসের উপপাদ্য", "Pythagorean Theorem"),
-                    ("বৃত্ত", "Circle"),
-                    ("ত্রিকোণমিতি", "Trigonometry"),
-                    ("পরিমিতি", "Mensuration"),
-                    ("পরিসংখ্যান ও সম্ভাব্যতা", "Statistics and Probability"),
-                ]
-            },
-            "Physics": {
-                "name_bn": "পদার্থবিজ্ঞান",
-                "chapters": [
-                    ("ভৌত রাশি ও পরিমাপ", "Physical Quantities"),
-                    ("গতি", "Motion"),
-                    ("বল", "Force"),
-                    ("কাজ, ক্ষমতা ও শক্তি", "Work, Power, Energy"),
-                    ("তরঙ্গ ও শব্দ", "Waves and Sound"),
-                    ("আলোর প্রতিফলন", "Reflection of Light"),
-                    ("আলোর প্রতিসরণ", "Refraction of Light"),
-                    ("স্থির তড়িৎ", "Static Electricity"),
-                    ("চল তড়িৎ", "Current Electricity"),
-                    ("জীবন বাঁচাতে পদার্থবিজ্ঞান", "Physics for Life"),
-                ]
-            },
-            "Chemistry": {
-                "name_bn": "রসায়ন",
-                "chapters": [
-                    ("রাসায়নিক পরিবর্তন", "Chemical Changes"),
-                    ("পদার্থের গঠন", "Structure of Matter"),
-                    ("পর্যায় সারণি", "Periodic Table"),
-                    ("রাসায়নিক বন্ধন", "Chemical Bonding"),
-                    ("রাসায়নিক বিক্রিয়া", "Chemical Reactions"),
-                    ("অম্ল, ক্ষারক ও লবণ", "Acids, Bases and Salts"),
-                    ("খনিজ সম্পদ", "Mineral Resources"),
-                    ("আমাদের জীবনে রসায়ন", "Chemistry in Our Life"),
-                ]
-            },
-            "Biology": {
-                "name_bn": "জীববিজ্ঞান",
-                "chapters": [
-                    ("জীবের প্রজনন", "Reproduction in Living Things"),
-                    ("বংশগতি ও বিবর্তন", "Heredity and Evolution"),
-                    ("জীবের পরিবেশ", "Environment of Living Things"),
-                    ("জীবপ্রযুক্তি", "Biotechnology"),
-                    ("সমন্বয় ও নিয়ন্ত্রণ", "Coordination and Control"),
-                    ("রেচন", "Excretion"),
-                    ("চলন ও অঙ্গ সঞ্চালন", "Movement and Locomotion"),
-                    ("জীববৈচিত্র্য", "Biodiversity"),
-                ]
-            },
-            "Bangladesh and Global Studies": {
-                "name_bn": "বাংলাদেশ ও বিশ্বপরিচয়",
-                "chapters": [
-                    ("ঔপনিবেশিক যুগ ও বাংলার স্বাধীনতা", "Colonial Era and Bengal's Independence"),
-                    ("বাংলাদেশের অভ্যুদয়", "Emergence of Bangladesh"),
-                    ("বাংলাদেশের জনসংখ্যা ও উন্নয়ন", "Population and Development"),
-                    ("বাংলাদেশের পররাষ্ট্রনীতি", "Foreign Policy of Bangladesh"),
-                    ("বিশ্বায়ন ও আঞ্চলিক সহযোগিতা", "Globalization and Regional Cooperation"),
-                ]
-            },
-            "ICT": {
-                "name_bn": "তথ্য ও যোগাযোগ প্রযুক্তি",
-                "chapters": [
-                    ("তথ্য প্রযুক্তি ও সমাজ", "IT and Society"),
-                    ("কম্পিউটার ও কম্পিউটার ব্যবহারকারী", "Computer and Users"),
-                    ("সংখ্যা পদ্ধতি", "Number Systems"),
-                    ("প্রোগ্রামিং ভাষা", "Programming Languages"),
-                    ("HTML ও ওয়েব ডিজাইন", "HTML and Web Design"),
-                    ("ডাটাবেজ ম্যানেজমেন্ট", "Database Management"),
-                ]
-            },
-        }
-    },
 }
+
+# Classes to delete (old names that are no longer used)
+CLASSES_TO_DELETE = ["Class 9", "Class 10"]
 
 
 def seed_nctb():
@@ -884,6 +776,23 @@ def seed_nctb():
         updated_subjects = 0
         created_chapters = 0
         updated_chapters = 0
+        deleted_classes = 0
+
+        # Delete old classes that are no longer needed
+        for class_name in CLASSES_TO_DELETE:
+            old_class = Class.query.filter_by(name=class_name).first()
+            if old_class:
+                # Delete all chapters for subjects in this class
+                for subject in old_class.subjects:
+                    Chapter.query.filter_by(subject_id=subject.id).delete()
+                # Delete all subjects for this class
+                Subject.query.filter_by(class_id=old_class.id).delete()
+                # Delete the class
+                db.session.delete(old_class)
+                deleted_classes += 1
+                print(f"✗ Deleted old class: {class_name}")
+        
+        db.session.flush()
 
         for class_num, class_data in NCTB_DATA.items():
             # Check if class already exists
@@ -959,6 +868,7 @@ def seed_nctb():
         db.session.commit()
         print("\n" + "=" * 50)
         print("NCTB Curriculum Seeding Complete!")
+        print(f"  Classes deleted:  {deleted_classes}")
         print(f"  Classes created:  {created_classes} | updated: {updated_classes}")
         print(f"  Subjects created: {created_subjects} | updated: {updated_subjects}")
         print(f"  Chapters created: {created_chapters} | updated: {updated_chapters}")
