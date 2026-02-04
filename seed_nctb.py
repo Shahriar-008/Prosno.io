@@ -760,6 +760,144 @@ NCTB_DATA = {
             },
         }
     },
+    10: {
+        "name": "HSC",
+        "name_bn": "এইচএসসি",
+        "level": "Higher Secondary",
+        "subjects": {
+            "Bangla": {
+                "name_bn": "বাংলা",
+                "chapters": [
+                    ("অপরিচিতা", "Oporichita - Tagore"),
+                    ("বিলাসী", "Bilashi - Sarat Chandra"),
+                    ("মাসি-পিসি", "Mashi-Pishi - Manik"),
+                    ("জীবন ও বৃক্ষ", "Life and Tree"),
+                    ("মহাজাগতিক কিউরেটর", "Cosmic Curator"),
+                    ("আমার পথ", "My Path - Nazrul"),
+                    ("বিড়াল", "The Cat - Bankim"),
+                    ("চাষার দুক্ষু", "Farmer's Sorrow"),
+                    ("সোনার তরী", "Golden Boat - Tagore"),
+                    ("বাংলা ভাষার জন্মকথা", "Birth of Bengali Language"),
+                ]
+            },
+            "English": {
+                "name_bn": "ইংরেজি",
+                "chapters": [
+                    ("The Luncheon", "The Luncheon - Maugham"),
+                    ("A Mother in Mannville", "A Mother in Mannville"),
+                    ("Two Women", "Two Women"),
+                    ("The Ant and the Grasshopper", "The Ant and the Grasshopper"),
+                    ("I Have a Dream", "I Have a Dream - MLK"),
+                    ("The Lake Isle of Innisfree", "The Lake Isle of Innisfree"),
+                    ("Paragraph Writing", "Paragraph Writing"),
+                    ("Report Writing", "Report Writing"),
+                    ("Application and Letter", "Application and Letter"),
+                    ("Essay Writing", "Essay Writing"),
+                ]
+            },
+            "Physics": {
+                "name_bn": "পদার্থবিজ্ঞান",
+                "chapters": [
+                    ("ভৌত জগৎ ও পরিমাপ", "Physical World and Measurement"),
+                    ("ভেক্টর", "Vectors"),
+                    ("গতিবিদ্যা", "Kinematics"),
+                    ("নিউটনীয় বলবিদ্যা", "Newtonian Mechanics"),
+                    ("কাজ, শক্তি ও ক্ষমতা", "Work, Energy and Power"),
+                    ("মহাকর্ষ ও অভিকর্ষ", "Gravitation"),
+                    ("পদার্থের গাঠনিক ধর্ম", "Properties of Matter"),
+                    ("পর্যাবৃত্ত গতি", "Periodic Motion"),
+                    ("তরঙ্গ", "Waves"),
+                    ("আদর্শ গ্যাস ও গ্যাসের গতিতত্ত্ব", "Ideal Gas and Kinetic Theory"),
+                ]
+            },
+            "Chemistry": {
+                "name_bn": "রসায়ন",
+                "chapters": [
+                    ("ল্যাবরেটরির নিরাপদ ব্যবহার", "Safe Use of Laboratory"),
+                    ("গুণগত রসায়ন", "Qualitative Chemistry"),
+                    ("মৌলের পর্যায়বৃত্ত ধর্ম", "Periodic Properties"),
+                    ("রাসায়নিক বন্ধন", "Chemical Bonding"),
+                    ("রাসায়নিক পরিবর্তন", "Chemical Changes"),
+                    ("কর্মমুখী রসায়ন", "Applied Chemistry"),
+                    ("তড়িৎ রসায়ন", "Electrochemistry"),
+                    ("জৈব রসায়ন", "Organic Chemistry"),
+                    ("পরিবেশ রসায়ন", "Environmental Chemistry"),
+                    ("পলিমার", "Polymers"),
+                ]
+            },
+            "Biology": {
+                "name_bn": "জীববিজ্ঞান",
+                "chapters": [
+                    ("কোষ ও এর গঠন", "Cell and Its Structure"),
+                    ("কোষ বিভাজন", "Cell Division"),
+                    ("অণুজীব", "Microorganisms"),
+                    ("শৈবাল ও ছত্রাক", "Algae and Fungi"),
+                    ("ব্রায়োফাইটা ও টেরিডোফাইটা", "Bryophyta and Pteridophyta"),
+                    ("নগ্নবীজী ও আবৃতবীজী উদ্ভিদ", "Gymnosperms and Angiosperms"),
+                    ("উদ্ভিদ শারীরতত্ত্ব", "Plant Physiology"),
+                    ("জীবপ্রযুক্তি", "Biotechnology"),
+                    ("প্রাণীর বৈচিত্র্য", "Animal Diversity"),
+                    ("মানব শারীরতত্ত্ব", "Human Physiology"),
+                ]
+            },
+            "Higher Mathematics": {
+                "name_bn": "উচ্চতর গণিত",
+                "chapters": [
+                    ("ম্যাট্রিক্স ও নির্ণায়ক", "Matrix and Determinant"),
+                    ("সরলরেখা", "Straight Line"),
+                    ("বৃত্ত", "Circle"),
+                    ("কনিক", "Conics"),
+                    ("বিপরীত ত্রিকোণমিতিক ফাংশন", "Inverse Trigonometric Functions"),
+                    ("সীমা ও অন্তরকলন", "Limit and Differentiation"),
+                    ("যোগজীকরণ", "Integration"),
+                    ("স্থিতিবিদ্যা", "Statics"),
+                    ("গতিবিদ্যা", "Dynamics"),
+                    ("সম্ভাবনা ও পরিসংখ্যান", "Probability and Statistics"),
+                ]
+            },
+            "ICT": {
+                "name_bn": "তথ্য ও যোগাযোগ প্রযুক্তি",
+                "chapters": [
+                    ("তথ্য ও যোগাযোগ প্রযুক্তি: বিশ্ব ও বাংলাদেশ প্রেক্ষিত", "ICT: World and Bangladesh Perspective"),
+                    ("কমিউনিকেশন সিস্টেমস ও নেটওয়ার্কিং", "Communication Systems and Networking"),
+                    ("সংখ্যা পদ্ধতি ও ডিজিটাল ডিভাইস", "Number System and Digital Devices"),
+                    ("ওয়েব ডিজাইন পরিচিতি ও HTML", "Web Design and HTML"),
+                    ("প্রোগ্রামিং ভাষা", "Programming Language"),
+                    ("ডেটাবেজ ম্যানেজমেন্ট সিস্টেম", "Database Management System"),
+                ]
+            },
+            "Accounting": {
+                "name_bn": "হিসাববিজ্ঞান",
+                "chapters": [
+                    ("হিসাববিজ্ঞান পরিচিতি", "Introduction to Accounting"),
+                    ("লেনদেন ও হিসাব সমীকরণ", "Transaction and Accounting Equation"),
+                    ("দুতরফা দাখিলা পদ্ধতি", "Double Entry System"),
+                    ("জাবেদা", "Journal"),
+                    ("খতিয়ান", "Ledger"),
+                    ("নগদান বই", "Cash Book"),
+                    ("রেওয়ামিল", "Trial Balance"),
+                    ("আর্থিক বিবরণী", "Financial Statements"),
+                    ("একতরফা দাখিলা পদ্ধতি", "Single Entry System"),
+                    ("অংশীদারি ব্যবসায়ের হিসাব", "Partnership Accounting"),
+                ]
+            },
+            "Economics": {
+                "name_bn": "অর্থনীতি",
+                "chapters": [
+                    ("অর্থনীতি পরিচয়", "Introduction to Economics"),
+                    ("ভোক্তা ও উৎপাদকের আচরণ", "Consumer and Producer Behavior"),
+                    ("উৎপাদন ও সংগঠন", "Production and Organization"),
+                    ("বাজার", "Market"),
+                    ("জাতীয় আয়", "National Income"),
+                    ("অর্থ ও ব্যাংকিং", "Money and Banking"),
+                    ("সরকারি অর্থব্যবস্থা", "Public Finance"),
+                    ("আন্তর্জাতিক বাণিজ্য", "International Trade"),
+                    ("বাংলাদেশের অর্থনীতি", "Bangladesh Economy"),
+                    ("উন্নয়ন ও পরিকল্পনা", "Development and Planning"),
+                ]
+            },
+        }
+    },
 }
 
 
