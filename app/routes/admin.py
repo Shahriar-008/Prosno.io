@@ -4,14 +4,29 @@ Admin routes for Prosno.io
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
+from functools import wraps
 
-from app import db
-from app.models import User, Class, Subject, Chapter, Question, GeneratedPaper, AIGeneratorConfig, AIGeneratorLog
+from app import db, limiter
+from app.models import User, Class, Subject, Chapter, Question, GeneratedPaper, AIGeneratorConfig, AIGeneratorLog, ActivityLog, ROLE_ADMIN, ROLE_EDITOR, admin_required
 
 admin_bp = Blueprint('admin', __name__)
 
 
+def log_activity(action, entity_type, entity_id=None, entity_name=None, details=None):
+    """Helper function to log user activities"""
+    log = ActivityLog(
+        user_id=current_user.id,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        entity_name=entity_name,
+        details=details
+    )
+    db.session.add(log)
+
+
 @admin_bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit("3 per minute", methods=["POST"])
 def login():
     """Admin login page"""
     if current_user.is_authenticated:
@@ -25,6 +40,11 @@ def login():
         user = User.query.filter_by(username=username).first()
         
         if user and user.check_password(password):
+            # Check if user is active
+            if hasattr(user, 'is_active_user') and not user.is_active_user:
+                flash('Your account has been disabled. Contact admin.', 'error')
+                return render_template('admin/login.html')
+            
             user.last_login = datetime.utcnow()
             db.session.commit()
             login_user(user, remember=remember)
@@ -121,10 +141,13 @@ def edit_class(id):
 
 @admin_bp.route('/classes/delete/<int:id>', methods=['POST'])
 @login_required
+@admin_required
 def delete_class(id):
-    """Delete class"""
+    """Delete class - admin only"""
     class_obj = Class.query.get_or_404(id)
+    name = class_obj.name
     db.session.delete(class_obj)
+    log_activity('delete', 'class', entity_id=id, entity_name=name)
     db.session.commit()
     flash('Class deleted successfully!', 'success')
     return redirect(url_for('admin.classes'))
@@ -155,9 +178,12 @@ def add_subject():
             name_bn=name_bn,
             code=code,
             class_id=int(class_id),
-            order=int(order) if order else 0
+            order=int(order) if order else 0,
+            created_by_id=current_user.id
         )
         db.session.add(new_subject)
+        db.session.flush()  # Get the ID
+        log_activity('add', 'subject', entity_id=new_subject.id, entity_name=name)
         db.session.commit()
         flash('Subject added successfully!', 'success')
         return redirect(url_for('admin.subjects'))
@@ -190,10 +216,13 @@ def edit_subject(id):
 
 @admin_bp.route('/subjects/delete/<int:id>', methods=['POST'])
 @login_required
+@admin_required
 def delete_subject(id):
-    """Delete subject"""
+    """Delete subject - admin only"""
     subject = Subject.query.get_or_404(id)
+    name = subject.name
     db.session.delete(subject)
+    log_activity('delete', 'subject', entity_id=id, entity_name=name)
     db.session.commit()
     flash('Subject deleted successfully!', 'success')
     return redirect(url_for('admin.subjects'))
@@ -224,9 +253,12 @@ def add_chapter():
             name_bn=name_bn,
             chapter_number=int(chapter_number) if chapter_number else None,
             subject_id=int(subject_id),
-            order=int(order) if order else 0
+            order=int(order) if order else 0,
+            created_by_id=current_user.id
         )
         db.session.add(new_chapter)
+        db.session.flush()  # Get the ID
+        log_activity('add', 'chapter', entity_id=new_chapter.id, entity_name=name)
         db.session.commit()
         flash('Chapter added successfully!', 'success')
         return redirect(url_for('admin.chapters'))
@@ -260,10 +292,13 @@ def edit_chapter(id):
 
 @admin_bp.route('/chapters/delete/<int:id>', methods=['POST'])
 @login_required
+@admin_required
 def delete_chapter(id):
-    """Delete chapter"""
+    """Delete chapter - admin only"""
     chapter = Chapter.query.get_or_404(id)
+    name = chapter.name
     db.session.delete(chapter)
+    log_activity('delete', 'chapter', entity_id=id, entity_name=name)
     db.session.commit()
     flash('Chapter deleted successfully!', 'success')
     return redirect(url_for('admin.chapters'))
@@ -329,6 +364,8 @@ def add_question():
             created_by=current_user.id
         )
         db.session.add(new_question)
+        db.session.flush()  # Get the ID
+        log_activity('add', 'question', entity_id=new_question.id, entity_name=question_text[:50])
         db.session.commit()
         flash('Question added successfully!', 'success')
         return redirect(url_for('admin.questions'))
@@ -379,10 +416,12 @@ def edit_question(id):
 
 @admin_bp.route('/questions/delete/<int:id>', methods=['POST'])
 @login_required
+@admin_required
 def delete_question(id):
-    """Delete question"""
+    """Delete question - admin only"""
     question = Question.query.get_or_404(id)
     db.session.delete(question)
+    log_activity('delete', 'question', entity_id=id)
     db.session.commit()
     flash('Question deleted successfully!', 'success')
     return redirect(url_for('admin.questions'))
@@ -597,3 +636,132 @@ def ai_generator_clear_logs():
     flash('Logs cleared successfully!', 'success')
     
     return redirect(url_for('admin.ai_generator'))
+
+
+# ========== User Management (Admin Only) ==========
+@admin_bp.route('/users')
+@login_required
+@admin_required
+def users():
+    """List all users - admin only"""
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template('admin/users.html', users=users)
+
+
+@admin_bp.route('/users/add', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def add_user():
+    """Add new user - admin only"""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        role = request.form.get('role', ROLE_EDITOR)
+        
+        # Validate
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists!', 'error')
+            return render_template('admin/user_form.html', user=None)
+        
+        if User.query.filter_by(email=email).first():
+            flash('Email already exists!', 'error')
+            return render_template('admin/user_form.html', user=None)
+        
+        new_user = User(
+            username=username,
+            email=email,
+            role=role,
+            is_admin=(role == ROLE_ADMIN),
+            created_by_id=current_user.id
+        )
+        new_user.set_password(password)
+        db.session.add(new_user)
+        
+        log_activity('add', 'user', entity_name=username, details={'role': role})
+        db.session.commit()
+        
+        flash(f'User "{username}" created successfully!', 'success')
+        return redirect(url_for('admin.users'))
+    
+    return render_template('admin/user_form.html', user=None, ROLE_ADMIN=ROLE_ADMIN, ROLE_EDITOR=ROLE_EDITOR)
+
+
+@admin_bp.route('/users/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_user(id):
+    """Edit user - admin only"""
+    user = User.query.get_or_404(id)
+    
+    # Prevent editing self through this form (use profile instead)
+    if user.id == current_user.id:
+        flash('Use profile settings to edit your own account.', 'info')
+        return redirect(url_for('admin.users'))
+    
+    if request.method == 'POST':
+        user.username = request.form.get('username')
+        user.email = request.form.get('email')
+        user.role = request.form.get('role', ROLE_EDITOR)
+        user.is_admin = (user.role == ROLE_ADMIN)
+        user.is_active_user = request.form.get('is_active') == 'on'
+        
+        # Only update password if provided
+        new_password = request.form.get('password')
+        if new_password:
+            user.set_password(new_password)
+        
+        log_activity('edit', 'user', entity_id=user.id, entity_name=user.username)
+        db.session.commit()
+        
+        flash('User updated successfully!', 'success')
+        return redirect(url_for('admin.users'))
+    
+    return render_template('admin/user_form.html', user=user, ROLE_ADMIN=ROLE_ADMIN, ROLE_EDITOR=ROLE_EDITOR)
+
+
+@admin_bp.route('/users/delete/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_user(id):
+    """Delete user - admin only"""
+    user = User.query.get_or_404(id)
+    
+    # Prevent self-deletion
+    if user.id == current_user.id:
+        flash('You cannot delete your own account!', 'error')
+        return redirect(url_for('admin.users'))
+    
+    username = user.username
+    db.session.delete(user)
+    log_activity('delete', 'user', entity_name=username)
+    db.session.commit()
+    
+    flash(f'User "{username}" deleted successfully!', 'success')
+    return redirect(url_for('admin.users'))
+
+
+# ========== Activity Log (Admin Only) ==========
+@admin_bp.route('/activity-log')
+@login_required
+@admin_required
+def activity_log():
+    """View activity log - admin only"""
+    page = request.args.get('page', 1, type=int)
+    user_filter = request.args.get('user', type=int)
+    action_filter = request.args.get('action')
+    
+    query = ActivityLog.query
+    
+    if user_filter:
+        query = query.filter_by(user_id=user_filter)
+    if action_filter:
+        query = query.filter_by(action=action_filter)
+    
+    logs = query.order_by(ActivityLog.created_at.desc()).paginate(
+        page=page, per_page=50, error_out=False
+    )
+    
+    users = User.query.all()
+    return render_template('admin/activity_log.html', logs=logs, users=users, 
+                         current_user_filter=user_filter, current_action_filter=action_filter)

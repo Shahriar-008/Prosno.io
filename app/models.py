@@ -2,14 +2,31 @@
 Database models for Prosno.io
 """
 from datetime import datetime
+from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import UserMixin
+from flask_login import UserMixin, current_user
+from flask import abort
 from app import db, login_manager
 
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+
+# User roles
+ROLE_ADMIN = 'admin'      # Full access - can do everything
+ROLE_EDITOR = 'editor'    # Can add content, limited delete
+
+
+def admin_required(f):
+    """Decorator to require admin role"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.role != ROLE_ADMIN:
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 class User(UserMixin, db.Model):
@@ -20,15 +37,33 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)
+    role = db.Column(db.String(20), default=ROLE_EDITOR)  # 'admin' or 'editor'
+    is_admin = db.Column(db.Boolean, default=False)  # Kept for backward compatibility
+    is_active_user = db.Column(db.Boolean, default=True)  # Can disable users
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     last_login = db.Column(db.DateTime)
+    
+    # Relationships
+    created_by = db.relationship('User', remote_side=[id], backref='created_users')
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def is_master_admin(self):
+        """Check if user is master admin"""
+        return self.role == ROLE_ADMIN
+    
+    def can_delete(self):
+        """Check if user can delete content"""
+        return self.role == ROLE_ADMIN
+    
+    def can_manage_users(self):
+        """Check if user can manage other users"""
+        return self.role == ROLE_ADMIN
     
     def __repr__(self):
         return f'<User {self.username}>'
@@ -64,8 +99,10 @@ class Subject(db.Model):
     order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     
     chapters = db.relationship('Chapter', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
     
     def __repr__(self):
         return f'<Subject {self.name}>'
@@ -83,8 +120,10 @@ class Chapter(db.Model):
     order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     
     questions = db.relationship('Question', backref='chapter', lazy='dynamic', cascade='all, delete-orphan')
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
     
     def __repr__(self):
         return f'<Chapter {self.name}>'
@@ -234,3 +273,22 @@ class AIGeneratorLog(db.Model):
     
     def __repr__(self):
         return f'<AIGeneratorLog {self.id} - {self.status}>'
+
+
+class ActivityLog(db.Model):
+    """Track user activities for admin oversight"""
+    __tablename__ = 'activity_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    action = db.Column(db.String(50), nullable=False)  # 'add', 'edit', 'delete'
+    entity_type = db.Column(db.String(50), nullable=False)  # 'question', 'subject', 'chapter'
+    entity_id = db.Column(db.Integer)
+    entity_name = db.Column(db.String(200))  # For display purposes
+    details = db.Column(db.JSON)  # Additional details
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref='activities')
+    
+    def __repr__(self):
+        return f'<ActivityLog {self.user_id} - {self.action} {self.entity_type}>'

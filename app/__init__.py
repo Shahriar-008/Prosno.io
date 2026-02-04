@@ -70,7 +70,7 @@ def create_app(config_class=Config):
 def _create_admin_user():
     """Create default admin user if none exists"""
     import os
-    from app.models import User
+    from app.models import User, ROLE_ADMIN
     
     # Use environment variables for production, fallback for dev
     username = os.environ.get('ADMIN_USERNAME', 'Admin')
@@ -78,7 +78,7 @@ def _create_admin_user():
     email = os.environ.get('ADMIN_EMAIL', 'admin@prosno.io')
     
     try:
-        user = User(username=username, email=email, is_admin=True)
+        user = User(username=username, email=email, is_admin=True, role=ROLE_ADMIN)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()

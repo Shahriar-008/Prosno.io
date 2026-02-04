@@ -1,0 +1,138 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Activity Log - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Activity Log</h1>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="user" class="form-label">Filter by User</label>
+                <select class="form-select" id="user" name="user">
+                    <option value="">All Users</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if current_user_filter == user.id %}selected{% endif %}>
+                        {{ user.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="action" class="form-label">Filter by Action</label>
+                <select class="form-select" id="action" name="action">
+                    <option value="">All Actions</option>
+                    <option value="add" {% if current_action_filter == 'add' %}selected{% endif %}>Add</option>
+                    <option value="edit" {% if current_action_filter == 'edit' %}selected{% endif %}>Edit</option>
+                    <option value="delete" {% if current_action_filter == 'delete' %}selected{% endif %}>Delete</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-funnel"></i> Filter
+                </button>
+                <a href="{{ url_for('admin.activity_log') }}" class="btn btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Activity Log Table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Type</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs.items %}
+                    <tr>
+                        <td>
+                            <small>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                        </td>
+                        <td>
+                            <strong>{{ log.user.username if log.user else 'Unknown' }}</strong>
+                        </td>
+                        <td>
+                            {% if log.action == 'add' %}
+                            <span class="badge bg-success">Add</span>
+                            {% elif log.action == 'edit' %}
+                            <span class="badge bg-warning text-dark">Edit</span>
+                            {% elif log.action == 'delete' %}
+                            <span class="badge bg-danger">Delete</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ log.action }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="text-capitalize">{{ log.entity_type }}</span>
+                        </td>
+                        <td>
+                            {% if log.entity_name %}
+                            <code>{{ log.entity_name[:50] }}{% if log.entity_name|length > 50 %}...{% endif %}</code>
+                            {% endif %}
+                            {% if log.entity_id %}
+                            <small class="text-muted">(ID: {{ log.entity_id }})</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                            <p class="mb-0">No activity logs found</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if logs.pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if logs.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ logs.prev_num }}{% if current_user_filter %}&user={{ current_user_filter }}{% endif %}{% if current_action_filter %}&action={{ current_action_filter }}{% endif %}">
+                        Previous
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in logs.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                    <li class="page-item {% if page_num == logs.page %}active{% endif %}">
+                        <a class="page-link" href="?page={{ page_num }}{% if current_user_filter %}&user={{ current_user_filter }}{% endif %}{% if current_action_filter %}&action={{ current_action_filter }}{% endif %}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if logs.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ logs.next_num }}{% if current_user_filter %}&user={{ current_user_filter }}{% endif %}{% if current_action_filter %}&action={{ current_action_filter }}{% endif %}">
+                        Next
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
