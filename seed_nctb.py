@@ -879,15 +879,23 @@ def seed_nctb():
     app = create_app()
     with app.app_context():
         created_classes = 0
+        updated_classes = 0
         created_subjects = 0
+        updated_subjects = 0
         created_chapters = 0
+        updated_chapters = 0
 
         for class_num, class_data in NCTB_DATA.items():
             # Check if class already exists
             existing_class = Class.query.filter_by(name=class_data["name"]).first()
             if existing_class:
-                print(f"⚠ Class {class_data['name']} already exists, skipping...")
+                # Update existing class
+                existing_class.name_bn = class_data["name_bn"]
+                existing_class.level = class_data["level"]
+                existing_class.order = class_num
                 cls = existing_class
+                updated_classes += 1
+                print(f"↻ Updated class: {class_data['name']} ({class_data['name_bn']})")
             else:
                 cls = Class(
                     name=class_data["name"],
@@ -900,14 +908,19 @@ def seed_nctb():
                 created_classes += 1
                 print(f"✓ Created class: {class_data['name']} ({class_data['name_bn']})")
 
-            # Add subjects
+            # Add/Update subjects
             for subj_name, subj_data in class_data["subjects"].items():
                 existing_subject = Subject.query.filter_by(
                     name=subj_name, class_id=cls.id
                 ).first()
                 
                 if existing_subject:
+                    # Update existing subject
+                    existing_subject.name_bn = subj_data["name_bn"]
+                    existing_subject.order = list(class_data["subjects"].keys()).index(subj_name) + 1
                     subj = existing_subject
+                    updated_subjects += 1
+                    print(f"  ↻ Updated subject: {subj_name} ({subj_data['name_bn']})")
                 else:
                     subj = Subject(
                         name=subj_name,
@@ -918,15 +931,21 @@ def seed_nctb():
                     db.session.add(subj)
                     db.session.flush()
                     created_subjects += 1
-                    print(f"  ✓ Subject: {subj_name} ({subj_data['name_bn']})")
+                    print(f"  ✓ Created subject: {subj_name} ({subj_data['name_bn']})")
 
-                # Add chapters
+                # Add/Update chapters
                 for idx, (chap_bn, chap_en) in enumerate(subj_data["chapters"], 1):
                     existing_chapter = Chapter.query.filter_by(
-                        name_bn=chap_bn, subject_id=subj.id
+                        chapter_number=idx, subject_id=subj.id
                     ).first()
                     
-                    if not existing_chapter:
+                    if existing_chapter:
+                        # Update existing chapter
+                        existing_chapter.name = chap_en
+                        existing_chapter.name_bn = chap_bn
+                        existing_chapter.order = idx
+                        updated_chapters += 1
+                    else:
                         chap = Chapter(
                             name=chap_en,
                             name_bn=chap_bn,
@@ -940,9 +959,9 @@ def seed_nctb():
         db.session.commit()
         print("\n" + "=" * 50)
         print("NCTB Curriculum Seeding Complete!")
-        print(f"  Classes created:  {created_classes}")
-        print(f"  Subjects created: {created_subjects}")
-        print(f"  Chapters created: {created_chapters}")
+        print(f"  Classes created:  {created_classes} | updated: {updated_classes}")
+        print(f"  Subjects created: {created_subjects} | updated: {updated_subjects}")
+        print(f"  Chapters created: {created_chapters} | updated: {updated_chapters}")
         print("=" * 50)
 
 
