@@ -46,7 +46,7 @@ class Class(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    subjects = db.relationship('Subject', backref='class_ref', lazy='dynamic')
+    subjects = db.relationship('Subject', backref='class_ref', lazy='dynamic', cascade='all, delete-orphan')
     
     def __repr__(self):
         return f'<Class {self.name}>'
@@ -65,7 +65,7 @@ class Subject(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    chapters = db.relationship('Chapter', backref='subject', lazy='dynamic')
+    chapters = db.relationship('Chapter', backref='subject', lazy='dynamic', cascade='all, delete-orphan')
     
     def __repr__(self):
         return f'<Subject {self.name}>'
@@ -84,7 +84,7 @@ class Chapter(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    questions = db.relationship('Question', backref='chapter', lazy='dynamic')
+    questions = db.relationship('Question', backref='chapter', lazy='dynamic', cascade='all, delete-orphan')
     
     def __repr__(self):
         return f'<Chapter {self.name}>'

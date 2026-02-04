@@ -762,9 +762,6 @@ NCTB_DATA = {
     },
 }
 
-# Classes to delete (old names that are no longer used)
-CLASSES_TO_DELETE = ["Class 9", "Class 10"]
-
 
 def seed_nctb():
     """Seed database with NCTB curriculum"""
@@ -776,23 +773,6 @@ def seed_nctb():
         updated_subjects = 0
         created_chapters = 0
         updated_chapters = 0
-        deleted_classes = 0
-
-        # Delete old classes that are no longer needed
-        for class_name in CLASSES_TO_DELETE:
-            old_class = Class.query.filter_by(name=class_name).first()
-            if old_class:
-                # Delete all chapters for subjects in this class
-                for subject in old_class.subjects:
-                    Chapter.query.filter_by(subject_id=subject.id).delete()
-                # Delete all subjects for this class
-                Subject.query.filter_by(class_id=old_class.id).delete()
-                # Delete the class
-                db.session.delete(old_class)
-                deleted_classes += 1
-                print(f"✗ Deleted old class: {class_name}")
-        
-        db.session.flush()
 
         for class_num, class_data in NCTB_DATA.items():
             # Check if class already exists
@@ -868,7 +848,6 @@ def seed_nctb():
         db.session.commit()
         print("\n" + "=" * 50)
         print("NCTB Curriculum Seeding Complete!")
-        print(f"  Classes deleted:  {deleted_classes}")
         print(f"  Classes created:  {created_classes} | updated: {updated_classes}")
         print(f"  Subjects created: {created_subjects} | updated: {updated_subjects}")
         print(f"  Chapters created: {created_chapters} | updated: {updated_chapters}")
