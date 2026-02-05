@@ -428,44 +428,92 @@ NCTB_DATA = {
             "Mathematics": {
                 "name_bn": "গণিত",
                 "chapters": [
-                    ("বীজগাণিতিক রাশির গুণ ও ভাগ", "Multiplication and Division of Algebraic Expressions"),
-                    ("সরল সমীকরণ", "Linear Equations"),
-                    ("চতুর্ভুজ", "Quadrilaterals"),
-                    ("বৃত্ত ও ক্ষেত্রফল", "Circle and Area"),
-                    ("সরল মুনাফা", "Simple Interest"),
-                    ("অনুপাত ও সমানুপাত", "Ratio and Proportion"),
-                    ("সেট", "Set Theory"),
+                    ("পার্টনার", "Partnership"),
+                    ("মুনাফা", "Profit"),
+                    ("পরিমাপ", "Measurement"),
+                    ("বীজগণিতীয় সূত্রাবলি ও প্রয়োগ", "Algebraic Formulas and Applications"),
+                    ("বীজগণিতীয় ভগ্নাংশ", "Algebraic Fractions"),
+                    ("সমুহ সংখ্যাময়ীকরণ", "Factorization"),
+                    ("সেট", "Set"),
+                    ("চতুর্ভুজ", "Quadrilateral"),
+                    ("পিপাটারোগের উপাদান", "Pythagorean Components"),
+                    ("বৃত্ত", "Circle"),
+                    ("লেখ ও উপাদি", "Graph and Data"),
                 ]
             },
             "General Science": {
                 "name_bn": "সাধারণ বিজ্ঞান",
                 "chapters": [
-                    ("জীবের প্রজনন", "Reproduction in Living Things"),
+                    ("প্রাণিজগতের শ্রেণীবিন্যাস", "Classification of Animals"),
+                    ("জীবের বৃদ্ধি ও বংশগতি", "Growth and Heredity of Organisms"),
+                    ("ব্যান, অভিভরণ ও প্রবেশন", "Cell, Diffusion and Osmosis"),
+                    ("উদ্ভিদের নমন বৃদ্ধি", "Tropism in Plants"),
+                    ("সমন্বয় ও নিয়ন্ত্রণ", "Coordination and Control"),
+                    ("পরিমণুর গঠন", "Atomic Structure"),
+                    ("পূর্বরী ও মহাশক্তি", "Force and Momentum"),
+                    ("রাসায়নিক বিক্রিয়া", "Chemical Reactions"),
+                    ("বংশগতি ও চরিত্রগুরু", "Heredity and Variation"),
+                    ("অম্ল, ক্ষারক ও লবণ", "Acids, Bases and Salts"),
+                    ("আলো", "Light"),
+                    ("মহাকাশ ও উপগ্রহ", "Space and Satellites"),
                     ("খাদ্য ও পুষ্টি", "Food and Nutrition"),
-                    ("অম্ল, ক্ষার ও লবণ", "Acids, Bases and Salts"),
-                    ("গতি ও বল", "Motion and Force"),
-                    ("শব্দ", "Sound"),
-                    ("ভূগর্ভস্থ সম্পদ", "Underground Resources"),
+                    ("পরিবেশ এবং বাস্তুতন্ত্র", "Environment and Ecosystem"),
                 ]
             },
             "Bangladesh and Global Studies": {
                 "name_bn": "বাংলাদেশ ও বিশ্বপরিচয়",
                 "chapters": [
-                    ("ভাষা আন্দোলন ও বাঙালি জাতীয়তাবাদ", "Language Movement and Bengali Nationalism"),
-                    ("মুক্তিযুদ্ধ ও স্বাধীনতা", "Liberation War and Independence"),
-                    ("বাংলাদেশের সরকার ব্যবস্থা", "Government System of Bangladesh"),
+                    ("উপনিবেশিক যুগ ও বাংলার দ্বৈতশাসন ব্যবস্থা", "Colonial Era and Dual Governance in Bengal"),
+                    ("উপনিবেশিক শুভের প্রতিক্রিয়ার প্রতিক্রিয়া", "Reactions to Colonial Exploitation"),
+                    ("বাংলাদেশের মুক্তিযুদ্ধ ও পরবর্তী সমস্যা", "Liberation War and Post-War Problems"),
                     ("বাংলাদেশের অর্থনীতি", "Economy of Bangladesh"),
-                    ("জাতিসংঘ ও বিশ্ব শান্তি", "UN and World Peace"),
+                    ("বাংলাদেশ : নারী ও সবার বন্ধু", "Bangladesh: Women and Friends of All"),
+                    ("বাংলাদেশের সাংস্কৃতিক পরিচয়", "Cultural Identity of Bangladesh"),
+                    ("সামাজিকীকরণ", "Socialization"),
+                    ("বাংলাদেশের মানবীয় মূল্যবোধ", "Human Values of Bangladesh"),
+                    ("বাংলাদেশের সামাজিক সমস্যা", "Social Problems of Bangladesh"),
+                    ("বাংলাদেশের জনসংখ্যা ও উন্নয়ন", "Population and Development of Bangladesh"),
+                    ("বাংলাদেশে জলবায়ু ও পূর্বীণ মোকাবিলা", "Climate Change and Disaster Management in Bangladesh"),
+                    ("বাংলাদেশের প্রাকৃতিক সম্পদ", "Natural Resources of Bangladesh"),
+                    ("বাংলাদেশ এবং বিভিন্ন আঞ্চলিক ও আন্তর্জাতিক সংস্থা", "Bangladesh and Various Regional and International Organizations"),
                 ]
             },
             "ICT": {
                 "name_bn": "তথ্য ও যোগাযোগ প্রযুক্তি",
                 "chapters": [
-                    ("তথ্য প্রযুক্তির বিকাশ", "Development of IT"),
-                    ("ডাটাবেজ", "Database"),
-                    ("প্রেজেন্টেশন", "Presentation"),
-                    ("ওয়েব ব্রাউজিং", "Web Browsing"),
-                    ("ই-কমার্স ও ই-গভর্নেন্স", "E-commerce and E-governance"),
+                    ("তথ্য ও যোগাযোগ প্রযুক্তির পূর্বরূপ", "Overview of ICT"),
+                    ("কম্পিউটার নেটওয়ার্ক", "Computer Network"),
+                    ("তথ্য ও যোগাযোগ প্রযুক্তির নিরাপদ ও নৈতিক ব্যবহার", "Safe and Ethical Use of ICT"),
+                    ("সংখ্যাপদ্ধতির ব্যবহার", "Use of Number Systems"),
+                    ("শিক্ষা ও দৈনন্দিন জীবনে ইন্টারনেটের ব্যবহার", "Use of Internet in Education and Daily Life"),
+                ]
+            },
+            "Physical Education and Health": {
+                "name_bn": "শারীরিক শিক্ষা ও স্বাস্থ্য",
+                "chapters": [
+                    ("শরীরচর্চা ও সুস্থীকরণ", "Physical Exercise and Wellness"),
+                    ("স্কাউটিং, গার্ল গাইডিং ও বাংলাদেশ রেড ক্রিসেন্ট সোসাইটি", "Scouting, Girl Guiding and Bangladesh Red Crescent Society"),
+                    ("আমাদের জীবনে প্রজনন স্বাস্থ্য", "Reproductive Health in Our Lives"),
+                    ("জীবনের জন্য খেলাধুলা", "Sports for Life"),
+                ]
+            },
+            "Work and Life Oriented Education": {
+                "name_bn": "কর্ম ও জীবনমুখী শিক্ষা",
+                "chapters": [
+                    ("মেধা, কার্যক্রম ও আত্ম-অনুসন্ধান", "Creativity, Activities and Self-Discovery"),
+                    ("আমাদের কাজ: যেগুলো অন্যরা করে", "Our Work: Jobs Done by Others"),
+                    ("আমাদের শিক্ষা ও কর্ম", "Our Education and Work"),
+                ]
+            },
+            "Agriculture Studies": {
+                "name_bn": "কৃষি শিক্ষা",
+                "chapters": [
+                    ("বাংলাদেশের কৃষি ও আন্তর্জাতিক প্রেক্ষাপট", "Bangladesh Agriculture and International Perspective"),
+                    ("কৃষিপ্রযুক্তি", "Agricultural Technology"),
+                    ("কৃষি উপকরণ", "Agricultural Tools and Equipment"),
+                    ("কৃষি ও জলবায়ু", "Agriculture and Climate"),
+                    ("কৃষি উৎপাদন", "Agricultural Production"),
+                    ("বনায়ন", "Afforestation"),
                 ]
             },
         }
