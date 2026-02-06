@@ -286,42 +286,83 @@ NCTB_DATA = {
                 "chapters": [
                     ("স্বাভাবিক সংখ্যা ও ভগ্নাংশ", "Natural Numbers and Fractions"),
                     ("অনুপাত ও শতকরা", "Ratio and Percentage"),
-                    ("বীজগাণিতিক রাশি", "Algebraic Expressions"),
+                    ("পূর্ণসংখ্যা", "Integers"),
+                    ("বীজগণিতীয় রাশি", "Algebraic Expressions"),
                     ("সরল সমীকরণ", "Simple Equations"),
-                    ("জ্যামিতি - রেখা ও কোণ", "Geometry - Lines and Angles"),
-                    ("ত্রিভুজ", "Triangles"),
-                    ("উপাত্ত বিশ্লেষণ", "Data Analysis"),
+                    ("জ্যামিতির মৌলিক ধারা", "Basic Concepts of Geometry"),
+                    ("ব্যবহারিক জ্যামিতি", "Practical Geometry"),
+                    ("তথ্য ও উপাত্ত", "Data and Statistics"),
                 ]
             },
             "General Science": {
                 "name_bn": "সাধারণ বিজ্ঞান",
                 "chapters": [
-                    ("জীবকোষ ও টিস্যু", "Cell and Tissue"),
-                    ("জীবে পরিবহন", "Transport in Living Things"),
-                    ("পদার্থের গঠন", "Structure of Matter"),
-                    ("শক্তির রূপান্তর", "Transformation of Energy"),
-                    ("পরিবেশ ও বাস্তুতন্ত্র", "Environment and Ecosystem"),
-                    ("সৌরজগৎ", "Solar System"),
+                    ("বৈজ্ঞানিক প্রক্রিয়া ও পরীক্ষণ", "Scientific Process and Experimentation"),
+                    ("জীবজগৎ", "Living World"),
+                    ("উদ্ভিদ ও প্রাণীর কোষীয় সংগঠন", "Cellular Organization of Plants and Animals"),
+                    ("উদ্ভিদের বাহ্যিক বৈশিষ্ট্য", "External Features of Plants"),
+                    ("সালোকসংশ্লেষণ", "Photosynthesis"),
+                    ("সংবেদনী অঙ্গ", "Sense Organs"),
+                    ("পদার্থের বৈশিষ্ট্য এবং বাহ্যিক প্রভাব", "Properties of Matter and External Effects"),
+                    ("মিশ্রণ", "Mixtures"),
+                    ("আলোর ঘটনা", "Phenomena of Light"),
+                    ("গতি", "Motion"),
+                    ("বল এবং সরল যন্ত্র", "Forces and Simple Machines"),
+                    ("পৃথিবীর উৎপত্তি ও গঠন", "Origin and Structure of the Earth"),
+                    ("খাদ্য ও পুষ্টি", "Food and Nutrition"),
+                    ("পরিবেশের ভারসাম্য এবং আমাদের জীবন", "Environmental Balance and Our Life"),
                 ]
             },
             "Bangladesh and Global Studies": {
                 "name_bn": "বাংলাদেশ ও বিশ্বপরিচয়",
                 "chapters": [
-                    ("বাংলাদেশের ইতিহাস ও সংস্কৃতি", "History and Culture of Bangladesh"),
-                    ("বাংলাদেশের মুক্তিযুদ্ধ", "Liberation War of Bangladesh"),
-                    ("বাংলাদেশের সম্পদ", "Resources of Bangladesh"),
-                    ("সামাজিক সমস্যা ও প্রতিকার", "Social Problems and Solutions"),
-                    ("এশিয়া মহাদেশ", "Asian Continent"),
+                    ("সমাজ পরিবর্তনের ইতিহাস", "History of Social Change"),
+                    ("বাংলাদেশের ইতিহাস", "History of Bangladesh"),
+                    ("বাংলাদেশের সংস্কৃতি ও সমাজ", "Culture and Society of Bangladesh"),
+                    ("বাংলাদেশের অর্থনীতি", "Economy of Bangladesh"),
+                    ("বাংলাদেশ ও বাংলাদেশের নাগরিক", "Bangladesh and Its Citizens"),
+                    ("বাংলাদেশের পরিবেশ", "Environment of Bangladesh"),
+                    ("শিশু বেড়ে ওঠা ও সামাজিকীকরণ", "Child Upbringing and Socialization"),
+                    ("বাংলাদেশ ও আন্তর্জাতিক সহযোগিতা", "Bangladesh and International Cooperation"),
+                ]
+            },
+            "Physical Education and Health": {
+                "name_bn": "শারীরিক শিক্ষা ও স্বাস্থ্য",
+                "chapters": [
+                    ("শারীরচর্চা ও সুস্থজীবন", "Physical Exercise and Healthy Life"),
+                    ("স্কাউটিং ও গার্ল গাইডিং", "Scouting and Girl Guiding"),
+                    ("স্বাস্থ্যবিজ্ঞানের পরিচিতি ও স্বাস্থ্যসেবা", "Introduction to Health Science and Health Services"),
+                    ("আমাদের জীবনে বয়ঃসন্ধিকাল", "Adolescence in Our Life"),
+                    ("জীবনের জন্য খেলাধুলা", "Sports for Life"),
+                ]
+            },
+            "Work and Life Oriented Education": {
+                "name_bn": "কর্ম ও জীবনমুখী শিক্ষা",
+                "chapters": [
+                    ("কর্মেই আনন্দ", "Joy in Work"),
+                    ("আমাদের প্রয়োজনীয় কাজ", "Our Necessary Tasks"),
+                    ("শিক্ষায় সফলতা", "Success in Education"),
+                ]
+            },
+            "Agriculture Studies": {
+                "name_bn": "কৃষি শিক্ষা",
+                "chapters": [
+                    ("আমাদের জীবনে কৃষি", "Agriculture in Our Life"),
+                    ("কৃষি প্রযুক্তি", "Agricultural Technology"),
+                    ("কৃষি উপকরণ", "Agricultural Implements"),
+                    ("কৃষি ও জলবায়ু", "Agriculture and Climate"),
+                    ("কৃষি উৎপাদন", "Agricultural Production"),
+                    ("বনায়ন", "Afforestation"),
                 ]
             },
             "ICT": {
                 "name_bn": "তথ্য ও যোগাযোগ প্রযুক্তি",
                 "chapters": [
                     ("তথ্য ও যোগাযোগ প্রযুক্তি পরিচিতি", "Introduction to ICT"),
-                    ("কম্পিউটার পরিচিতি", "Introduction to Computers"),
-                    ("ইন্টারনেট পরিচিতি", "Introduction to Internet"),
+                    ("তথ্য ও যোগাযোগ প্রযুক্তি-সংলগ্ন যন্ত্রপাতি", "ICT Peripheral Devices"),
+                    ("তথ্য ও যোগাযোগ প্রযুক্তির নিরাপদ ব্যবহার", "Safe Use of ICT"),
                     ("ওয়ার্ড প্রসেসিং", "Word Processing"),
-                    ("নিরাপদ ইন্টারনেট ব্যবহার", "Safe Internet Usage"),
+                    ("ইন্টারনেট পরিচিতি", "Introduction to Internet"),
                 ]
             },
         }
@@ -334,12 +375,24 @@ NCTB_DATA = {
             "Bangla": {
                 "name_bn": "বাংলা",
                 "chapters": [
-                    ("কাবুলিওয়ালা", "Kabuliwala"),
-                    ("মানুষ", "Human"),
-                    ("প্রিয় বাংলাদেশ", "Dear Bangladesh"),
-                    ("পত্র লিখন", "Letter Writing"),
-                    ("ব্যাকরণ - শব্দ ও পদ", "Grammar - Words and Parts"),
-                    ("অনুচ্ছেদ রচনা", "Paragraph Writing"),
+                    ("কাবুলিওয়ালা", "রবীন্দ্রনাথ ঠাকুর"),
+                    ("ফণ্ড এমনকম", "আবুবকর সিদ্ধিক"),
+                    ("রক-জীবন", "হেইনুউত্বা বাবার"),
+                    ("শক্ত বেটে করিতা", "দুর্গেশ মুলিয়া"),
+                    ("পাপি", "সীমা মধুমান"),
+                    ("বিশুদেশীর গান", "রাজেন হারবিন"),
+                    ("ধরণী", "মাধুর শহর"),
+                    ("সেই বেটোবি", "মধুর শহর"),
+                    ("বচ উত্তরিতার দেশ - বাংলাদেশ", "এ. টি. দেশাই"),
+                    ("নতুন দেশ", "রবীন্দ্রনাথ ঠাকুর"),
+                    ("রূপি-রূপুর", "কাজী নজরুল ইসলাম"),
+                    ("আমার রাত", "জসিমউদ্দিন"),
+                    ("প্রাণেল", "সুকুমার রায়"),
+                    ("পরিবেশ মা-জন্নতী", "সুফিয়া কামাল"),
+                    ("মায়া", "সুফিয়া কামাল"),
+                    ("বেলা", "আবোশাম হারিব"),
+                    ("এই অঞ্চরে", "মধুর শহর"),
+                    ("শিশু", "হাসান রোবায়েত"),
                 ]
             },
             "English": {
@@ -357,43 +410,72 @@ NCTB_DATA = {
                 "name_bn": "গণিত",
                 "chapters": [
                     ("মূলদ ও অমূলদ সংখ্যা", "Rational and Irrational Numbers"),
-                    ("সূচক ও লগারিদম", "Exponents and Logarithms"),
-                    ("বীজগাণিতিক সূত্রাবলী", "Algebraic Formulas"),
-                    ("সমীকরণ", "Equations"),
-                    ("জ্যামিতি - চতুর্ভুজ", "Geometry - Quadrilaterals"),
-                    ("বৃত্ত", "Circle"),
-                    ("পরিসংখ্যান", "Statistics"),
+                    ("সমানুপাত ও অনুপাত", "Ratio and Proportion"),
+                    ("পরিমাপ", "Measurement"),
+                    ("বীজগাণিতিক রাশির গুণ ও ভাগ", "Multiplication and Division of Algebraic Expressions"),
+                    ("বীজগাণিতিক সূত্রাবলি ও প্রয়োগ", "Algebraic Formulas and Applications"),
+                    ("বীজগাণিতিক ভগ্নাংশ", "Algebraic Fractions"),
+                    ("সরল সমীকরণ", "Linear Equations"),
+                    ("সমান্তরাল সরলরেখা", "Parallel Lines"),
+                    ("ত্রিভুজ", "Triangles"),
+                    ("সদৃশতা ও সমতুল্যতা", "Similarity and Congruence"),
+                    ("তথ্য ও উপাত্ত", "Data and Statistics"),
                 ]
             },
             "General Science": {
                 "name_bn": "সাধারণ বিজ্ঞান",
                 "chapters": [
-                    ("জীবের বংশগতি", "Heredity of Living Things"),
-                    ("মানবদেহের তন্ত্র", "Human Body Systems"),
-                    ("পদার্থের রাসায়নিক পরিবর্তন", "Chemical Changes of Matter"),
+                    ("নিম্নজীবনের জীবন", "Life of Microorganisms"),
+                    ("উদ্ভিদ ও প্রাণীর কোষীয় সংগঠন", "Cellular Structure of Plants and Animals"),
+                    ("উদ্ভিদের বাহ্যিক বৈশিষ্ট্য", "External Features of Plants"),
+                    ("শ্বসন", "Respiration"),
+                    ("পরিবহন ও রক্ত সঞ্চালন", "Transport and Blood Circulation"),
+                    ("পদার্থের গঠন", "Structure of Matter"),
+                    ("শক্তির ব্যবহার", "Use of Energy"),
+                    ("শব্দ", "Sound"),
                     ("তাপ ও তাপমাত্রা", "Heat and Temperature"),
-                    ("আলো", "Light"),
                     ("বিদ্যুৎ ও চুম্বক", "Electricity and Magnetism"),
+                    ("পৃথিবীর পৃষ্ঠের পরিবর্তন", "Changes of Earth's Surface"),
+                    ("সৌরজগৎ ও আমাদের পৃথিবী", "Solar System and Our Earth"),
+                    ("প্রাকৃতিক পরিবেশ এবং দূষণ", "Natural Environment and Pollution"),
+                    ("জলবায়ু পরিবর্তন", "Climate Change"),
                 ]
             },
             "Bangladesh and Global Studies": {
                 "name_bn": "বাংলাদেশ ও বিশ্বপরিচয়",
                 "chapters": [
-                    ("প্রাচীন বাংলার ইতিহাস", "History of Ancient Bengal"),
-                    ("মধ্যযুগের বাংলা", "Medieval Bengal"),
-                    ("ব্রিটিশ শাসন", "British Rule"),
-                    ("বাংলাদেশের সংবিধান", "Constitution of Bangladesh"),
-                    ("ইউরোপ ও আমেরিকা", "Europe and America"),
+                    ("বাংলাদেশের মুক্তিযুদ্ধ ও গণঅন্দোলন", "Liberation War and Mass Movement of Bangladesh"),
+                    ("বাংলাদেশের সংস্কৃতি ও সাংস্কৃতিক ঐতিহ্য", "Culture and Cultural Heritage of Bangladesh"),
+                    ("পরিবারে শিশুর বেড়ে ওঠা", "Child Upbringing in the Family"),
+                    ("বাংলাদেশের অর্থনীতি", "Economy of Bangladesh"),
+                    ("বাংলাদেশ ও বাংলাদেশের নাগরিক", "Bangladesh and Its Citizens"),
+                    ("বাংলাদেশের জলবায়ু", "Bangladesh's Climate"),
+                    ("বাংলাদেশের জনসংখ্যা পরিচিতি", "Introduction to Bangladesh's Population"),
+                    ("বাংলাদেশের সামাজিক সমস্যা", "Social Problems of Bangladesh"),
+                    ("বাংলাদেশে প্রবীণ ব্যক্তি ও নারীর অধিকার", "Rights of Elderly and Women in Bangladesh"),
+                    ("এশিয়ার কয়েকটি দেশ", "Some Countries of Asia"),
+                    ("বাংলাদেশ ও আন্তর্জাতিক সহযোগিতা", "Bangladesh and International Cooperation"),
+                ]
+            },
+            "Arts and Crafts": {
+                "name_bn": "চারুকলা ও কারুশিল্প",
+                "chapters": [
+                    ("বাংলাদেশে চারুকলা শিক্ষার ইতিহাস", "History of Fine Arts Education in Bangladesh"),
+                    ("চিত্রকলা সর্বকালে সব মানুষের ভাষা", "Painting: A Universal Language"),
+                    ("বাংলাদেশের লোকশিল্প ও কারুশিল্প", "Folk Art and Handicrafts of Bangladesh"),
+                    ("ছবি আঁকার বিভিন্ন মাধ্যম", "Different Media for Drawing/Painting"),
+                    ("ছবি আঁকার নানারকম আনন্দদায়ক অনুশীলন", "Various Enjoyable Drawing Practices"),
+                    ("বিভিন্ন প্রকার শিল্পকর্ম", "Different Types of Artwork"),
                 ]
             },
             "ICT": {
                 "name_bn": "তথ্য ও যোগাযোগ প্রযুক্তি",
                 "chapters": [
-                    ("ডিজিটাল বাংলাদেশ", "Digital Bangladesh"),
-                    ("স্প্রেডশিট", "Spreadsheet"),
-                    ("ইন্টারনেট ও ই-মেইল", "Internet and Email"),
-                    ("মাল্টিমিডিয়া", "Multimedia"),
-                    ("সাইবার নিরাপত্তা", "Cyber Security"),
+                    ("প্রাত্যাহিক জীবনে তথ্য ও যোগাযোগ প্রযুক্তি", "ICT in Everyday Life"),
+                    ("কম্পিউটার-সংলগ্ন যন্ত্রপাতি", "Computer and Peripheral Devices"),
+                    ("নিরাপদ ও নৈতিক ব্যবহার", "Safe and Ethical Use"),
+                    ("ওয়ার্ড প্রসেসিং", "Word Processing"),
+                    ("শিক্ষায় ইন্টারনেটের ব্যবহার", "Use of Internet in Education"),
                 ]
             },
         }
@@ -514,6 +596,19 @@ NCTB_DATA = {
                     ("কৃষি ও জলবায়ু", "Agriculture and Climate"),
                     ("কৃষি উৎপাদন", "Agricultural Production"),
                     ("বনায়ন", "Afforestation"),
+                ]
+            },
+            "Arts and Crafts": {
+                "name_bn": "শিল্প ও কারুশিল্প",
+                "chapters": [
+                    ("চিত্রকলা পরিচিতি", "Introduction to Drawing"),
+                    ("রঙের ব্যবহার ও মিশ্রণ", "Color Theory and Mixing"),
+                    ("প্রাকৃতিক বস্তু অঙ্কন", "Still Life Drawing"),
+                    ("ল্যান্ডস্কেপ চিত্রকর্ম", "Landscape Painting"),
+                    ("হস্তশিল্প পরিচিতি", "Introduction to Handicrafts"),
+                    ("কাগজ ভিত্তিক কারুশিল্প", "Paper Crafts"),
+                    ("পুঁতি ও সুতার কাজ", "Beading and Embroidery"),
+                    ("মাটির কাজ ও পটেরি", "Clay Work and Pottery"),
                 ]
             },
         }
