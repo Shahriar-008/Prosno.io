@@ -61,10 +61,8 @@ class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
     
-    # Production requires SECRET_KEY to be set
-    SECRET_KEY = os.environ.get('SECRET_KEY')
-    if not SECRET_KEY:
-        raise ValueError("SECRET_KEY environment variable must be set in production!")
+    # Production requires SECRET_KEY to be set (checked at runtime in create_app)
+    SECRET_KEY = os.environ.get('SECRET_KEY') or generate_secret_key()
     
     # Enforce secure cookies in production
     SESSION_COOKIE_SECURE = True

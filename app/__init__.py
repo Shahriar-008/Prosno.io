@@ -25,6 +25,16 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
+    # Warn if SECRET_KEY not set from environment in production
+    import os
+    import warnings
+    if not app.debug and not os.environ.get('SECRET_KEY'):
+        warnings.warn(
+            "SECRET_KEY not set! Using auto-generated key. "
+            "Set SECRET_KEY environment variable in production.",
+            UserWarning
+        )
+
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
