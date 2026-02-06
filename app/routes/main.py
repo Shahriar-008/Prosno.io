@@ -6,7 +6,7 @@ import os
 
 from app import db, csrf, limiter
 from app.models import Class, Subject, Chapter, Question, GeneratedPaper
-from app.utils.document_generator import generate_paper_from_db
+from app.utils.document_generator import generate_paper_from_db, generate_paper_to_memory
 
 main_bp = Blueprint('main', __name__)
 
@@ -180,12 +180,13 @@ def generate_paper():
         questions, paper_config, output_folder
     )
     
-    # Save to database for tracking
+    # Save to database for tracking (including question IDs for regeneration)
     paper = GeneratedPaper(
         title=paper_title,
         class_id=class_id,
         subject_id=subject_id,
         chapter_ids=chapter_ids,
+        question_ids=[q.id for q in questions],  # Store exact questions used
         question_count=len(questions),
         time_minutes=time_minutes,
         file_path=student_path,
@@ -205,31 +206,75 @@ def generate_paper():
 
 @main_bp.route('/download/<int:paper_id>/<paper_type>')
 def download_paper(paper_id, paper_type):
-    """Download generated paper"""
+    """Download generated paper - regenerates on-the-fly if file was deleted"""
     paper = GeneratedPaper.query.get_or_404(paper_id)
     
-    if paper_type == 'student':
-        file_path = paper.file_path
-        filename = f"Question_Paper_{paper.id}.docx"
-    elif paper_type == 'teacher':
-        file_path = paper.file_path_answers
-        filename = f"Question_Paper_With_Answers_{paper.id}.docx"
-    else:
+    if paper_type not in ('student', 'teacher'):
         abort(400, description="Invalid paper type")
     
-    if not file_path or not os.path.exists(file_path):
-        # File may have been deleted (ephemeral storage on Render)
-        # Return a helpful error message
+    show_answer = (paper_type == 'teacher')
+    filename = f"Question_Paper_{paper.id}.docx" if paper_type == 'student' else f"Question_Paper_With_Answers_{paper.id}.docx"
+    
+    # Try to use existing file first
+    file_path = paper.file_path if paper_type == 'student' else paper.file_path_answers
+    if file_path and os.path.exists(file_path):
+        paper.download_count += 1
+        db.session.commit()
+        return send_file(
+            file_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+    
+    # File doesn't exist - regenerate from stored question IDs
+    question_ids = paper.question_ids or []
+    
+    if question_ids:
+        # Use exact stored question IDs (preserves order)
+        questions = Question.query.filter(Question.id.in_(question_ids)).all()
+        # Preserve original order
+        question_order = {qid: idx for idx, qid in enumerate(question_ids)}
+        questions = sorted(questions, key=lambda q: question_order.get(q.id, 0))
+    else:
+        # Fallback: try to get questions from stored chapters
+        chapter_ids = paper.chapter_ids or []
+        if not chapter_ids:
+            return jsonify({
+                'error': 'Cannot regenerate paper - no question data stored.'
+            }), 404
+        
+        questions = Question.query.filter(
+            Question.chapter_id.in_(chapter_ids),
+            Question.is_active == True
+        ).limit(paper.question_count).all()
+    
+    if not questions:
         return jsonify({
-            'error': 'File not found. Generated files are temporary and may have been deleted. Please generate a new paper.'
+            'error': 'No questions found. The data may have been deleted.'
         }), 404
     
-    # Update download count
+    # Prepare config for regeneration
+    class_obj = Class.query.get(paper.class_id)
+    subject_obj = Subject.query.get(paper.subject_id)
+    
+    paper_config = {
+        'title': paper.title or 'Question Paper',
+        'class_name': class_obj.name_bn if class_obj else '',
+        'subject_name': subject_obj.name_bn if subject_obj else '',
+        'time': paper.time_minutes or len(questions),
+        'marks': len(questions)
+    }
+    
+    # Generate to memory and serve directly
+    student_buffer, teacher_buffer = generate_paper_to_memory(questions, paper_config)
+    buffer = teacher_buffer if show_answer else student_buffer
+    
     paper.download_count += 1
     db.session.commit()
     
     return send_file(
-        file_path,
+        buffer,
         as_attachment=True,
         download_name=filename,
         mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'

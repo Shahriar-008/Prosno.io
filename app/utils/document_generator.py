@@ -3,6 +3,7 @@ Document Generator for Question Papers
 Generates DOCX files with two-column MCQ layout
 """
 import os
+import io
 import json
 import uuid
 from datetime import datetime
@@ -179,12 +180,49 @@ def create_question_paper(questions, output_path, paper_config, show_answer=Fals
         add_question_to_document(document, q, show_answer=show_answer)
         
     # Save the Document
+    if output_path is None:
+        # Return as BytesIO buffer for in-memory use
+        buffer = io.BytesIO()
+        document.save(buffer)
+        buffer.seek(0)
+        return buffer
+    
     output_dir = os.path.dirname(output_path)
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir)
         
     document.save(output_path)
     return output_path
+
+
+def generate_paper_to_memory(questions, paper_config):
+    """
+    Generate both student and teacher copies as in-memory BytesIO buffers.
+    
+    Args:
+        questions: List of Question model objects or dicts
+        paper_config: Configuration dict for the paper
+        
+    Returns:
+        Tuple of (student_buffer, teacher_buffer) - BytesIO objects
+    """
+    # Convert Question models to dicts if needed, with sequential IDs
+    question_list = []
+    for idx, q in enumerate(questions, 1):
+        if hasattr(q, 'to_dict'):
+            q_dict = q.to_dict()
+        else:
+            q_dict = q.copy() if isinstance(q, dict) else q
+        q_dict['id'] = str(idx)
+        question_list.append(q_dict)
+    
+    # Generate Student Copy (No Answers) - in memory
+    student_buffer = create_question_paper(question_list, None, paper_config, show_answer=False)
+    
+    # Generate Teacher Copy (With Answers) - in memory
+    teacher_buffer = create_question_paper(question_list, None, paper_config, show_answer=True)
+    
+    return student_buffer, teacher_buffer
 
 
 def generate_paper_from_db(questions, paper_config, output_folder):

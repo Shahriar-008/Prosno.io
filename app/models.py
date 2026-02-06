@@ -183,6 +183,7 @@ class GeneratedPaper(db.Model):
     class_id = db.Column(db.Integer, db.ForeignKey('classes.id'))
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'))
     chapter_ids = db.Column(db.JSON)  # List of chapter IDs
+    question_ids = db.Column(db.JSON)  # List of specific question IDs used
     question_count = db.Column(db.Integer)
     time_minutes = db.Column(db.Integer)
     file_path = db.Column(db.String(500))

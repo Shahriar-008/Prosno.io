@@ -239,6 +239,8 @@ def _apply_schema_migrations(db):
             ('subjects', 'created_by_id', "INTEGER REFERENCES users(id)"),
             # Chapter table migrations  
             ('chapters', 'created_by_id', "INTEGER REFERENCES users(id)"),
+            # GeneratedPaper migrations
+            ('generated_papers', 'question_ids', "JSON"),
         ]
         
         for table_name, column_name, column_def in migrations:
