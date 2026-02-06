@@ -1,12 +1,25 @@
 """
 Admin routes for Prosno.io
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
 from functools import wraps
+from urllib.parse import urlparse, urljoin
 
 from app import db, limiter
+
+
+def is_safe_url(target: str) -> bool:
+    """
+    Validate that the redirect URL is safe to prevent open redirect attacks.
+    Only allows internal URLs (same host or relative paths).
+    """
+    if not target:
+        return False
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
 from app.models import User, Class, Subject, Chapter, Question, GeneratedPaper, AIGeneratorConfig, AIGeneratorLog, ActivityLog, ROLE_ADMIN, ROLE_EDITOR, admin_required
 
 admin_bp = Blueprint('admin', __name__)
@@ -47,9 +60,17 @@ def login():
             
             user.last_login = datetime.utcnow()
             db.session.commit()
+            
+            # Clear and regenerate session to prevent session fixation attacks
+            session.clear()
+            
             login_user(user, remember=remember)
+            
+            # Validate redirect URL to prevent open redirect attacks
             next_page = request.args.get('next')
-            return redirect(next_page or url_for('admin.dashboard'))
+            if next_page and is_safe_url(next_page):
+                return redirect(next_page)
+            return redirect(url_for('admin.dashboard'))
         else:
             flash('Invalid username or password', 'error')
     

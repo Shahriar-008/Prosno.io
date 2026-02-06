@@ -2,15 +2,26 @@
 Configuration settings for Prosno.io
 """
 import os
+import secrets
 from datetime import timedelta
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 
+def generate_secret_key():
+    """Generate a secure secret key for development. In production, always use SECRET_KEY env var."""
+    return secrets.token_hex(32)
+
+
 class Config:
     """Base configuration"""
-    # Security
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-super-secret-key-change-in-production'
+    # Security - IMPORTANT: Set SECRET_KEY environment variable in production
+    SECRET_KEY = os.environ.get('SECRET_KEY') or generate_secret_key()
+    
+    # Session security settings
+    SESSION_COOKIE_SECURE = os.environ.get('RENDER') or os.environ.get('DYNO')  # True in production (HTTPS)
+    SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
+    SESSION_COOKIE_SAMESITE = 'Lax'  # Protect against CSRF
     
     # Database - Handle PostgreSQL URL for psycopg3 driver
     _database_url = os.environ.get('DATABASE_URL')
@@ -49,7 +60,16 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     """Production configuration"""
     DEBUG = False
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'change-this-in-production'
+    
+    # Production requires SECRET_KEY to be set
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    if not SECRET_KEY:
+        raise ValueError("SECRET_KEY environment variable must be set in production!")
+    
+    # Enforce secure cookies in production
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Strict'
     
     # Database - Render uses DATABASE_URL with postgres:// prefix
     # SQLAlchemy with psycopg3 requires postgresql+psycopg:// so we fix it here

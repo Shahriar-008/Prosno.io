@@ -35,6 +35,32 @@ def create_app(config_class=Config):
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
 
+    # Add security headers to all responses
+    @app.after_request
+    def add_security_headers(response):
+        """Add security headers to prevent common attacks"""
+        # Prevent clickjacking
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        # Prevent MIME type sniffing
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        # Enable XSS filter in older browsers
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        # Referrer policy
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        # Content Security Policy (basic policy - adjust as needed)
+        if not app.debug:
+            response.headers['Content-Security-Policy'] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+                "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; "
+                "img-src 'self' data:; "
+                "connect-src 'self'"
+            )
+            # HSTS - only in production over HTTPS
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        return response
+
     # Register blueprints
     from app.routes.main import main_bp
     from app.routes.admin import admin_bp
@@ -85,12 +111,23 @@ def create_app(config_class=Config):
 def _create_admin_user():
     """Create default admin user if none exists"""
     import os
+    import warnings
     from app.models import User, ROLE_ADMIN
     
     # Use environment variables for production, fallback for dev
     username = os.environ.get('ADMIN_USERNAME', 'Admin')
     password = os.environ.get('ADMIN_PASSWORD', '12345')
     email = os.environ.get('ADMIN_EMAIL', 'admin@prosno.io')
+    
+    # Security warning for default credentials
+    if not os.environ.get('ADMIN_PASSWORD'):
+        warnings.warn(
+            "\n" + "=" * 60 + "\n"
+            "SECURITY WARNING: Using default admin password '12345'!\n"
+            "Set ADMIN_PASSWORD environment variable in production.\n"
+            "=" * 60 + "\n",
+            UserWarning
+        )
     
     try:
         user = User(username=username, email=email, is_admin=True, role=ROLE_ADMIN)
