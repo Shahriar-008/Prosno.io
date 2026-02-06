@@ -412,6 +412,17 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('generatedCount').textContent = data.question_count;
             document.getElementById('downloadStudent').href = data.student_download;
             document.getElementById('downloadTeacher').href = data.teacher_download;
+            
+            // Add click handlers for direct download
+            document.getElementById('downloadStudent').onclick = function(e) {
+                e.preventDefault();
+                window.location.href = data.student_download;
+            };
+            document.getElementById('downloadTeacher').onclick = function(e) {
+                e.preventDefault();
+                window.location.href = data.teacher_download;
+            };
+            
             resultCard.style.display = 'block';
         })
         .catch(err => {
