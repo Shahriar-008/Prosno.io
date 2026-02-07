@@ -5,6 +5,7 @@ Uses a simple table-based layout approach for reliable two-column rendering.
 """
 import io
 import os
+import re
 import subprocess
 import tempfile
 import shutil
@@ -23,6 +24,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 from reportlab.platypus import Flowable
+from reportlab.platypus.flowables import Image as RLImage
 from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -30,110 +32,532 @@ from reportlab.pdfbase.ttfonts import TTFont
 from .document_generator import to_bengali_numeral
 
 
+# ---------------------------------------------------------------------------
+# Math Expression Rendering (using matplotlib)
+# ---------------------------------------------------------------------------
+_MATH_RENDERER_AVAILABLE = False
+try:
+    import matplotlib
+    matplotlib.use('Agg')  # Non-interactive backend
+    import matplotlib.pyplot as plt
+    from matplotlib import mathtext
+    _MATH_RENDERER_AVAILABLE = True
+except ImportError:
+    pass
+
+# Cache for rendered math expressions
+_MATH_CACHE = {}
+
+
+def _text_to_latex(text: str) -> str:
+    """Convert common math notation to LaTeX format.
+    
+    Converts patterns like:
+    - 1/x -> \\frac{1}{x}
+    - x² -> x^{2}
+    - x³ -> x^{3}
+    - (a+b)² -> (a+b)^{2}
+    """
+    if not text:
+        return text
+    
+    result = text
+    
+    # Convert Unicode superscripts to LaTeX
+    superscript_map = {
+        '²': '^{2}', '³': '^{3}', '⁴': '^{4}', '⁵': '^{5}',
+        '⁶': '^{6}', '⁷': '^{7}', '⁸': '^{8}', '⁹': '^{9}', '⁰': '^{0}',
+    }
+    for uni, latex in superscript_map.items():
+        result = result.replace(uni, latex)
+    
+    # Convert fraction patterns: a/b -> \frac{a}{b}
+    # Handle complex patterns like (a+b)/(c+d), 1/x, etc.
+    
+    # Pattern for parenthesized expressions or single terms
+    term_pattern = r'(\([^)]+\)|[a-zA-Z0-9]+)'
+    fraction_pattern = rf'{term_pattern}\s*/\s*{term_pattern}'
+    
+    def replace_fraction(match):
+        num, den = match.groups()
+        # Remove outer parens if present for cleaner fractions
+        if num.startswith('(') and num.endswith(')'):
+            num = num[1:-1]
+        if den.startswith('(') and den.endswith(')'):
+            den = den[1:-1]
+        return rf'\\frac{{{num}}}{{{den}}}'
+    
+    result = re.sub(fraction_pattern, replace_fraction, result)
+    
+    return result
+
+
+def _render_math_to_image(latex_expr: str, fontsize: int = 10, dpi: int = 150) -> Optional[io.BytesIO]:
+    """Render a LaTeX math expression to a PNG image buffer."""
+    if not _MATH_RENDERER_AVAILABLE:
+        return None
+    
+    cache_key = (latex_expr, fontsize, dpi)
+    if cache_key in _MATH_CACHE:
+        # Return a fresh copy of cached buffer
+        cached = _MATH_CACHE[cache_key]
+        buf = io.BytesIO(cached)
+        buf.seek(0)
+        return buf
+    
+    try:
+        fig, ax = plt.subplots(figsize=(0.01, 0.01))
+        ax.axis('off')
+        
+        # Render the math expression
+        text = ax.text(0, 0, f'${latex_expr}$', fontsize=fontsize, 
+                      verticalalignment='center', horizontalalignment='left')
+        
+        # Get the bounding box
+        fig.canvas.draw()
+        bbox = text.get_window_extent(fig.canvas.get_renderer())
+        
+        # Resize figure to fit text
+        fig.set_size_inches(bbox.width / dpi + 0.1, bbox.height / dpi + 0.05)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        text.set_position((0.05, 0.5))
+        
+        # Save to buffer
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=dpi, transparent=True, 
+                   bbox_inches='tight', pad_inches=0.02)
+        plt.close(fig)
+        
+        # Cache the raw bytes
+        buf.seek(0)
+        _MATH_CACHE[cache_key] = buf.read()
+        buf.seek(0)
+        return buf
+    except Exception:
+        return None
+
+
+def _has_math_expression(text: str) -> bool:
+    """Check if text contains math expressions that need special rendering."""
+    if not text:
+        return False
+    # Check for fractions, exponents, or math operators
+    math_indicators = [
+        '/', '²', '³', '⁴', '⁵', '^',
+        '√', '∛', '±', '×', '÷',
+    ]
+    return any(ind in text for ind in math_indicators)
+
+
+def _has_fraction(text: str) -> bool:
+    """Check if text contains a fraction pattern like a/b."""
+    if not text or '/' not in text:
+        return False
+    # Pattern: term/term where term is (expr) or alphanumeric
+    return bool(re.search(r'(\([^)]+\)|[a-zA-Z0-9]+)\s*/\s*(\([^)]+\)|[a-zA-Z0-9]+)', text))
+
+
+def _format_math_text(text: str) -> str:
+    """Convert math notation to ReportLab's Paragraph-compatible markup.
+    
+    Converts:
+    - x² → x<super>2</super>
+    - x³ → x<super>3</super>  
+    - x^2 → x<super>2</super>
+    - x^{12} → x<super>12</super>
+    """
+    if not text:
+        return text
+    
+    result = text
+    
+    # Convert Unicode superscripts to <super> tags
+    superscript_map = {
+        '⁰': '<super>0</super>',
+        '¹': '<super>1</super>',
+        '²': '<super>2</super>',
+        '³': '<super>3</super>',
+        '⁴': '<super>4</super>',
+        '⁵': '<super>5</super>',
+        '⁶': '<super>6</super>',
+        '⁷': '<super>7</super>',
+        '⁸': '<super>8</super>',
+        '⁹': '<super>9</super>',
+    }
+    for uni, tag in superscript_map.items():
+        result = result.replace(uni, tag)
+    
+    # Convert ^{...} notation to <super>...</super>
+    result = re.sub(r'\^\{([^}]+)\}', r'<super>\1</super>', result)
+    
+    # Convert simple ^n notation (single digit/letter) to <super>
+    result = re.sub(r'\^([0-9a-zA-Z])', r'<super>\1</super>', result)
+    
+    # Convert Unicode subscripts to <sub> tags
+    subscript_map = {
+        '₀': '<sub>0</sub>',
+        '₁': '<sub>1</sub>',
+        '₂': '<sub>2</sub>',
+        '₃': '<sub>3</sub>',
+        '₄': '<sub>4</sub>',
+        '₅': '<sub>5</sub>',
+        '₆': '<sub>6</sub>',
+        '₇': '<sub>7</sub>',
+        '₈': '<sub>8</sub>',
+        '₉': '<sub>9</sub>',
+    }
+    for uni, tag in subscript_map.items():
+        result = result.replace(uni, tag)
+    
+    return result
+
+
+def _is_pure_math(text: str) -> bool:
+    """Check if text is purely mathematical (no Bengali/other scripts).
+    
+    Returns True if text only contains ASCII letters, numbers, math symbols.
+    """
+    if not text:
+        return False
+    # Math-safe characters
+    allowed = set('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+                  '+-*/=()[]{}^²³⁴⁵⁶⁷⁸⁹⁰₀₁₂₃₄₅₆₇₈₉. ')
+    return all(c in allowed for c in text)
+
+
+def _to_latex(text: str) -> str:
+    """Convert math expression to LaTeX for matplotlib rendering."""
+    result = text
+    
+    # Convert Unicode superscripts to LaTeX
+    sup_map = {'²': '^{2}', '³': '^{3}', '⁴': '^{4}', '⁵': '^{5}',
+               '⁶': '^{6}', '⁷': '^{7}', '⁸': '^{8}', '⁹': '^{9}', '⁰': '^{0}'}
+    for uni, latex in sup_map.items():
+        result = result.replace(uni, latex)
+    
+    # Convert subscripts
+    sub_map = {'₀': '_{0}', '₁': '_{1}', '₂': '_{2}', '₃': '_{3}', '₄': '_{4}',
+               '₅': '_{5}', '₆': '_{6}', '₇': '_{7}', '₈': '_{8}', '₉': '_{9}'}
+    for uni, latex in sub_map.items():
+        result = result.replace(uni, latex)
+    
+    # Convert fractions: a/b -> \frac{a}{b}
+    # Handle (expr)/term, term/(expr), (expr)/(expr), term/term
+    def replace_frac(m):
+        num, den = m.group(1), m.group(2)
+        # Strip outer parens for cleaner fractions
+        if num.startswith('(') and num.endswith(')'):
+            num = num[1:-1]
+        if den.startswith('(') and den.endswith(')'):
+            den = den[1:-1]
+        return rf'\\frac{{{num}}}{{{den}}}'
+    
+    # Match fractions: (complex expr) / (complex expr) or simple/simple
+    term = r'(\([^)]+\)|[a-zA-Z0-9^{}]+)'
+    result = re.sub(rf'{term}\s*/\s*{term}', replace_frac, result)
+    
+    return result
+
+
+def _parse_fraction_from_text(text: str) -> tuple:
+    """Parse a fraction pattern from text, returns (before, numerator, denominator, after) or None."""
+    if not text or '/' not in text:
+        return None
+    # Pattern for fractions: (expr)/term, term/(expr), (expr)/(expr), term/term
+    pattern = r'(.*?)(\([^)]+\)|[a-zA-Z0-9]+)\s*/\s*(\([^)]+\)|[a-zA-Z0-9]+)(.*)'
+    match = re.match(pattern, text, re.DOTALL)
+    if match:
+        before, num, den, after = match.groups()
+        # Strip outer parentheses if present
+        if num.startswith('(') and num.endswith(')'):
+            num = num[1:-1]
+        if den.startswith('(') and den.endswith(')'):
+            den = den[1:-1]
+        return before.strip(), num.strip(), den.strip(), after.strip()
+    return None
+
+
+class FractionFlowable(Flowable):
+    """Flowable that renders a stacked fraction (numerator over denominator)."""
+    
+    def __init__(self, numerator: str, denominator: str, style: ParagraphStyle, 
+                 max_width: float = 50):
+        super().__init__()
+        self.numerator = numerator
+        self.denominator = denominator
+        self.style = style
+        self.max_width = max_width
+        self._width = 0
+        self._height = 0
+        self._num_para = None
+        self._den_para = None
+    
+    def wrap(self, availWidth, availHeight):
+        # Create smaller style for fraction parts
+        frac_style = ParagraphStyle(
+            'FractionPart',
+            fontName=self.style.fontName,
+            fontSize=self.style.fontSize * 0.8,  # Slightly smaller
+            leading=self.style.fontSize * 0.9,
+            alignment=TA_CENTER,
+        )
+        
+        self._num_para = Paragraph(_escape(self.numerator), frac_style)
+        self._den_para = Paragraph(_escape(self.denominator), frac_style)
+        
+        num_w, num_h = self._num_para.wrap(self.max_width, availHeight)
+        den_w, den_h = self._den_para.wrap(self.max_width, availHeight)
+        
+        self._width = max(num_w, den_w) + 4  # Add padding
+        self._height = num_h + den_h + 3  # Space for fraction line
+        
+        return self._width, self._height
+    
+    def draw(self):
+        c = self.canv
+        
+        # Calculate positions
+        num_w, num_h = self._num_para.wrap(self._width, 100)
+        den_w, den_h = self._den_para.wrap(self._width, 100)
+        
+        # Draw numerator (on top)
+        num_x = (self._width - num_w) / 2
+        num_y = den_h + 3  # Above the line
+        self._num_para.drawOn(c, num_x, num_y)
+        
+        # Draw fraction line
+        c.saveState()
+        c.setLineWidth(0.5)
+        c.setStrokeColor(colors.black)
+        c.line(0, den_h + 1.5, self._width, den_h + 1.5)
+        c.restoreState()
+        
+        # Draw denominator (below)
+        den_x = (self._width - den_w) / 2
+        self._den_para.drawOn(c, den_x, 0)
+
+
+class MathTextFlowable(Flowable):
+    """Flowable that renders text with inline fractions and superscripts."""
+    
+    def __init__(self, text: str, style: ParagraphStyle):
+        super().__init__()
+        self.text = text
+        self.style = style
+        self._parts = []  # List of (flowable, width, height)
+        self._width = 0
+        self._height = 0
+        self._wrapped = False
+    
+    def _build_parts(self, availWidth: float) -> list:
+        """Parse text and build list of flowables/strings."""
+        parts = []
+        remaining = self.text
+        
+        while remaining:
+            frac = _parse_fraction_from_text(remaining)
+            if frac:
+                before, num, den, after = frac
+                if before:
+                    parts.append(('text', before))
+                parts.append(('fraction', num, den))
+                remaining = after
+            else:
+                parts.append(('text', remaining))
+                break
+        
+        return parts
+    
+    def wrap(self, availWidth, availHeight):
+        if self._wrapped:
+            return self._width, self._height
+            
+        parts = self._build_parts(availWidth)
+        
+        total_width = 0
+        max_height = self.style.fontSize + 2  # Minimum height
+        self._parts = []
+        
+        for part in parts:
+            if part[0] == 'text':
+                # Apply math formatting (superscripts, etc.)
+                formatted = _format_math_text(part[1])
+                # Escape only if there are no existing tags
+                if '<' not in formatted:
+                    formatted = _escape(formatted)
+                para = Paragraph(formatted, self.style)
+                try:
+                    w, h = para.wrap(max(availWidth - total_width, 50), availHeight)
+                except Exception:
+                    # Fallback for problematic text
+                    para = Paragraph(_escape(part[1]), self.style)
+                    w, h = para.wrap(max(availWidth - total_width, 50), availHeight)
+                self._parts.append((para, w, h))
+                total_width += w
+                max_height = max(max_height, h)
+            elif part[0] == 'fraction':
+                frac = FractionFlowable(part[1], part[2], self.style)
+                w, h = frac.wrap(50, availHeight)
+                self._parts.append((frac, w, h))
+                total_width += w + 2  # Add small gap
+                max_height = max(max_height, h)
+        
+        self._width = min(total_width, availWidth) if total_width > 0 else availWidth
+        self._height = max_height
+        self._wrapped = True
+        return self._width, self._height
+    
+    def draw(self):
+        x = 0
+        for flowable, w, h in self._parts:
+            # Vertically center each part
+            y_offset = (self._height - h) / 2
+            flowable.drawOn(self.canv, x, y_offset)
+            x += w + 2
+
+
+class MathImageFlowable(Flowable):
+    """Flowable that renders a math expression as an image using matplotlib."""
+    
+    def __init__(self, latex_expr: str, fontsize: int = 10, maxwidth: float = 100):
+        super().__init__()
+        self.latex_expr = latex_expr
+        self.fontsize = fontsize
+        self.maxwidth = maxwidth
+        self._img_reader = None
+        self._img_width = 0
+        self._img_height = 0
+    
+    def wrap(self, availWidth, availHeight):
+        if self._img_reader is None and _MATH_RENDERER_AVAILABLE:
+            img_buf = _render_math_to_image(self.latex_expr, self.fontsize)
+            if img_buf:
+                from reportlab.lib.utils import ImageReader
+                from PIL import Image
+                img = Image.open(img_buf)
+                # Scale to reasonable size (72 DPI)
+                scale = 72 / 150  # dpi ratio
+                self._img_width = min(img.width * scale, self.maxwidth)
+                self._img_height = img.height * scale * (self._img_width / (img.width * scale))
+                img_buf.seek(0)
+                self._img_reader = ImageReader(img_buf)
+        
+        return (self._img_width, self._img_height) if self._img_reader else (0, 0)
+    
+    def draw(self):
+        if self._img_reader:
+            self.canv.drawImage(
+                self._img_reader, 0, 0,
+                width=self._img_width, height=self._img_height,
+                mask='auto'
+            )
+
+
 # --- WeasyPrint HTML renderer helper ---
 def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
-        """Return HTML string for the question paper. Uses local font files via file:// URIs."""
-        # locate fonts
-        fonts_dir = Path(_FONTS_DIR)
-        regular = fonts_dir.joinpath('NotoSansBengali-Regular.ttf').as_uri()
-        bold = fonts_dir.joinpath('NotoSansBengali-Bold.ttf').as_uri() if fonts_dir.joinpath('NotoSansBengali-Bold.ttf').exists() else regular
+    """Return HTML string for the question paper. Uses local font files via file:// URIs."""
+    # locate fonts
+    fonts_dir = Path(_FONTS_DIR)
+    regular = fonts_dir.joinpath('NotoSansBengali-Regular.ttf').as_uri()
+    bold = fonts_dir.joinpath('NotoSansBengali-Bold.ttf').as_uri() if fonts_dir.joinpath('NotoSansBengali-Bold.ttf').exists() else regular
 
-        def esc(s):
-                return (str(s) if s is not None else '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    def esc(s):
+        return (str(s) if s is not None else '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
-        title = esc(paper_config.get('title', 'Home Test'))
-        class_name = esc(paper_config.get('class_name', ''))
-        subject_name = esc(paper_config.get('subject_name', ''))
-        bengali_time = to_bengali_numeral(paper_config.get('time', len(questions)))
-        bengali_marks = to_bengali_numeral(paper_config.get('marks', len(questions)))
+    title = esc(paper_config.get('title', 'Home Test'))
+    class_name = esc(paper_config.get('class_name', ''))
+    subject_name = esc(paper_config.get('subject_name', ''))
+    bengali_time = to_bengali_numeral(paper_config.get('time', len(questions)))
+    bengali_marks = to_bengali_numeral(paper_config.get('marks', len(questions)))
 
-        # CSS: two columns, simple table for options
-        css = f"""
-        @font-face {{
-            font-family: 'NotoSansBengaliLocal';
-            src: url('{regular}');
-            font-weight: normal;
-        }}
-        @font-face {{
-            font-family: 'NotoSansBengaliLocal';
-            src: url('{bold}');
-            font-weight: bold;
-        }}
-        body {{ font-family: 'NotoSansBengaliLocal', sans-serif; font-size: 12px; }}
-        .container {{ width: 100%; max-width: 800px; margin: 0 auto; }}
-        .header {{ text-align:center; }}
-        .meta {{ display:flex; justify-content:space-between; margin-bottom:8px; }}
-        .questions {{ column-count: 2; column-gap: 24px; }}
-        .question {{ break-inside: avoid; margin-bottom:6px; }}
-        .qtext {{ font-weight:700; margin-bottom:4px; }}
-        .opts {{ width:100%; border-collapse:collapse; }}
-        .opts td {{ vertical-align:top; padding:2px 6px 2px 0; }}
-        .circle {{ display:inline-block; width:12px; height:12px; border-radius:50%; border:1px solid #000; margin-right:6px; vertical-align:middle; }}
-        .circle.filled {{ background:#000; }}
-        """
+    # CSS: two columns, simple table for options
+    css = f"""
+    @font-face {{
+        font-family: 'NotoSansBengaliLocal';
+        src: url('{regular}');
+        font-weight: normal;
+    }}
+    @font-face {{
+        font-family: 'NotoSansBengaliLocal';
+        src: url('{bold}');
+        font-weight: bold;
+    }}
+    body {{ font-family: 'NotoSansBengaliLocal', sans-serif; font-size: 12px; }}
+    .container {{ width: 100%; max-width: 800px; margin: 0 auto; }}
+    .header {{ text-align:center; }}
+    .meta {{ display:flex; justify-content:space-between; margin-bottom:8px; }}
+    .questions {{ column-count: 2; column-gap: 24px; }}
+    .question {{ break-inside: avoid; margin-bottom:6px; }}
+    .qtext {{ font-weight:700; margin-bottom:4px; }}
+    .opts {{ width:100%; border-collapse:collapse; }}
+    .opts td {{ vertical-align:top; padding:2px 6px 2px 0; }}
+    .circle {{ display:inline-block; width:12px; height:12px; border-radius:50%; border:1px solid #000; margin-right:6px; vertical-align:middle; }}
+    .circle.filled {{ background:#000; }}
+    """
 
-        # Build questions HTML
-        q_html = []
-        for idx, q in enumerate(questions, 1):
-                qid = esc(q.get('id', idx))
-                qtext = esc(q.get('question_text', ''))
-                q_block = [f"<div class='question'><div class='qtext'>{qid}. {qtext}</div>"]
-                # complex sub-options
-                if q.get('type') == 'complex':
-                        for sub in q.get('sub_options', []):
-                                q_block.append(f"<div class='sub'>{esc(sub)}</div>")
-                        q_block.append(f"<div class='prompt'><strong>{esc(q.get('final_prompt','নিচের কোনটি সঠিক?'))}</strong></div>")
+    # Build questions HTML
+    q_html = []
+    for idx, q in enumerate(questions, 1):
+        qid = esc(q.get('id', idx))
+        qtext = esc(q.get('question_text', ''))
+        q_block = [f"<div class='question'><div class='qtext'>{qid}. {qtext}</div>"]
+        # complex sub-options
+        if q.get('type') == 'complex':
+            for sub in q.get('sub_options', []):
+                q_block.append(f"<div class='sub'>{esc(sub)}</div>")
+            q_block.append(f"<div class='prompt'><strong>{esc(q.get('final_prompt','নিচের কোনটি সঠিক?'))}</strong></div>")
 
-                opts = q.get('answer_options', [])
-                correct = str(q.get('correct_answer','')).strip()
-                if len(opts) >= 4:
-                        # two-row 2x2 table
-                        q_block.append("<table class='opts'><tr>")
-                        for i in range(4):
-                                opt = esc(opts[i])
-                                is_correct = show_answer and (str(opts[i]).strip() == correct)
-                                circle_cls = 'circle filled' if is_correct else 'circle'
-                                # prefix Bengali letters
-                                prefix = ['ক)', 'খ)', 'গ)', 'ঘ)'][i]
-                                q_block.append(f"<td><span class='{circle_cls}'></span>{prefix} {opt}</td>")
-                                if i % 2 == 1 and i != 3:
-                                        q_block.append('</tr><tr>')
-                        q_block.append('</tr></table>')
-                else:
-                        for i, opt in enumerate(opts):
-                                is_correct = show_answer and (str(opt).strip() == correct)
-                                circle_cls = 'circle filled' if is_correct else 'circle'
-                                prefix = ['ক)', 'খ)', 'গ)', 'ঘ)'][i] if i < 4 else ''
-                                q_block.append(f"<div><span class='{circle_cls}'></span>{prefix} {esc(opt)}</div>")
+        opts = q.get('answer_options', [])
+        correct = str(q.get('correct_answer', '')).strip()
+        if len(opts) >= 4:
+            # two-row 2x2 table
+            q_block.append("<table class='opts'><tr>")
+            for i in range(4):
+                opt = esc(opts[i])
+                is_correct = show_answer and (str(opts[i]).strip() == correct)
+                circle_cls = 'circle filled' if is_correct else 'circle'
+                # prefix Bengali letters
+                prefix = ['ক)', 'খ)', 'গ)', 'ঘ)'][i]
+                q_block.append(f"<td><span class='{circle_cls}'></span>{prefix} {opt}</td>")
+                if i % 2 == 1 and i != 3:
+                    q_block.append('</tr><tr>')
+            q_block.append('</tr></table>')
+        else:
+            for i, opt in enumerate(opts):
+                is_correct = show_answer and (str(opt).strip() == correct)
+                circle_cls = 'circle filled' if is_correct else 'circle'
+                prefix = ['ক)', 'খ)', 'গ)', 'ঘ)'][i] if i < 4 else ''
+                q_block.append(f"<div><span class='{circle_cls}'></span>{prefix} {esc(opt)}</div>")
 
-                q_block.append('</div>')
-                q_html.append(''.join(q_block))
+        q_block.append('</div>')
+        q_html.append(''.join(q_block))
 
-        html = f"""
-        <html>
-        <head>
-            <meta charset='utf-8'/>
-            <style>{css}</style>
-        </head>
-        <body>
-            <div class='container'>
-                <div class='header'>
-                    <h1>{title}</h1>
-                    <div>{class_name}</div>
-                    <div>{subject_name}</div>
-                </div>
-                <div class='meta'>
-                    <div>সময়— {bengali_time} মিনিট</div>
-                    <div>পূর্ণমান— {bengali_marks}</div>
-                </div>
-                <div class='questions'>
-                    {''.join(q_html)}
-                </div>
+    html = f"""
+    <html>
+    <head>
+        <meta charset='utf-8'/>
+        <style>{css}</style>
+    </head>
+    <body>
+        <div class='container'>
+            <div class='header'>
+                <h1>{title}</h1>
+                <div>{class_name}</div>
+                <div>{subject_name}</div>
             </div>
-        </body>
-        </html>
-        """
-        return html
+            <div class='meta'>
+                <div>সময়— {bengali_time} মিনিট</div>
+                <div>পূর্ণমান— {bengali_marks}</div>
+            </div>
+            <div class='questions'>
+                {''.join(q_html)}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html
 
 
 # ---------------------------------------------------------------------------
@@ -340,31 +764,58 @@ def _escape(text: str) -> str:
     )
 
 
+def _escape_and_format_math(text: str) -> str:
+    """Escape text and format math expressions for ReportLab.
+    
+    Order matters: first escape, then add ReportLab tags for math.
+    """
+    if not text:
+        return text
+    
+    # First escape XML entities
+    result = _escape(text)
+    
+    # Then apply math formatting (add <super>/<sub> tags)
+    result = _format_math_text(result)
+    
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Question Builders
 # ---------------------------------------------------------------------------
+def _build_question_flowable(text: str, style: ParagraphStyle, prefix: str = '') -> Flowable:
+    """Build a flowable for text, using MathTextFlowable if fractions are detected."""
+    # Check if text has fractions that need special rendering
+    if _has_fraction(text):
+        full_text = f'{prefix}{text}' if prefix else text
+        return MathTextFlowable(full_text, style)
+    else:
+        formatted = _escape_and_format_math(text)
+        full_text = f'{prefix}{formatted}' if prefix else formatted
+        return Paragraph(full_text, style)
+
+
 def _build_question_cell(q: dict, show_answer: bool, styles: dict) -> list:
     """Build flowables for one question (for use in a table cell)."""
     flowables = []
 
-    q_text = _escape(q.get('question_text', ''))
+    q_text = q.get('question_text', '')
     q_id = _escape(str(q.get('id', '')))
 
-    # Question text
-    flowables.append(
-        Paragraph(f'{q_id}. {q_text}', styles['question'])
-    )
+    # Question text - use MathTextFlowable for fractions
+    if _has_fraction(q_text):
+        flowables.append(MathTextFlowable(f'{q_id}. {q_text}', styles['question']))
+    else:
+        formatted_text = _escape_and_format_math(q_text)
+        flowables.append(Paragraph(f'{q_id}. {formatted_text}', styles['question']))
 
     # Complex question sub-options
     if q.get('type') == 'complex':
         for sub_opt in q.get('sub_options', []):
-            flowables.append(
-                Paragraph(f'. {_escape(sub_opt)}', styles['sub_option'])
-            )
+            flowables.append(_build_question_flowable(sub_opt, styles['sub_option'], prefix='. '))
         prompt = q.get('final_prompt', 'নিচের কোনটি সঠিক?')
-        flowables.append(
-            Paragraph(_escape(prompt), styles['prompt'])
-        )
+        flowables.append(_build_question_flowable(prompt, styles['prompt']))
 
     # Answer options (2x2 table)
     options = q.get('answer_options', [])
@@ -381,7 +832,7 @@ def _build_question_cell(q: dict, show_answer: bool, styles: dict) -> list:
                 is_correct = show_answer and opt_text == correct_ans
                 prefix = BENGALI_PREFIXES[opt_idx]
                 style = styles['option_bold'] if is_correct else styles['option_normal']
-                # Use a custom flowable that draws the OMR circle and the text
+                # Use OptionFlowable which now supports fractions
                 cell = OptionFlowable(prefix, opt_text, style, filled=is_correct)
                 row.append(cell)
             rows.append(row)
@@ -402,28 +853,35 @@ def _build_question_cell(q: dict, show_answer: bool, styles: dict) -> list:
 class OptionFlowable(Flowable):
     """Flowable that draws an OMR-style circle and renders the option text next to it.
 
-    Optimized: defers Paragraph creation until wrap() is called.
+    Supports inline fractions and math expressions.
     """
-    __slots__ = ('prefix', 'text', 'style', 'filled', 'circle_dia', 'paragraph', 'width', 'height')
+    __slots__ = ('prefix', 'text', 'style', 'filled', 'circle_dia', 'content_flowable', 'width', 'height', '_has_frac')
 
     def __init__(self, prefix: str, text: str, style: ParagraphStyle, filled: bool = False, circle_dia: int = 8):
         super().__init__()
         self.prefix = prefix
-        self.text = text  # Store unescaped, escape once in wrap
+        self.text = text  # Store unescaped, process in wrap
         self.style = style
         self.filled = filled
         self.circle_dia = circle_dia
-        self.paragraph = None  # Lazy creation
+        self.content_flowable = None  # Lazy creation
+        self._has_frac = _has_fraction(text)
 
     def wrap(self, availWidth, availHeight):
-        # Create paragraph lazily (avoids overhead if not rendered)
-        if self.paragraph is None:
-            escaped = _escape(self.text)
-            self.paragraph = Paragraph(f'{self.prefix} {escaped}', self.style)
+        # Create content flowable lazily
+        if self.content_flowable is None:
+            full_text = f'{self.prefix} {self.text}'
+            if self._has_frac:
+                # Use MathTextFlowable for fractions
+                self.content_flowable = MathTextFlowable(full_text, self.style)
+            else:
+                # Use regular Paragraph with math formatting for superscripts
+                formatted = _escape_and_format_math(self.text)
+                self.content_flowable = Paragraph(f'{self.prefix} {formatted}', self.style)
         
         gap = 4
         text_avail = max(availWidth - (self.circle_dia + gap), 10)
-        _, h = self.paragraph.wrap(text_avail, availHeight)
+        _, h = self.content_flowable.wrap(text_avail, availHeight)
         self.width = availWidth
         self.height = max(h, self.circle_dia)
         return (self.width, self.height)
@@ -438,8 +896,8 @@ class OptionFlowable(Flowable):
         c.setStrokeColor(colors.black)
         c.setFillColor(colors.black if self.filled else colors.white)
         c.circle(x, y, radius, stroke=1, fill=1)
-        # Draw text paragraph
-        self.paragraph.drawOn(c, self.circle_dia + 4, 0)
+        # Draw content flowable
+        self.content_flowable.drawOn(c, self.circle_dia + 4, 0)
         c.restoreState()
 
 

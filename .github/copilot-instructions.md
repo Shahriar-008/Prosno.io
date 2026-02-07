@@ -7,15 +7,16 @@ Bengali MCQ question paper generator for Bangladesh NCTB curriculum (Classes 1-1
 
 ### Application Factory
 [app/__init__.py](../app/__init__.py) uses `create_app()` with auto-seeding on first run:
-- Auto-creates admin, seeds NCTB classes (1-10), applies schema migrations
+- Auto-creates admin user, seeds NCTB classes (1-10), applies schema migrations
 - Extensions (`db`, `login_manager`, `csrf`, `limiter`) initialized at module level
+- Global `app = create_app()` at bottom enables `gunicorn app:app`
 
 ### Blueprint Structure
 | Blueprint | Prefix | Purpose |
 |-----------|--------|---------|
 | `main_bp` | `/` | Public: landing, paper generation |
-| `admin_bp` | `/admin` | Protected admin panel |
-| `api_bp` | `/api` | JSON endpoints for frontend |
+| `admin_bp` | `/admin` | Protected admin panel (all routes `@login_required`) |
+| `api_bp` | `/api` | JSON endpoints for frontend (CSRF-exempt) |
 
 ### Data Model Hierarchy
 ```
@@ -23,8 +24,10 @@ Class → Subject → Chapter → Question
 ```
 All content models have: `name`, `name_bn` (bilingual), `is_active` (soft-delete), `order` (sorting).
 
+Additional models: `User`, `GeneratedPaper`, `AIGeneratorConfig`, `AIGeneratorLog`, `ActivityLog`
+
 ### Question Types
-- `simple` - Standard MCQ with 4 options
+- `simple` - Standard MCQ with 4 options (`answer_options`, `correct_answer`)
 - `complex` - Uses `sub_options` (i, ii, iii) + `final_prompt` for combination questions
 
 ## Development
@@ -58,9 +61,11 @@ return jsonify([{'id': c.id, 'name': c.name, 'name_bn': c.name_bn} for c in item
 ```
 
 ### Security
-- Admin routes: `@login_required`, sensitive actions: `@admin_required` decorator
+- Admin routes: `@login_required`, sensitive actions: `@admin_required` decorator  
 - Rate limiting: `@limiter.limit("3 per minute")` on login
-- CSRF enabled globally; exempt API routes with `@csrf.exempt`
+- CSRF enabled globally; API routes use `@csrf.exempt` since they're read-only or JSON-based
+- Session regeneration on login to prevent session fixation
+- Security headers added via `add_security_headers()` in app factory
 
 ### User Roles
 - `ROLE_ADMIN` - Full access, delete, manage users
@@ -71,14 +76,19 @@ return jsonify([{'id': c.id, 'name': c.name, 'name_bn': c.name_bn} for c in item
 - Two-column DOCX layout with `to_bengali_numeral()` for Bengali numbers
 - Student copy (clean) vs Teacher copy (●-marked correct answers)
 - Bengali font: `Nirmala UI` (DOCX), `Noto Sans Bengali` (web)
+- Math expressions use OMML (Office Math Markup Language) for fractions/superscripts
 
 ### AI Generator
 [app/utils/ai_generator.py](../app/utils/ai_generator.py):
+- Supports **Gemini** (default: `gemini-2.0-flash`) and **OpenAI** providers
 - Background thread with `_generator_thread` and `_stop_event` for cancellation
 - Duplicate detection: MD5 hash + 80% text similarity check
 - Prompt template: `DEFAULT_PROMPT_TEMPLATE` with `{class_name}`, `{subject_name}`, `{chapter_name}`, `{count}` placeholders
 
-## External Dependencies
-- **Database**: PostgreSQL (prod via `DATABASE_URL`) / SQLite (dev at `instance/prosno.db`)
-- **OpenAI API**: Configured in admin panel for AI question generation
-- **Deployment**: Render/Heroku (uses `/tmp` for ephemeral files in production)
+## Environment Variables
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `SECRET_KEY` | Flask session encryption | Auto-generated (warn in prod) |
+| `DATABASE_URL` | PostgreSQL connection | SQLite `instance/prosno.db` |
+| `ADMIN_USERNAME/PASSWORD/EMAIL` | Initial admin credentials | Admin / 12345 / admin@prosno.io |
+| `RENDER` or `DYNO` | Production detection | Uses `/tmp` for file storage |
