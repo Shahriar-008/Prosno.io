@@ -236,11 +236,33 @@ def _format_math_text(text: str) -> str:
     - x³ → x<super>3</super>  
     - x^2 → x<super>2</super>
     - x^{12} → x<super>12</super>
+    - 1/x → <super>1</super>/<sub>x</sub> (inline fraction)
+    
+    Inline fractions are rendered as superscript numerator / subscript denominator
+    to maintain text flow without breaking lines.
     """
     if not text:
         return text
     
     result = text
+    
+    # Convert fractions FIRST (before super/subscript handling)
+    # Pattern: (expr)/term, term/(expr), term/term
+    # Uses inline format: superscript numerator / subscript denominator
+    term_pattern = r'(\([^)]+\)|[a-zA-Z0-9]+)'
+    
+    def make_inline_fraction(match):
+        """Build inline fraction using super/sub tags for compact display."""
+        num, den = match.groups()
+        # Strip outer parens for cleaner display
+        if num.startswith('(') and num.endswith(')'):
+            num = num[1:-1]
+        if den.startswith('(') and den.endswith(')'):
+            den = den[1:-1]
+        # Use fraction slash (U+2044) for better visual separation
+        return f'<super>{num}</super>\u2044<sub>{den}</sub>'
+    
+    result = re.sub(rf'{term_pattern}\s*/\s*{term_pattern}', make_inline_fraction, result)
     
     # Convert Unicode superscripts to <super> tags
     superscript_map = {
@@ -902,30 +924,30 @@ def _escape_and_format_math(text: str) -> str:
 # Question Builders
 # ---------------------------------------------------------------------------
 def _build_question_flowable(text: str, style: ParagraphStyle, prefix: str = '') -> Flowable:
-    """Build a flowable for text, using MathTextFlowable if fractions are detected."""
-    # Check if text has fractions that need special rendering
-    if _has_fraction(text):
-        full_text = f'{prefix}{text}' if prefix else text
-        return MathTextFlowable(full_text, style)
-    else:
-        formatted = _escape_and_format_math(text)
-        full_text = f'{prefix}{formatted}' if prefix else formatted
-        return Paragraph(full_text, style)
+    """Build a flowable for text with inline math formatting.
+    
+    Uses _escape_and_format_math to handle fractions, superscripts, and subscripts
+    within a single Paragraph to maintain proper text flow.
+    """
+    formatted = _escape_and_format_math(text)
+    full_text = f'{prefix}{formatted}' if prefix else formatted
+    return Paragraph(full_text, style)
 
 
 def _build_question_cell(q: dict, show_answer: bool, styles: dict) -> list:
-    """Build flowables for one question (for use in a table cell)."""
+    """Build flowables for one question (for use in a table cell).
+    
+    Uses inline math formatting to keep fractions and superscripts within
+    continuous text flow without breaking lines.
+    """
     flowables = []
 
     q_text = q.get('question_text', '')
     q_id = _escape(str(q.get('id', '')))
 
-    # Question text - use MathTextFlowable for fractions
-    if _has_fraction(q_text):
-        flowables.append(MathTextFlowable(f'{q_id}. {q_text}', styles['question']))
-    else:
-        formatted_text = _escape_and_format_math(q_text)
-        flowables.append(Paragraph(f'{q_id}. {formatted_text}', styles['question']))
+    # Question text - use inline math formatting for proper text flow
+    formatted_text = _escape_and_format_math(q_text)
+    flowables.append(Paragraph(f'{q_id}. {formatted_text}', styles['question']))
 
     # Complex question sub-options
     if q.get('type') == 'complex':
@@ -970,9 +992,9 @@ def _build_question_cell(q: dict, show_answer: bool, styles: dict) -> list:
 class OptionFlowable(Flowable):
     """Flowable that draws an OMR-style circle and renders the option text next to it.
 
-    Supports inline fractions and math expressions.
+    Supports inline fractions and math expressions using inline formatting.
     """
-    __slots__ = ('prefix', 'text', 'style', 'filled', 'circle_dia', 'content_flowable', 'width', 'height', '_has_frac')
+    __slots__ = ('prefix', 'text', 'style', 'filled', 'circle_dia', 'content_flowable', 'width', 'height')
 
     def __init__(self, prefix: str, text: str, style: ParagraphStyle, filled: bool = False, circle_dia: int = 8):
         super().__init__()
@@ -982,19 +1004,12 @@ class OptionFlowable(Flowable):
         self.filled = filled
         self.circle_dia = circle_dia
         self.content_flowable = None  # Lazy creation
-        self._has_frac = _has_fraction(text)
 
     def wrap(self, availWidth, availHeight):
-        # Create content flowable lazily
+        # Create content flowable lazily with inline math formatting
         if self.content_flowable is None:
-            full_text = f'{self.prefix} {self.text}'
-            if self._has_frac:
-                # Use MathTextFlowable for fractions
-                self.content_flowable = MathTextFlowable(full_text, self.style)
-            else:
-                # Use regular Paragraph with math formatting for superscripts
-                formatted = _escape_and_format_math(self.text)
-                self.content_flowable = Paragraph(f'{self.prefix} {formatted}', self.style)
+            formatted = _escape_and_format_math(self.text)
+            self.content_flowable = Paragraph(f'{self.prefix} {formatted}', self.style)
         
         gap = 4
         text_avail = max(availWidth - (self.circle_dia + gap), 10)
