@@ -158,6 +158,76 @@ def _has_fraction(text: str) -> bool:
     return bool(re.search(r'(\([^)]+\)|[a-zA-Z0-9]+)\s*/\s*(\([^)]+\)|[a-zA-Z0-9]+)', text))
 
 
+def _format_math_html(text: str) -> str:
+    """
+    Convert math notation to HTML with proper superscripts and stacked fractions.
+    
+    Converts:
+    - x² → x<sup>2</sup>
+    - (1/x) → <span class='frac'>...</span> with stacked numerator/denominator
+    
+    Parameters:
+        text (str): Input text potentially containing math expressions.
+    
+    Returns:
+        str: HTML-formatted string with fractions and superscripts.
+    """
+    if not text:
+        return text
+    
+    # First escape HTML entities
+    result = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    
+    # Convert Unicode superscripts to HTML <sup> tags
+    superscript_map = {
+        '⁰': '<sup>0</sup>', '¹': '<sup>1</sup>', '²': '<sup>2</sup>',
+        '³': '<sup>3</sup>', '⁴': '<sup>4</sup>', '⁵': '<sup>5</sup>',
+        '⁶': '<sup>6</sup>', '⁷': '<sup>7</sup>', '⁸': '<sup>8</sup>',
+        '⁹': '<sup>9</sup>',
+    }
+    for uni, tag in superscript_map.items():
+        result = result.replace(uni, tag)
+    
+    # Convert ^{...} notation to <sup>...</sup>
+    result = re.sub(r'\^\{([^}]+)\}', r'<sup>\1</sup>', result)
+    
+    # Convert simple ^n notation (single digit/letter) to <sup>
+    result = re.sub(r'\^([0-9a-zA-Z])', r'<sup>\1</sup>', result)
+    
+    # Convert Unicode subscripts to HTML <sub> tags
+    subscript_map = {
+        '₀': '<sub>0</sub>', '₁': '<sub>1</sub>', '₂': '<sub>2</sub>',
+        '₃': '<sub>3</sub>', '₄': '<sub>4</sub>', '₅': '<sub>5</sub>',
+        '₆': '<sub>6</sub>', '₇': '<sub>7</sub>', '₈': '<sub>8</sub>',
+        '₉': '<sub>9</sub>',
+    }
+    for uni, tag in subscript_map.items():
+        result = result.replace(uni, tag)
+    
+    # Convert fractions: (expr)/term or term/term => stacked fraction HTML
+    # Pattern: (complex) / term, term / (complex), term/term
+    term_pattern = r'(\([^)]+\)|[a-zA-Z0-9]+)'
+    
+    def make_fraction_html(match):
+        """Build HTML for a stacked fraction."""
+        num, den = match.groups()
+        # Strip outer parens for cleaner display
+        if num.startswith('(') and num.endswith(')'):
+            num = num[1:-1]
+        if den.startswith('(') and den.endswith(')'):
+            den = den[1:-1]
+        return (
+            f"<span class='frac'>"
+            f"<span class='frac-num'>{num}</span>"
+            f"<span class='frac-den'>{den}</span>"
+            f"</span>"
+        )
+    
+    result = re.sub(rf'{term_pattern}\s*/\s*{term_pattern}', make_fraction_html, result)
+    
+    return result
+
+
 def _format_math_text(text: str) -> str:
     """Convert math notation to ReportLab's Paragraph-compatible markup.
     
@@ -456,14 +526,32 @@ class MathImageFlowable(Flowable):
 
 # --- WeasyPrint HTML renderer helper ---
 def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
-    """Return HTML string for the question paper. Uses local font files via file:// URIs."""
+    """
+    Return HTML string for the question paper with proper math rendering.
+    
+    Uses CSS-based stacked fractions and superscripts for math expressions.
+    Uses local font files via file:// URIs for Bengali text support.
+    
+    Parameters:
+        questions (list): List of question dicts with question_text, answer_options, etc.
+        paper_config (dict): Paper configuration with title, class_name, subject_name, time, marks.
+        show_answer (bool): If True, highlight correct answers.
+    
+    Returns:
+        str: Complete HTML document as a string.
+    """
     # locate fonts
     fonts_dir = Path(_FONTS_DIR)
     regular = fonts_dir.joinpath('NotoSansBengali-Regular.ttf').as_uri()
     bold = fonts_dir.joinpath('NotoSansBengali-Bold.ttf').as_uri() if fonts_dir.joinpath('NotoSansBengali-Bold.ttf').exists() else regular
 
     def esc(s):
+        """Escape HTML entities without math formatting."""
         return (str(s) if s is not None else '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    def format_math(s):
+        """Format text with math expressions (fractions, superscripts)."""
+        return _format_math_html(str(s) if s is not None else '')
 
     title = esc(paper_config.get('title', 'Home Test'))
     class_name = esc(paper_config.get('class_name', ''))
@@ -471,7 +559,7 @@ def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
     bengali_time = to_bengali_numeral(paper_config.get('time', len(questions)))
     bengali_marks = to_bengali_numeral(paper_config.get('marks', len(questions)))
 
-    # CSS: two columns, simple table for options
+    # CSS: two columns, fractions, and simple table for options
     css = f"""
     @font-face {{
         font-family: 'NotoSansBengaliLocal';
@@ -494,18 +582,47 @@ def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
     .opts td {{ vertical-align:top; padding:2px 6px 2px 0; }}
     .circle {{ display:inline-block; width:12px; height:12px; border-radius:50%; border:1px solid #000; margin-right:6px; vertical-align:middle; }}
     .circle.filled {{ background:#000; }}
+    /* Stacked fraction styles */
+    .frac {{
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        vertical-align: middle;
+        margin: 0 2px;
+        font-size: 0.85em;
+    }}
+    .frac-num {{
+        border-bottom: 1px solid #000;
+        padding: 0 3px 1px 3px;
+        line-height: 1.1;
+    }}
+    .frac-den {{
+        padding: 1px 3px 0 3px;
+        line-height: 1.1;
+    }}
+    /* Superscript styling */
+    sup {{
+        font-size: 0.7em;
+        vertical-align: super;
+        line-height: 0;
+    }}
+    sub {{
+        font-size: 0.7em;
+        vertical-align: sub;
+        line-height: 0;
+    }}
     """
 
     # Build questions HTML
     q_html = []
     for idx, q in enumerate(questions, 1):
         qid = esc(q.get('id', idx))
-        qtext = esc(q.get('question_text', ''))
+        qtext = format_math(q.get('question_text', ''))
         q_block = [f"<div class='question'><div class='qtext'>{qid}. {qtext}</div>"]
         # complex sub-options
         if q.get('type') == 'complex':
             for sub in q.get('sub_options', []):
-                q_block.append(f"<div class='sub'>{esc(sub)}</div>")
+                q_block.append(f"<div class='sub'>{format_math(sub)}</div>")
             q_block.append(f"<div class='prompt'><strong>{esc(q.get('final_prompt','নিচের কোনটি সঠিক?'))}</strong></div>")
 
         opts = q.get('answer_options', [])
@@ -514,12 +631,12 @@ def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
             # two-row 2x2 table
             q_block.append("<table class='opts'><tr>")
             for i in range(4):
-                opt = esc(opts[i])
+                opt_text = format_math(opts[i])
                 is_correct = show_answer and (str(opts[i]).strip() == correct)
                 circle_cls = 'circle filled' if is_correct else 'circle'
                 # prefix Bengali letters
                 prefix = ['ক)', 'খ)', 'গ)', 'ঘ)'][i]
-                q_block.append(f"<td><span class='{circle_cls}'></span>{prefix} {opt}</td>")
+                q_block.append(f"<td><span class='{circle_cls}'></span>{prefix} {opt_text}</td>")
                 if i % 2 == 1 and i != 3:
                     q_block.append('</tr><tr>')
             q_block.append('</tr></table>')
@@ -528,7 +645,7 @@ def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
                 is_correct = show_answer and (str(opt).strip() == correct)
                 circle_cls = 'circle filled' if is_correct else 'circle'
                 prefix = ['ক)', 'খ)', 'গ)', 'ঘ)'][i] if i < 4 else ''
-                q_block.append(f"<div><span class='{circle_cls}'></span>{prefix} {esc(opt)}</div>")
+                q_block.append(f"<div><span class='{circle_cls}'></span>{prefix} {format_math(opt)}</div>")
 
         q_block.append('</div>')
         q_html.append(''.join(q_block))
