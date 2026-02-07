@@ -340,8 +340,11 @@ def _serve_pdf(paper, paper_type, show_answer):
         'marks': len(questions),
     }
 
+    # Only generate the version we need (halves processing time)
     student_buf, teacher_buf = generate_paper_to_memory_pdf(
-        questions, paper_config
+        questions, paper_config,
+        student_only=not show_answer,
+        teacher_only=show_answer
     )
     buffer = teacher_buf if show_answer else student_buf
 

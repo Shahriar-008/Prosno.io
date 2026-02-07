@@ -608,15 +608,38 @@ def create_question_paper_pdf(
     return output_path or ''
 
 
-def generate_paper_to_memory_pdf(questions: list, paper_config: dict) -> tuple:
-    """Generate both student and teacher PDF copies as BytesIO buffers."""
+def generate_paper_to_memory_pdf(
+    questions: list,
+    paper_config: dict,
+    student_only: bool = False,
+    teacher_only: bool = False,
+) -> tuple:
+    """Generate PDF copies as BytesIO buffers.
+    
+    Args:
+        questions: List of question objects or dicts
+        paper_config: Paper configuration dict
+        student_only: If True, only generate student version (teacher_buffer will be None)
+        teacher_only: If True, only generate teacher version (student_buffer will be None)
+    
+    Returns:
+        Tuple of (student_buffer, teacher_buffer). One may be None if only generating one version.
+    """
     question_list = _prepare_question_list(questions)
-    student_buffer = create_question_paper_pdf(
-        question_list, None, paper_config, show_answer=False
-    )
-    teacher_buffer = create_question_paper_pdf(
-        question_list, None, paper_config, show_answer=True
-    )
+    
+    student_buffer = None
+    teacher_buffer = None
+    
+    if not teacher_only:
+        student_buffer = create_question_paper_pdf(
+            question_list, None, paper_config, show_answer=False
+        )
+    
+    if not student_only:
+        teacher_buffer = create_question_paper_pdf(
+            question_list, None, paper_config, show_answer=True
+        )
+    
     return student_buffer, teacher_buffer
 
 
