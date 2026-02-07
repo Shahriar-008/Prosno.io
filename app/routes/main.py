@@ -299,64 +299,75 @@ def download_paper(paper_id, paper_type):
 
 def _serve_pdf(paper, paper_type, show_answer):
     """Generate PDF on-demand from stored question IDs and serve it."""
+    import traceback
+    
     filename = (
         f"Question_Paper_{paper.id}.pdf"
         if paper_type == 'student'
         else f"Question_Paper_With_Answers_{paper.id}.pdf"
     )
 
-    # Fetch questions from DB
-    question_ids = paper.question_ids or []
-    if question_ids:
-        questions = Question.query.filter(Question.id.in_(question_ids)).all()
-        question_order = {qid: idx for idx, qid in enumerate(question_ids)}
-        questions = sorted(
-            questions, key=lambda q: question_order.get(q.id, 0)
-        )
-    else:
-        chapter_ids = paper.chapter_ids or []
-        if not chapter_ids:
+    try:
+        # Fetch questions from DB
+        question_ids = paper.question_ids or []
+        if question_ids:
+            questions = Question.query.filter(Question.id.in_(question_ids)).all()
+            question_order = {qid: idx for idx, qid in enumerate(question_ids)}
+            questions = sorted(
+                questions, key=lambda q: question_order.get(q.id, 0)
+            )
+        else:
+            chapter_ids = paper.chapter_ids or []
+            if not chapter_ids:
+                return jsonify({
+                    'error': 'Cannot generate PDF - no question data stored.'
+                }), 404
+            questions = Question.query.filter(
+                Question.chapter_id.in_(chapter_ids),
+                Question.is_active == True
+            ).limit(paper.question_count).all()
+
+        if not questions:
             return jsonify({
-                'error': 'Cannot generate PDF - no question data stored.'
+                'error': 'No questions found. The data may have been deleted.'
             }), 404
-        questions = Question.query.filter(
-            Question.chapter_id.in_(chapter_ids),
-            Question.is_active == True
-        ).limit(paper.question_count).all()
 
-    if not questions:
-        return jsonify({
-            'error': 'No questions found. The data may have been deleted.'
-        }), 404
+        class_obj = Class.query.get(paper.class_id)
+        subject_obj = Subject.query.get(paper.subject_id)
 
-    class_obj = Class.query.get(paper.class_id)
-    subject_obj = Subject.query.get(paper.subject_id)
+        paper_config = {
+            'title': paper.title or 'Question Paper',
+            'class_name': class_obj.name_bn if class_obj else '',
+            'subject_name': subject_obj.name_bn if subject_obj else '',
+            'time': paper.time_minutes or len(questions),
+            'marks': len(questions),
+        }
 
-    paper_config = {
-        'title': paper.title or 'Question Paper',
-        'class_name': class_obj.name_bn if class_obj else '',
-        'subject_name': subject_obj.name_bn if subject_obj else '',
-        'time': paper.time_minutes or len(questions),
-        'marks': len(questions),
-    }
+        # Only generate the version we need (halves processing time)
+        student_buf, teacher_buf = generate_paper_to_memory_pdf(
+            questions, paper_config,
+            student_only=not show_answer,
+            teacher_only=show_answer
+        )
+        buffer = teacher_buf if show_answer else student_buf
 
-    # Only generate the version we need (halves processing time)
-    student_buf, teacher_buf = generate_paper_to_memory_pdf(
-        questions, paper_config,
-        student_only=not show_answer,
-        teacher_only=show_answer
-    )
-    buffer = teacher_buf if show_answer else student_buf
+        if buffer is None:
+            current_app.logger.error(f"PDF generation returned None buffer for paper {paper.id}")
+            return jsonify({'error': 'PDF generation failed - buffer is None'}), 500
 
-    paper.download_count += 1
-    db.session.commit()
+        paper.download_count += 1
+        db.session.commit()
 
-    return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=filename,
-        mimetype='application/pdf',
-    )
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf',
+        )
+    except Exception as e:
+        current_app.logger.error(f"PDF generation error for paper {paper.id}: {e}")
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({'error': f'PDF generation failed: {str(e)}'}), 500
 
 
 @main_bp.route('/about')

@@ -334,6 +334,13 @@ img {
     animation-delay: 1.5s;
 }
 
+.badge-3 {
+    top: 25%;
+    right: -5%;
+    color: #dc2626;
+    animation-delay: 0.75s;
+}
+
 @keyframes float {
     0%, 100% {
         transform: translateY(0);

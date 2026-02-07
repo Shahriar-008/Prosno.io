@@ -9,8 +9,12 @@ import re
 import subprocess
 import tempfile
 import shutil
+import logging
 from typing import Optional, Union
 from pathlib import Path
+
+# Get module logger
+logger = logging.getLogger(__name__)
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import inch
@@ -1045,10 +1049,13 @@ def create_question_paper_pdf(
     """
     Generate a two-column MCQ question paper as PDF.
     """
+    logger.debug(f"create_question_paper_pdf called with {len(questions)} questions")
+    
     # 1) Prefer LibreOffice/soffice DOCX -> PDF conversion if available.
     #    This preserves DOCX output exactly and ensures correct Bengali shaping.
     soffice_path = shutil.which('soffice') or shutil.which('libreoffice')
     if soffice_path:
+        logger.info(f"Using LibreOffice at {soffice_path} for PDF generation")
         tmpdir = tempfile.mkdtemp(prefix='prosno_docx2pdf_')
         try:
             docx_path = os.path.join(tmpdir, 'paper.docx')
@@ -1059,7 +1066,8 @@ def create_question_paper_pdf(
 
             # Run headless conversion
             cmd = [soffice_path, '--headless', '--convert-to', 'pdf', '--outdir', tmpdir, docx_path]
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            logger.debug(f"soffice conversion completed: {result.returncode}")
 
             # Read generated PDF
             with open(pdf_path, 'rb') as f:
@@ -1076,6 +1084,9 @@ def create_question_paper_pdf(
                 with open(output_path, 'wb') as out_f:
                     out_f.write(data)
                 return output_path
+        except Exception as e:
+            logger.error(f"LibreOffice conversion failed: {e}")
+            # Fall through to try other methods
         finally:
             try:
                 shutil.rmtree(tmpdir)
@@ -1086,27 +1097,34 @@ def create_question_paper_pdf(
     try:
         from weasyprint import HTML, CSS  # type: ignore
         weasy_ok = True
-    except Exception:
+        logger.info("WeasyPrint available, using for PDF generation")
+    except Exception as e:
         weasy_ok = False
+        logger.debug(f"WeasyPrint not available: {e}")
 
     if weasy_ok:
-        html = _build_html(questions, paper_config, show_answer)
-        # If output_path is None, return BytesIO buffer
-        if output_path is None:
-            from weasyprint import HTML
-            pdf_bytes = HTML(string=html).write_pdf(stylesheets=None)
-            buf = io.BytesIO(pdf_bytes)
-            buf.seek(0)
-            return buf
-        else:
-            # Ensure output dir exists
-            out_dir = os.path.dirname(output_path)
-            if out_dir and not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-            HTML(string=html).write_pdf(output_path)
-            return output_path
+        try:
+            html = _build_html(questions, paper_config, show_answer)
+            # If output_path is None, return BytesIO buffer
+            if output_path is None:
+                from weasyprint import HTML
+                pdf_bytes = HTML(string=html).write_pdf(stylesheets=None)
+                buf = io.BytesIO(pdf_bytes)
+                buf.seek(0)
+                return buf
+            else:
+                # Ensure output dir exists
+                out_dir = os.path.dirname(output_path)
+                if out_dir and not os.path.exists(out_dir):
+                    os.makedirs(out_dir)
+                HTML(string=html).write_pdf(output_path)
+                return output_path
+        except Exception as e:
+            logger.error(f"WeasyPrint PDF generation failed: {e}")
+            # Fall through to ReportLab
 
     # 3) Fallback to ReportLab renderer (best-effort)
+    logger.info("Using ReportLab for PDF generation (fallback)")
     _register_fonts()
     styles = _build_styles()
 
