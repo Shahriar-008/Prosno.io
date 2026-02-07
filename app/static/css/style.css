@@ -768,6 +768,19 @@ img {
     gap: 1rem;
 }
 
+.download-buttons .btn-group {
+    position: relative;
+}
+
+.download-buttons .dropdown-menu {
+    min-width: 200px;
+}
+
+.download-buttons .dropdown-item i {
+    width: 1.2em;
+    text-align: center;
+}
+
 /* Question Selection Panel */
 .questions-info {
     margin-top: 1rem;
