@@ -205,11 +205,18 @@ _LEADING = 10
 
 
 # ---------------------------------------------------------------------------
-# Styles
+# Styles (cached globally for performance)
 # ---------------------------------------------------------------------------
+_CACHED_STYLES = None
+
+
 def _build_styles() -> dict:
-    """Build ParagraphStyle objects."""
-    return {
+    """Build ParagraphStyle objects. Cached after first call."""
+    global _CACHED_STYLES
+    if _CACHED_STYLES is not None:
+        return _CACHED_STYLES
+    
+    _CACHED_STYLES = {
         'title': ParagraphStyle(
             'PaperTitle',
             fontName=FONT_BOLD,
@@ -276,6 +283,7 @@ def _build_styles() -> dict:
             leading=_LEADING,
         ),
     }
+    return _CACHED_STYLES
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +292,42 @@ def _build_styles() -> dict:
 OMR_CIRCLE = '\u25CB'     # ◯
 FILLED_CIRCLE = '\u25CF'  # ●
 BENGALI_PREFIXES = ['ক)', 'খ)', 'গ)', 'ঘ)']
+
+# Cached TableStyle objects (avoid recreating for every question)
+_OPT_TABLE_STYLE = TableStyle([
+    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+    ('TOPPADDING', (0, 0), (-1, -1), 0),
+    ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+])
+
+_CELL_TABLE_STYLE = TableStyle([
+    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+    ('TOPPADDING', (0, 0), (-1, -1), 0),
+    ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+])
+
+_HEADER_TABLE_STYLE = TableStyle([
+    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+    ('TOPPADDING', (0, 0), (-1, -1), 0),
+    ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+])
+
+_MAIN_TABLE_STYLE = TableStyle([
+    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ('LEFTPADDING', (0, 0), (0, 0), 0),
+    ('RIGHTPADDING', (0, 0), (0, 0), _COLUMN_GAP / 2),
+    ('LEFTPADDING', (1, 0), (1, 0), _COLUMN_GAP / 2),
+    ('RIGHTPADDING', (1, 0), (1, 0), 0),
+    ('TOPPADDING', (0, 0), (-1, -1), 0),
+    ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+])
 
 
 def _escape(text: str) -> str:
@@ -343,14 +387,7 @@ def _build_question_cell(q: dict, show_answer: bool, styles: dict) -> list:
             rows.append(row)
 
         opt_table = Table(rows, colWidths=[opt_cell_width, opt_cell_width])
-        opt_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-            ('TOPPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
-        ]))
+        opt_table.setStyle(_OPT_TABLE_STYLE)
         flowables.append(opt_table)
     else:
         for j, opt in enumerate(options):
@@ -365,49 +402,44 @@ def _build_question_cell(q: dict, show_answer: bool, styles: dict) -> list:
 class OptionFlowable(Flowable):
     """Flowable that draws an OMR-style circle and renders the option text next to it.
 
-    This avoids relying on a single glyph for the circle (which may not render
-    consistently) and gives better control over alignment.
+    Optimized: defers Paragraph creation until wrap() is called.
     """
+    __slots__ = ('prefix', 'text', 'style', 'filled', 'circle_dia', 'paragraph', 'width', 'height')
+
     def __init__(self, prefix: str, text: str, style: ParagraphStyle, filled: bool = False, circle_dia: int = 8):
         super().__init__()
         self.prefix = prefix
-        self.text = _escape(text)
+        self.text = text  # Store unescaped, escape once in wrap
         self.style = style
         self.filled = filled
         self.circle_dia = circle_dia
-        # Prepare a Paragraph for the text portion
-        self.paragraph = Paragraph(f'{self.prefix} {_escape(self.text)}', self.style)
+        self.paragraph = None  # Lazy creation
 
     def wrap(self, availWidth, availHeight):
-        # Reserve space for circle + gap
+        # Create paragraph lazily (avoids overhead if not rendered)
+        if self.paragraph is None:
+            escaped = _escape(self.text)
+            self.paragraph = Paragraph(f'{self.prefix} {escaped}', self.style)
+        
         gap = 4
-        circ_w = self.circle_dia
-        text_avail = max(availWidth - (circ_w + gap), 10)
-        w, h = self.paragraph.wrap(text_avail, availHeight)
+        text_avail = max(availWidth - (self.circle_dia + gap), 10)
+        _, h = self.paragraph.wrap(text_avail, availHeight)
         self.width = availWidth
         self.height = max(h, self.circle_dia)
         return (self.width, self.height)
 
     def draw(self):
         c = self.canv
-        # Draw circle at left
         radius = self.circle_dia / 2.0
         x = radius
         y = self.height / 2.0
         c.saveState()
         c.setLineWidth(0.8)
         c.setStrokeColor(colors.black)
-        if self.filled:
-            c.setFillColor(colors.black)
-            c.circle(x, y, radius, stroke=1, fill=1)
-        else:
-            c.setFillColor(colors.white)
-            c.circle(x, y, radius, stroke=1, fill=1)
-        # Draw text paragraph next to circle
-        gap = 4
-        text_x = self.circle_dia + gap
-        # Use paragraph.drawOn at appropriate position (0, 0) is lower-left
-        self.paragraph.drawOn(c, text_x, 0)
+        c.setFillColor(colors.black if self.filled else colors.white)
+        c.circle(x, y, radius, stroke=1, fill=1)
+        # Draw text paragraph
+        self.paragraph.drawOn(c, self.circle_dia + 4, 0)
         c.restoreState()
 
 
@@ -535,13 +567,7 @@ def create_question_paper_pdf(
         [[time_para, marks_para]],
         colWidths=[_USABLE_WIDTH / 2, _USABLE_WIDTH / 2],
     )
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
+    header_table.setStyle(_HEADER_TABLE_STYLE)
     story.append(header_table)
     story.append(Spacer(1, 8))
 
@@ -569,13 +595,7 @@ def create_question_paper_pdf(
             return Paragraph('', styles['option_normal'])
         rows = [[f] for f in flowables]
         t = Table(rows, colWidths=[_COL_WIDTH])
-        t.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 0),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-            ('TOPPADDING', (0, 0), (-1, -1), 0),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-        ]))
+        t.setStyle(_CELL_TABLE_STYLE)
         return t
 
     left_table = wrap_in_table(left_cell_content)
@@ -587,15 +607,7 @@ def create_question_paper_pdf(
         colWidths=[_COL_WIDTH, _COL_WIDTH],
         hAlign='LEFT',
     )
-    main_table.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (0, 0), 0),
-        ('RIGHTPADDING', (0, 0), (0, 0), _COLUMN_GAP / 2),
-        ('LEFTPADDING', (1, 0), (1, 0), _COLUMN_GAP / 2),
-        ('RIGHTPADDING', (1, 0), (1, 0), 0),
-        ('TOPPADDING', (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-    ]))
+    main_table.setStyle(_MAIN_TABLE_STYLE)
 
     story.append(main_table)
 
