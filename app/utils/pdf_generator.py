@@ -3,6 +3,7 @@ PDF Generator for Question Papers (v2 - Table-based two-column layout)
 Generates PDF files with two-column MCQ layout using ReportLab.
 Uses a simple table-based layout approach for reliable two-column rendering.
 """
+import gc
 import io
 import os
 import re
@@ -49,8 +50,27 @@ try:
 except ImportError:
     pass
 
-# Cache for rendered math expressions
+# Cache for rendered math expressions (limited size to prevent memory issues)
 _MATH_CACHE = {}
+_MATH_CACHE_MAX_SIZE = 50  # Limit cache size for low-memory environments
+
+
+def _clear_math_cache():
+    """Clear the math expression cache to free memory."""
+    global _MATH_CACHE
+    _MATH_CACHE.clear()
+    gc.collect()
+
+
+def _cleanup_memory():
+    """Force garbage collection to free memory in low-memory environments."""
+    gc.collect()
+    # Clear matplotlib figure cache if available
+    if _MATH_RENDERER_AVAILABLE:
+        try:
+            plt.close('all')
+        except Exception:
+            pass
 
 
 def _text_to_latex(text: str) -> str:
@@ -98,6 +118,8 @@ def _text_to_latex(text: str) -> str:
 
 def _render_math_to_image(latex_expr: str, fontsize: int = 10, dpi: int = 150) -> Optional[io.BytesIO]:
     """Render a LaTeX math expression to a PNG image buffer."""
+    global _MATH_CACHE
+    
     if not _MATH_RENDERER_AVAILABLE:
         return None
     
@@ -133,12 +155,20 @@ def _render_math_to_image(latex_expr: str, fontsize: int = 10, dpi: int = 150) -
                    bbox_inches='tight', pad_inches=0.02)
         plt.close(fig)
         
-        # Cache the raw bytes
+        # Cache the raw bytes (limit cache size to prevent memory issues)
         buf.seek(0)
+        if len(_MATH_CACHE) >= _MATH_CACHE_MAX_SIZE:
+            # Clear oldest entries when cache is full
+            _MATH_CACHE.clear()
         _MATH_CACHE[cache_key] = buf.read()
         buf.seek(0)
         return buf
     except Exception:
+        # Ensure figure is closed even on error
+        try:
+            plt.close('all')
+        except Exception:
+            pass
         return None
 
 
@@ -1260,6 +1290,11 @@ def generate_paper_to_memory_pdf(
             question_list, None, paper_config, show_answer=True
         )
     
+    # Free up memory after PDF generation (important for low-memory environments)
+    del question_list
+    _clear_math_cache()
+    _cleanup_memory()
+    
     return student_buffer, teacher_buffer
 
 
@@ -1290,6 +1325,11 @@ def generate_paper_from_db_pdf(
     create_question_paper_pdf(
         question_list, teacher_path, paper_config, show_answer=True
     )
+
+    # Free up memory after PDF generation
+    del question_list
+    _clear_math_cache()
+    _cleanup_memory()
 
     return student_path, teacher_path
 
