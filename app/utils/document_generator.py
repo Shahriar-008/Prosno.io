@@ -2,6 +2,7 @@
 Document Generator for Question Papers
 Generates DOCX files with two-column MCQ layout with math expression support
 """
+import gc
 import os
 import io
 import re
@@ -446,6 +447,10 @@ def generate_paper_to_memory(questions, paper_config):
     # Generate Teacher Copy (With Answers) - in memory
     teacher_buffer = create_question_paper(question_list, None, paper_config, show_answer=True)
     
+    # Free up memory after document generation
+    del question_list
+    gc.collect()
+    
     return student_buffer, teacher_buffer
 
 
@@ -488,5 +493,9 @@ def generate_paper_from_db(questions, paper_config, output_folder):
     # Generate Teacher Copy (With Answers)
     teacher_path = os.path.join(output_folder, f"{base_filename}_teacher.docx")
     create_question_paper(question_list, teacher_path, paper_config, show_answer=True)
+    
+    # Free up memory after document generation (important for low-memory environments)
+    del question_list
+    gc.collect()
     
     return student_path, teacher_path
