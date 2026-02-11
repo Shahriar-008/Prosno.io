@@ -161,14 +161,51 @@
                     </div>
                     
                     <div class="download-buttons">
-                        <a href="#" id="downloadStudent" class="btn btn-primary btn-lg">
-                            <i class="bi bi-file-earmark-word me-2"></i>
-                            Download Student Copy
-                        </a>
-                        <a href="#" id="downloadTeacher" class="btn btn-success btn-lg">
-                            <i class="bi bi-file-earmark-check me-2"></i>
-                            Download Teacher Copy (With Answers)
-                        </a>
+                        <!-- Student Copy - Split Button Dropdown -->
+                        <div class="btn-group">
+                            <a href="#" id="downloadStudent" class="btn btn-primary btn-lg">
+                                <i class="bi bi-file-earmark-word me-2"></i>
+                                Download Student Copy
+                            </a>
+                            <button type="button" class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="visually-hidden">Toggle Dropdown</span>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="#" id="downloadStudentDocx">
+                                        <i class="bi bi-file-earmark-word me-2 text-primary"></i>Download as DOCX
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" id="downloadStudentPdf">
+                                        <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Download as PDF
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Teacher Copy - Split Button Dropdown -->
+                        <div class="btn-group">
+                            <a href="#" id="downloadTeacher" class="btn btn-success btn-lg">
+                                <i class="bi bi-file-earmark-check me-2"></i>
+                                Download Teacher Copy
+                            </a>
+                            <button type="button" class="btn btn-success btn-lg dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span class="visually-hidden">Toggle Dropdown</span>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="#" id="downloadTeacherDocx">
+                                        <i class="bi bi-file-earmark-word me-2 text-primary"></i>Download as DOCX
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" id="downloadTeacherPdf">
+                                        <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Download as PDF
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
                     
                     <div class="text-center mt-4">
@@ -410,17 +447,48 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Show result
             document.getElementById('generatedCount').textContent = data.question_count;
-            document.getElementById('downloadStudent').href = data.student_download;
-            document.getElementById('downloadTeacher').href = data.teacher_download;
+
+            const studentUrl = data.student_download;
+            const teacherUrl = data.teacher_download;
+            const studentPdfUrl = studentUrl + '?format=pdf';
+            const teacherPdfUrl = teacherUrl + '?format=pdf';
+
+            // Main buttons default to DOCX
+            document.getElementById('downloadStudent').href = studentUrl;
+            document.getElementById('downloadTeacher').href = teacherUrl;
+
+            // Dropdown items
+            document.getElementById('downloadStudentDocx').href = studentUrl;
+            document.getElementById('downloadStudentPdf').href = studentPdfUrl;
+            document.getElementById('downloadTeacherDocx').href = teacherUrl;
+            document.getElementById('downloadTeacherPdf').href = teacherPdfUrl;
             
-            // Add click handlers for direct download
+            // Click handlers for main buttons (DOCX)
             document.getElementById('downloadStudent').onclick = function(e) {
                 e.preventDefault();
-                window.location.href = data.student_download;
+                window.location.href = studentUrl;
             };
             document.getElementById('downloadTeacher').onclick = function(e) {
                 e.preventDefault();
-                window.location.href = data.teacher_download;
+                window.location.href = teacherUrl;
+            };
+
+            // Click handlers for dropdown items
+            document.getElementById('downloadStudentDocx').onclick = function(e) {
+                e.preventDefault();
+                window.location.href = studentUrl;
+            };
+            document.getElementById('downloadStudentPdf').onclick = function(e) {
+                e.preventDefault();
+                window.location.href = studentPdfUrl;
+            };
+            document.getElementById('downloadTeacherDocx').onclick = function(e) {
+                e.preventDefault();
+                window.location.href = teacherUrl;
+            };
+            document.getElementById('downloadTeacherPdf').onclick = function(e) {
+                e.preventDefault();
+                window.location.href = teacherPdfUrl;
             };
             
             resultCard.style.display = 'block';

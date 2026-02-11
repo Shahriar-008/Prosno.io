@@ -334,6 +334,13 @@ img {
     animation-delay: 1.5s;
 }
 
+.badge-3 {
+    top: 25%;
+    right: -5%;
+    color: #dc2626;
+    animation-delay: 0.75s;
+}
+
 @keyframes float {
     0%, 100% {
         transform: translateY(0);
@@ -766,6 +773,19 @@ img {
     flex-wrap: wrap;
     justify-content: center;
     gap: 1rem;
+}
+
+.download-buttons .btn-group {
+    position: relative;
+}
+
+.download-buttons .dropdown-menu {
+    min-width: 200px;
+}
+
+.download-buttons .dropdown-item i {
+    width: 1.2em;
+    text-align: center;
 }
 
 /* Question Selection Panel */

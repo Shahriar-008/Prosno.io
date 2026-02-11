@@ -222,8 +222,16 @@ def _seed_nctb_data():
         print(f"Error seeding database: {e}")
 
 
+# Track if migrations have been applied in this process to avoid duplicate runs
+_migrations_applied = False
+
+
 def _apply_schema_migrations(db):
     """Apply database schema migrations for new columns (works without shell access)"""
+    global _migrations_applied
+    if _migrations_applied:
+        return  # Skip if already applied in this process
+    
     from sqlalchemy import text, inspect
     
     try:
@@ -257,10 +265,12 @@ def _apply_schema_migrations(db):
                 print(f"Added column '{column_name}' to table '{table_name}'")
         
         db.session.commit()
+        _migrations_applied = True
         print("Schema migrations applied successfully!")
         
     except Exception as e:
         db.session.rollback()
+        _migrations_applied = True  # Mark as applied even on error to prevent retries
         print(f"Schema migration error (may be OK if columns exist): {e}")
 
 

@@ -13,6 +13,10 @@ psycopg[binary]>=3.1.0
 
 # Document Generation
 python-docx==1.1.0
+reportlab>=4.0,<5.0
+weasyprint>=59.0,<70.0
+matplotlib>=3.7,<4.0
+
 
 # Security
 Werkzeug==3.0.1

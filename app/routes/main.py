@@ -7,6 +7,7 @@ import os
 from app import db, csrf, limiter
 from app.models import Class, Subject, Chapter, Question, GeneratedPaper
 from app.utils.document_generator import generate_paper_from_db, generate_paper_to_memory
+from app.utils.pdf_generator import generate_paper_to_memory_pdf
 
 main_bp = Blueprint('main', __name__)
 
@@ -206,14 +207,29 @@ def generate_paper():
 
 @main_bp.route('/download/<int:paper_id>/<paper_type>')
 def download_paper(paper_id, paper_type):
-    """Download generated paper - regenerates on-the-fly if file was deleted"""
+    """Download generated paper - supports DOCX (default) and PDF via ?format=pdf"""
     paper = GeneratedPaper.query.get_or_404(paper_id)
     
     if paper_type not in ('student', 'teacher'):
         abort(400, description="Invalid paper type")
     
+    # Determine requested format (docx or pdf)
+    output_format = request.args.get('format', 'docx').lower()
+    if output_format not in ('docx', 'pdf'):
+        abort(400, description="Invalid format. Use 'docx' or 'pdf'.")
+    
     show_answer = (paper_type == 'teacher')
-    filename = f"Question_Paper_{paper.id}.docx" if paper_type == 'student' else f"Question_Paper_With_Answers_{paper.id}.docx"
+    
+    # PDF is always generated on-demand from stored question IDs
+    if output_format == 'pdf':
+        return _serve_pdf(paper, paper_type, show_answer)
+    
+    # --- DOCX path (existing logic) ---
+    filename = (
+        f"Question_Paper_{paper.id}.docx"
+        if paper_type == 'student'
+        else f"Question_Paper_With_Answers_{paper.id}.docx"
+    )
     
     # Try to use existing file first
     file_path = paper.file_path if paper_type == 'student' else paper.file_path_answers
@@ -279,6 +295,79 @@ def download_paper(paper_id, paper_type):
         download_name=filename,
         mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     )
+
+
+def _serve_pdf(paper, paper_type, show_answer):
+    """Generate PDF on-demand from stored question IDs and serve it."""
+    import traceback
+    
+    filename = (
+        f"Question_Paper_{paper.id}.pdf"
+        if paper_type == 'student'
+        else f"Question_Paper_With_Answers_{paper.id}.pdf"
+    )
+
+    try:
+        # Fetch questions from DB
+        question_ids = paper.question_ids or []
+        if question_ids:
+            questions = Question.query.filter(Question.id.in_(question_ids)).all()
+            question_order = {qid: idx for idx, qid in enumerate(question_ids)}
+            questions = sorted(
+                questions, key=lambda q: question_order.get(q.id, 0)
+            )
+        else:
+            chapter_ids = paper.chapter_ids or []
+            if not chapter_ids:
+                return jsonify({
+                    'error': 'Cannot generate PDF - no question data stored.'
+                }), 404
+            questions = Question.query.filter(
+                Question.chapter_id.in_(chapter_ids),
+                Question.is_active == True
+            ).limit(paper.question_count).all()
+
+        if not questions:
+            return jsonify({
+                'error': 'No questions found. The data may have been deleted.'
+            }), 404
+
+        class_obj = Class.query.get(paper.class_id)
+        subject_obj = Subject.query.get(paper.subject_id)
+
+        paper_config = {
+            'title': paper.title or 'Question Paper',
+            'class_name': class_obj.name_bn if class_obj else '',
+            'subject_name': subject_obj.name_bn if subject_obj else '',
+            'time': paper.time_minutes or len(questions),
+            'marks': len(questions),
+        }
+
+        # Only generate the version we need (halves processing time)
+        student_buf, teacher_buf = generate_paper_to_memory_pdf(
+            questions, paper_config,
+            student_only=not show_answer,
+            teacher_only=show_answer
+        )
+        buffer = teacher_buf if show_answer else student_buf
+
+        if buffer is None:
+            current_app.logger.error(f"PDF generation returned None buffer for paper {paper.id}")
+            return jsonify({'error': 'PDF generation failed - buffer is None'}), 500
+
+        paper.download_count += 1
+        db.session.commit()
+
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf',
+        )
+    except Exception as e:
+        current_app.logger.error(f"PDF generation error for paper {paper.id}: {e}")
+        current_app.logger.error(traceback.format_exc())
+        return jsonify({'error': f'PDF generation failed: {str(e)}'}), 500
 
 
 @main_bp.route('/about')
