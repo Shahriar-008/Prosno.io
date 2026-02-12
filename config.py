@@ -17,9 +17,10 @@ class Config:
     """Base configuration"""
     # Security - IMPORTANT: Set SECRET_KEY environment variable in production
     SECRET_KEY = os.environ.get('SECRET_KEY') or generate_secret_key()
+    ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
     
     # Session security settings
-    SESSION_COOKIE_SECURE = os.environ.get('RENDER') or os.environ.get('DYNO')  # True in production (HTTPS)
+    SESSION_COOKIE_SECURE = bool(os.environ.get('RENDER') or os.environ.get('DYNO'))
     SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
     SESSION_COOKIE_SAMESITE = 'Lax'  # Protect against CSRF
     

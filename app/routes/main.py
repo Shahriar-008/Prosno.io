@@ -1,7 +1,7 @@
 """
 Main routes for Prosno.io
 """
-from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort
+from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort, session
 import os
 
 from app import db, csrf, limiter
@@ -58,7 +58,6 @@ def get_chapters(subject_id):
 
 
 @main_bp.route('/get-question-count', methods=['POST'])
-@csrf.exempt
 def get_question_count():
     """Get count of available questions for selected chapters"""
     data = request.get_json()
@@ -76,7 +75,6 @@ def get_question_count():
 
 
 @main_bp.route('/get-questions-for-chapters', methods=['POST'])
-@csrf.exempt
 @limiter.limit("30 per minute")
 def get_questions_for_chapters():
     """Get all questions for selected chapters"""
@@ -116,7 +114,6 @@ def get_questions_for_chapters():
 
 
 @main_bp.route('/generate-paper', methods=['POST'])
-@csrf.exempt
 @limiter.limit("20 per minute")
 def generate_paper():
     """Generate question paper"""
@@ -206,7 +203,6 @@ def generate_paper():
 
 
 @main_bp.route('/generate-custom-paper', methods=['POST'])
-@csrf.exempt
 @limiter.limit("10 per minute")
 def generate_custom_paper():
     """Generate DOCX paper from custom JSON questions (guest users).
@@ -263,7 +259,9 @@ def generate_custom_paper():
             question_count=len(questions),
             time_minutes=paper_config.get('time', 30),
             file_path=student_path,
-            file_path_answers=teacher_path
+            file_path_answers=teacher_path,
+            custom_questions_json=questions,
+            custom_paper_config=paper_config
         )
         db.session.add(paper)
         db.session.commit()
@@ -282,12 +280,17 @@ def generate_custom_paper():
 
 
 @main_bp.route('/download/<int:paper_id>/<paper_type>')
+@limiter.limit("30 per minute")
 def download_paper(paper_id, paper_type):
     """Download generated paper - supports DOCX (default) and PDF via ?format=pdf"""
     paper = GeneratedPaper.query.get_or_404(paper_id)
     
     if paper_type not in ('student', 'teacher'):
         abort(400, description="Invalid paper type")
+    
+    # Teacher copies (answer keys) require authentication
+    if paper_type == 'teacher' and not session.get('user'):
+        abort(403, description="Authentication required for answer keys")
     
     # Determine requested format (docx or pdf)
     output_format = request.args.get('format', 'docx').lower()
@@ -319,7 +322,31 @@ def download_paper(paper_id, paper_type):
             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
     
-    # File doesn't exist - regenerate from stored question IDs
+    # File doesn't exist - try to regenerate
+    
+    # --- Custom paper regeneration (guest mode) ---
+    if paper.custom_questions_json:
+        custom_config = paper.custom_paper_config or {
+            'title': paper.title or 'Custom Paper',
+            'time': paper.time_minutes or 30,
+            'marks': paper.question_count or len(paper.custom_questions_json)
+        }
+        student_buffer, teacher_buffer = generate_paper_to_memory(
+            paper.custom_questions_json, custom_config
+        )
+        buffer = teacher_buffer if show_answer else student_buffer
+        
+        paper.download_count += 1
+        db.session.commit()
+        
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+    
+    # --- DB question regeneration (logged-in users) ---
     question_ids = paper.question_ids or []
     
     if question_ids:
@@ -443,7 +470,7 @@ def _serve_pdf(paper, paper_type, show_answer):
     except Exception as e:
         current_app.logger.error(f"PDF generation error for paper {paper.id}: {e}")
         current_app.logger.error(traceback.format_exc())
-        return jsonify({'error': f'PDF generation failed: {str(e)}'}), 500
+        return jsonify({'error': 'PDF generation failed. Please try again.'}), 500
 
 
 @main_bp.route('/about')

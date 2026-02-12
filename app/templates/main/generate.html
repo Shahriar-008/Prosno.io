@@ -497,6 +497,7 @@ Answer: b</code></pre>
         // Guard: DB-mode elements only exist for logged-in users
         if (!classSelect) return;
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         const subjectSelect = document.getElementById('subjectSelect');
         const chaptersContainer = document.getElementById('chaptersContainer');
         const questionsInfo = document.getElementById('questionsInfo');
@@ -641,6 +642,7 @@ Answer: b</code></pre>
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify({ chapter_ids: selectedChapters })
             })
@@ -703,6 +705,7 @@ Answer: b</code></pre>
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify(formData)
             })
@@ -795,6 +798,7 @@ Answer: b</code></pre>
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
             },
             body: JSON.stringify({ chapter_ids: selectedChapters })
         })
@@ -1158,9 +1162,14 @@ Answer: b</code></pre>
         card.style.display = 'none';
         loadingState.style.display = 'block';
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
         fetch('/generate-custom-paper', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
             body: JSON.stringify({
                 questions: customQuestions,
                 paper_config: paperConfig

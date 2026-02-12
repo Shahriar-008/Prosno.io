@@ -22,6 +22,7 @@ def get_classes():
 
 
 @api_bp.route('/subjects/<int:class_id>')
+@limiter.limit("60 per minute")
 def get_subjects(class_id):
     """Get subjects for a class"""
     subjects = Subject.query.filter_by(
@@ -38,6 +39,7 @@ def get_subjects(class_id):
 
 
 @api_bp.route('/chapters/<int:subject_id>')
+@limiter.limit("60 per minute")
 def get_chapters(subject_id):
     """Get chapters for a subject"""
     chapters = Chapter.query.filter_by(
@@ -54,6 +56,7 @@ def get_chapters(subject_id):
 
 
 @api_bp.route('/questions/count', methods=['POST'])
+@limiter.limit("60 per minute")
 def get_question_count():
     """Get question count for selected chapters"""
     data = request.get_json()
@@ -74,6 +77,7 @@ def get_question_count():
 
 
 @api_bp.route('/stats')
+@limiter.limit("60 per minute")
 def get_stats():
     """Get overall statistics"""
     return jsonify({

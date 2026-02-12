@@ -2,10 +2,20 @@
 Auth routes for Prosno.io (Public User Authentication via Supabase REST API)
 """
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
+from urllib.parse import urlparse, urljoin
 from app import csrf, limiter
 from app.utils.supabase_auth import SupabaseAuthError
 
 auth_bp = Blueprint('auth', __name__)
+
+
+def is_safe_url(target: str) -> bool:
+    """Validate redirect URL to prevent open redirect attacks."""
+    if not target:
+        return False
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
 
 
 def get_supabase_client():
@@ -48,9 +58,9 @@ def login():
 
             flash('Welcome back! You are now logged in.', 'success')
 
-            # Redirect to next page or generate
+            # Redirect to next page or generate (validate to prevent open redirect)
             next_page = request.args.get('next')
-            if next_page:
+            if next_page and is_safe_url(next_page):
                 return redirect(next_page)
             return redirect(url_for('main.generate'))
 
@@ -180,9 +190,11 @@ def google_callback():
     code = request.args.get('code')
 
     if not code:
-        # Check for error from Supabase
+        # Log the error details server-side, show generic message to user
         error = request.args.get('error_description') or request.args.get('error')
-        flash(f'Google sign-in failed: {error or "No authorization code received."}', 'error')
+        if error:
+            current_app.logger.warning(f"Google OAuth error: {error}")
+        flash('Google sign-in failed. Please try again.', 'error')
         return redirect(url_for('auth.login'))
 
     supabase = get_supabase_client()
