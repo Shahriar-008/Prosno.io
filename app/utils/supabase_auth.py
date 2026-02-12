@@ -86,34 +86,37 @@ class SupabaseAuth:
 
     # ── OAuth (Google Sign-In) ─────────────────────────────────
 
-    def get_google_login_url(self, redirect_to):
+    # ── OAuth (Google Sign-In) ─────────────────────────────────
+    
+    def get_google_login_url(self, redirect_to, code_challenge=None):
         """Build the Supabase OAuth URL that redirects the user to Google.
 
         Args:
             redirect_to: The URL Supabase should redirect to after Google consent
-                         (your app's /auth/callback endpoint).
+            code_challenge: PKCE code challenge (optional but Recommended)
 
         Returns:
             The full authorize URL to redirect the browser to.
         """
-        params = urlencode({
+        params = {
             'provider': 'google',
             'redirect_to': redirect_to,
-        })
-        return f"{self.base_url}/authorize?{params}"
+        }
+        if code_challenge:
+            params['code_challenge'] = code_challenge
+            params['code_challenge_method'] = 's256'
+            
+        return f"{self.base_url}/authorize?{urlencode(params)}"
 
-    def exchange_code_for_session(self, code):
-        """Exchange an OAuth authorization code for a user session.
+    def exchange_code_for_session(self, code, code_verifier=None):
+        """Exchange an OAuth authorization code for a user session."""
+        payload = {"code": code}
+        if code_verifier:
+            payload['code_verifier'] = code_verifier
 
-        This is called in the /auth/callback route after Supabase redirects
-        back with ?code=... in the query string.
-
-        Returns dict with access_token, refresh_token, user, etc.
-        Raises SupabaseAuthError on failure.
-        """
         resp = requests.post(
             f"{self.base_url}/token?grant_type=authorization_code",
-            json={"code": code},
+            json=payload,
             headers=self.headers,
             timeout=15,
         )

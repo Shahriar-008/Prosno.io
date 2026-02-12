@@ -169,41 +169,81 @@ def logout():
 # ── Google OAuth ──────────────────────────────────────────────
 
 
+# ── Google OAuth ──────────────────────────────────────────────
+
+import secrets
+import hashlib
+import base64
+
+def _generate_pkce_pair():
+    """Generate PKCE code verifier and challenge."""
+    # Generate random verifier
+    verifier = secrets.token_urlsafe(32)
+    
+    # Calculate S256 challenge
+    digest = hashlib.sha256(verifier.encode()).digest()
+    challenge = base64.urlsafe_b64encode(digest).decode().rstrip('=')
+    
+    return verifier, challenge
+
+
 @auth_bp.route('/auth/google')
 def google_login():
-    """Redirect user to Google sign-in via Supabase OAuth."""
+    """Redirect user to Google sign-in via Supabase OAuth (PKCE Flow)."""
     supabase = get_supabase_client()
     if not supabase:
         flash('Authentication service is not configured.', 'error')
         return redirect(url_for('auth.login'))
 
-    # Build the callback URL that Supabase will redirect to after Google consent
+    # Build the callback URL
     callback_url = url_for('auth.google_callback', _external=True)
-    oauth_url = supabase.get_google_login_url(redirect_to=callback_url)
+    
+    # Generate PKCE verifier and challenge
+    verifier, challenge = _generate_pkce_pair()
+    
+    # Store verifier in session for the callback
+    session['oauth_verifier'] = verifier
+    
+    # Get redirect URL with PKCE challenge
+    oauth_url = supabase.get_google_login_url(
+        redirect_to=callback_url,
+        code_challenge=challenge
+    )
 
     return redirect(oauth_url)
 
 
 @auth_bp.route('/auth/callback')
 def google_callback():
-    """Handle the redirect back from Supabase after Google OAuth consent."""
+    """Handle the redirect back from Supabase."""
     code = request.args.get('code')
+    error = request.args.get('error_description') or request.args.get('error')
+
+    if error:
+        current_app.logger.warning(f"Google OAuth error: {error}")
+        flash('Google sign-in failed. Please try again.', 'error')
+        return redirect(url_for('auth.login'))
 
     if not code:
-        # Log the error details server-side, show generic message to user
-        error = request.args.get('error_description') or request.args.get('error')
-        if error:
-            current_app.logger.warning(f"Google OAuth error: {error}")
-        flash('Google sign-in failed. Please try again.', 'error')
+        # Fallback: check if we got a fragment-based redirect (client-side implicit flow)
+        # But server cannot see fragments. If code is missing here, it's a failure.
+        flash('Google sign-in failed. Unknown response from provider.', 'error')
         return redirect(url_for('auth.login'))
 
     supabase = get_supabase_client()
     if not supabase:
         flash('Authentication service is not configured.', 'error')
         return redirect(url_for('auth.login'))
+        
+    # Retrieve PKCE verifier
+    verifier = session.pop('oauth_verifier', None)
+    if not verifier:
+        flash('Session expired or invalid. Please try signing in again.', 'error')
+        return redirect(url_for('auth.login'))
 
     try:
-        data = supabase.exchange_code_for_session(code)
+        # Exchange code + verifier for session
+        data = supabase.exchange_code_for_session(code, code_verifier=verifier)
 
         user_data = data.get('user', {})
         session['user'] = {
