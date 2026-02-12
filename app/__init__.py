@@ -41,6 +41,10 @@ def create_app(config_class=Config):
     csrf.init_app(app)
     limiter.init_app(app)
 
+    # ProxyFix for Render (handling HTTPS headers)
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
     login_manager.login_view = 'admin.login'
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'

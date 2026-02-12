@@ -12,6 +12,12 @@ class SupabaseAuth:
     """Simple Supabase Auth client using REST API."""
 
     def __init__(self, supabase_url, supabase_key):
+        if not supabase_url.startswith(('http://', 'https://')):
+            raise ValueError(
+                f"Invalid SUPABASE_URL: '{supabase_url}'. "
+                "It must be an HTTP URL (e.g., https://xyz.supabase.co), "
+                "not a database connection string."
+            )
         self.supabase_url = supabase_url.rstrip('/')
         self.base_url = f"{self.supabase_url}/auth/v1"
         self.api_key = supabase_key
