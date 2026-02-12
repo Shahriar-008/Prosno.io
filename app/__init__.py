@@ -71,14 +71,36 @@ def create_app(config_class=Config):
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response
 
+    # Initialize Supabase Auth client for public user auth
+    supabase_url = os.environ.get('SUPABASE_URL')
+    supabase_key = os.environ.get('SUPABASE_KEY')
+    if supabase_url and supabase_key:
+        try:
+            from app.utils.supabase_auth import SupabaseAuth
+            app.config['SUPABASE_CLIENT'] = SupabaseAuth(supabase_url, supabase_key)
+            print(f"Supabase Auth initialized for: {supabase_url}")
+        except Exception as e:
+            print(f"Warning: Could not initialize Supabase Auth: {e}")
+            app.config['SUPABASE_CLIENT'] = None
+    else:
+        app.config['SUPABASE_CLIENT'] = None
+        if not app.debug:
+            warnings.warn(
+                "SUPABASE_URL and SUPABASE_KEY not set. "
+                "Public user authentication will be disabled.",
+                UserWarning
+            )
+
     # Register blueprints
     from app.routes.main import main_bp
     from app.routes.admin import admin_bp
     from app.routes.api import api_bp
+    from app.routes.auth import auth_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(auth_bp)
 
     # Ensure output folder exists
     import os

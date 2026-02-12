@@ -205,6 +205,82 @@ def generate_paper():
     })
 
 
+@main_bp.route('/generate-custom-paper', methods=['POST'])
+@csrf.exempt
+@limiter.limit("10 per minute")
+def generate_custom_paper():
+    """Generate DOCX paper from custom JSON questions (guest users).
+    
+    Expects JSON body:
+    {
+        "questions": [
+            {"question_text": "...", "answer_options": ["A","B","C","D"], "correct_answer": "A"},
+            ...
+        ],
+        "paper_config": {
+            "title": "Home Test",
+            "class_name": "...",
+            "subject_name": "...",
+            "time": 30,
+            "marks": 10
+        }
+    }
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        questions = data.get('questions', [])
+        if not questions or not isinstance(questions, list):
+            return jsonify({'error': 'Please provide at least one question'}), 400
+
+        if len(questions) > 200:
+            return jsonify({'error': 'Maximum 200 questions allowed'}), 400
+
+        # Validate each question has required fields
+        for i, q in enumerate(questions):
+            if not q.get('question_text'):
+                return jsonify({'error': f'Question {i+1} is missing question_text'}), 400
+            if not q.get('answer_options') or len(q.get('answer_options', [])) < 2:
+                return jsonify({'error': f'Question {i+1} needs at least 2 answer options'}), 400
+
+        paper_config = data.get('paper_config', {})
+        paper_config.setdefault('title', 'Home Test')
+        paper_config.setdefault('marks', len(questions))
+        paper_config.setdefault('time', len(questions))
+
+        # Generate papers to disk
+        import uuid
+        output_folder = current_app.config.get('OUTPUT_FOLDER', 'output')
+        student_path, teacher_path = generate_paper_from_db(
+            questions, paper_config, output_folder
+        )
+
+        # Save to DB for download tracking (no class/subject IDs for custom papers)
+        paper = GeneratedPaper(
+            title=paper_config.get('title', 'Custom Paper'),
+            question_count=len(questions),
+            time_minutes=paper_config.get('time', 30),
+            file_path=student_path,
+            file_path_answers=teacher_path
+        )
+        db.session.add(paper)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'paper_id': paper.id,
+            'question_count': len(questions),
+            'student_download': f'/download/{paper.id}/student',
+            'teacher_download': f'/download/{paper.id}/teacher'
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Custom paper generation error: {e}")
+        return jsonify({'error': 'Failed to generate paper. Please check your data.'}), 500
+
+
 @main_bp.route('/download/<int:paper_id>/<paper_type>')
 def download_paper(paper_id, paper_type):
     """Download generated paper - supports DOCX (default) and PDF via ?format=pdf"""

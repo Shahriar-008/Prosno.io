@@ -11,210 +11,479 @@
                     <h1><i class="bi bi-file-earmark-plus"></i> Generate Question Paper</h1>
                     <p>Select your options below to create a customized MCQ question paper</p>
                 </div>
-                
-                <div class="generate-card">
-                    <form id="generateForm">
-                        <div class="row g-4">
-                            <!-- Class Selection -->
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="classSelect" class="form-label">
-                                        <i class="bi bi-mortarboard"></i> Select Class
-                                    </label>
-                                    <select class="form-select" id="classSelect" name="class_id" required>
-                                        <option value="">-- Choose Class --</option>
-                                        {% for c in classes %}
-                                        <option value="{{ c.id }}">{{ c.name_bn or c.name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <!-- Subject Selection -->
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="subjectSelect" class="form-label">
-                                        <i class="bi bi-book"></i> Select Subject
-                                    </label>
-                                    <select class="form-select" id="subjectSelect" name="subject_id" required disabled>
-                                        <option value="">-- Select Class First --</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <!-- Chapter Selection -->
-                            <div class="col-12">
-                                <div class="form-group">
-                                    <label class="form-label">
-                                        <i class="bi bi-list-check"></i> Select Chapters
-                                    </label>
-                                    <div class="chapters-container" id="chaptersContainer">
-                                        <div class="chapters-placeholder">
-                                            <i class="bi bi-arrow-up"></i>
-                                            <p>Please select a class and subject first</p>
+
+                <!-- Mode Tabs -->
+                <ul class="nav nav-pills nav-fill mode-tabs mb-4" id="modeTab" role="tablist">
+                    {% if session.get('user') %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="db-mode-tab" data-bs-toggle="pill" data-bs-target="#dbMode"
+                            type="button" role="tab">
+                            <i class="bi bi-database me-1"></i> From Question Bank
+                        </button>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link {% if not session.get('user') %}active{% endif %}" id="custom-mode-tab"
+                            data-bs-toggle="pill" data-bs-target="#customMode" type="button" role="tab">
+                            <i class="bi bi-pencil-square me-1"></i> Custom Questions
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="modeTabContent">
+
+                    {% if session.get('user') %}
+                    <!-- ===== DB MODE (Logged-in users) ===== -->
+                    <div class="tab-pane fade show active" id="dbMode" role="tabpanel">
+
+                        <div class="generate-card">
+                            <form id="generateForm">
+                                <div class="row g-4">
+                                    <!-- Class Selection -->
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="classSelect" class="form-label">
+                                                <i class="bi bi-mortarboard"></i> Select Class
+                                            </label>
+                                            <select class="form-select" id="classSelect" name="class_id" required>
+                                                <option value="">-- Choose Class --</option>
+                                                {% for c in classes %}
+                                                <option value="{{ c.id }}">{{ c.name_bn or c.name }}</option>
+                                                {% endfor %}
+                                            </select>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Available Questions Info -->
-                            <div class="col-12">
-                                <div class="questions-info" id="questionsInfo" style="display: none;">
-                                    <div class="info-badge" id="questionsBadge">
-                                        <i class="bi bi-database"></i>
-                                        <span id="availableQuestions">0</span> questions available from selected chapters
+
+                                    <!-- Subject Selection -->
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="subjectSelect" class="form-label">
+                                                <i class="bi bi-book"></i> Select Subject
+                                            </label>
+                                            <select class="form-select" id="subjectSelect" name="subject_id" required
+                                                disabled>
+                                                <option value="">-- Select Class First --</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                    <button type="button" class="btn btn-outline-primary btn-sm ms-3" id="loadQuestionsBtn" onclick="loadQuestions()">
-                                        <i class="bi bi-eye"></i> View & Select Questions
+
+                                    <!-- Chapter Selection -->
+                                    <div class="col-12">
+                                        <div class="form-group">
+                                            <label class="form-label">
+                                                <i class="bi bi-list-check"></i> Select Chapters
+                                            </label>
+                                            <div class="chapters-container" id="chaptersContainer">
+                                                <div class="chapters-placeholder">
+                                                    <i class="bi bi-arrow-up"></i>
+                                                    <p>Please select a class and subject first</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Available Questions Info -->
+                                    <div class="col-12">
+                                        <div class="questions-info" id="questionsInfo" style="display: none;">
+                                            <div class="info-badge" id="questionsBadge">
+                                                <i class="bi bi-database"></i>
+                                                <span id="availableQuestions">0</span> questions available from selected
+                                                chapters
+                                            </div>
+                                            <button type="button" class="btn btn-outline-primary btn-sm ms-3"
+                                                id="loadQuestionsBtn" onclick="loadQuestions()">
+                                                <i class="bi bi-eye"></i> View & Select Questions
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Question Selection Panel -->
+                                    <div class="col-12" id="questionSelectionPanel" style="display: none;">
+                                        <div class="question-selection-card">
+                                            <div class="question-selection-header">
+                                                <h5><i class="bi bi-list-check"></i> Select Questions</h5>
+                                                <div class="question-selection-actions">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                                        onclick="selectAllQuestions()">
+                                                        <i class="bi bi-check-all"></i> Select All
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                        onclick="deselectAllQuestions()">
+                                                        <i class="bi bi-x-lg"></i> Deselect All
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-outline-success"
+                                                        onclick="randomizeQuestions()">
+                                                        <i class="bi bi-shuffle"></i> Random Select
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="selected-count-bar">
+                                                <span><i class="bi bi-check-circle"></i> Selected: <strong
+                                                        id="selectedQuestionCount">0</strong> questions</span>
+                                                <div class="form-check form-switch ms-auto">
+                                                    <input class="form-check-input" type="checkbox" id="randomizeOrder">
+                                                    <label class="form-check-label" for="randomizeOrder">Randomize order
+                                                        in paper</label>
+                                                </div>
+                                            </div>
+                                            <div class="questions-list" id="questionsList">
+                                                <!-- Questions will be loaded here -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <hr class="my-4">
+
+                                    <!-- Paper Settings -->
+                                    <div class="col-12">
+                                        <h5 class="settings-title">
+                                            <i class="bi bi-gear"></i> Paper Settings
+                                        </h5>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="paperTitle" class="form-label">Paper Title</label>
+                                            <input type="text" class="form-control" id="paperTitle" name="title"
+                                                value="Home Test" placeholder="Enter paper title">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="questionCount" class="form-label">Number of Questions</label>
+                                            <input type="number" class="form-control" id="questionCount"
+                                                name="question_count" value="30" min="1" max="100">
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-4">
+                                        <div class="form-group">
+                                            <label for="timeMinutes" class="form-label">Time (Minutes)</label>
+                                            <input type="number" class="form-control" id="timeMinutes"
+                                                name="time_minutes" value="30" min="5" max="180">
+                                        </div>
+                                    </div>
+
+                                    <!-- Generate Button -->
+                                    <div class="col-12 text-center mt-4">
+                                        <button type="submit" class="btn btn-primary btn-lg" id="generateBtn">
+                                            <i class="bi bi-file-earmark-plus me-2"></i>
+                                            Generate Question Paper
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+
+                            <!-- Loading State -->
+                            <div class="generating-state" id="generatingState" style="display: none;">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p>Generating your question paper...</p>
+                            </div>
+                        </div>
+
+                        <!-- Result Section -->
+                        <div class="result-card" id="resultCard" style="display: none;">
+                            <div class="result-header">
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                <h3>Question Paper Generated Successfully!</h3>
+                                <p id="resultInfo">Your paper with <span id="generatedCount">0</span> questions is ready
+                                    for download.</p>
+                            </div>
+
+                            <div class="download-buttons">
+                                <!-- Student Copy - Split Button Dropdown -->
+                                <div class="btn-group">
+                                    <a href="#" id="downloadStudent" class="btn btn-primary btn-lg">
+                                        <i class="bi bi-file-earmark-word me-2"></i>
+                                        Download Student Copy
+                                    </a>
+                                    <button type="button"
+                                        class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="visually-hidden">Toggle Dropdown</span>
                                     </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="#" id="downloadStudentDocx">
+                                                <i class="bi bi-file-earmark-word me-2 text-primary"></i>Download as
+                                                DOCX
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" id="downloadStudentPdf">
+                                                <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Download as PDF
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <!-- Teacher Copy - Split Button Dropdown -->
+                                <div class="btn-group">
+                                    <a href="#" id="downloadTeacher" class="btn btn-success btn-lg">
+                                        <i class="bi bi-file-earmark-check me-2"></i>
+                                        Download Teacher Copy
+                                    </a>
+                                    <button type="button"
+                                        class="btn btn-success btn-lg dropdown-toggle dropdown-toggle-split"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="visually-hidden">Toggle Dropdown</span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="#" id="downloadTeacherDocx">
+                                                <i class="bi bi-file-earmark-word me-2 text-primary"></i>Download as
+                                                DOCX
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" id="downloadTeacherPdf">
+                                                <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Download as PDF
+                                            </a>
+                                        </li>
+                                    </ul>
                                 </div>
                             </div>
-                            
-                            <!-- Question Selection Panel -->
-                            <div class="col-12" id="questionSelectionPanel" style="display: none;">
-                                <div class="question-selection-card">
-                                    <div class="question-selection-header">
-                                        <h5><i class="bi bi-list-check"></i> Select Questions</h5>
-                                        <div class="question-selection-actions">
-                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllQuestions()">
-                                                <i class="bi bi-check-all"></i> Select All
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="deselectAllQuestions()">
-                                                <i class="bi bi-x-lg"></i> Deselect All
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-success" onclick="randomizeQuestions()">
-                                                <i class="bi bi-shuffle"></i> Random Select
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="selected-count-bar">
-                                        <span><i class="bi bi-check-circle"></i> Selected: <strong id="selectedQuestionCount">0</strong> questions</span>
-                                        <div class="form-check form-switch ms-auto">
-                                            <input class="form-check-input" type="checkbox" id="randomizeOrder">
-                                            <label class="form-check-label" for="randomizeOrder">Randomize order in paper</label>
-                                        </div>
-                                    </div>
-                                    <div class="questions-list" id="questionsList">
-                                        <!-- Questions will be loaded here -->
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <hr class="my-4">
-                            
-                            <!-- Paper Settings -->
-                            <div class="col-12">
-                                <h5 class="settings-title">
-                                    <i class="bi bi-gear"></i> Paper Settings
-                                </h5>
-                            </div>
-                            
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="paperTitle" class="form-label">Paper Title</label>
-                                    <input type="text" class="form-control" id="paperTitle" name="title" 
-                                           value="Home Test" placeholder="Enter paper title">
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="questionCount" class="form-label">Number of Questions</label>
-                                    <input type="number" class="form-control" id="questionCount" name="question_count" 
-                                           value="30" min="1" max="100">
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="timeMinutes" class="form-label">Time (Minutes)</label>
-                                    <input type="number" class="form-control" id="timeMinutes" name="time_minutes" 
-                                           value="30" min="5" max="180">
-                                </div>
-                            </div>
-                            
-                            <!-- Generate Button -->
-                            <div class="col-12 text-center mt-4">
-                                <button type="submit" class="btn btn-primary btn-lg" id="generateBtn">
-                                    <i class="bi bi-file-earmark-plus me-2"></i>
-                                    Generate Question Paper
+
+                            <div class="text-center mt-4">
+                                <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
+                                    <i class="bi bi-arrow-repeat me-2"></i>
+                                    Generate Another Paper
                                 </button>
                             </div>
                         </div>
-                    </form>
-                    
-                    <!-- Loading State -->
-                    <div class="generating-state" id="generatingState" style="display: none;">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
+                    </div><!-- end dbMode tab-pane -->
+                    {% endif %}
+
+                    <!-- ===== CUSTOM MODE (Guest / All users) ===== -->
+                    <div class="tab-pane fade {% if not session.get('user') %}show active{% endif %}" id="customMode"
+                        role="tabpanel">
+
+                        {% if not session.get('user') %}
+                        <div class="alert alert-info mb-4">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Guest Mode:</strong> Build your own questions and generate a DOCX paper.
+                            <a href="{{ url_for('auth.login') }}">Login</a> to access the full question bank.
                         </div>
-                        <p>Generating your question paper...</p>
-                    </div>
-                </div>
-                
-                <!-- Result Section -->
-                <div class="result-card" id="resultCard" style="display: none;">
-                    <div class="result-header">
-                        <i class="bi bi-check-circle-fill text-success"></i>
-                        <h3>Question Paper Generated Successfully!</h3>
-                        <p id="resultInfo">Your paper with <span id="generatedCount">0</span> questions is ready for download.</p>
-                    </div>
-                    
-                    <div class="download-buttons">
-                        <!-- Student Copy - Split Button Dropdown -->
-                        <div class="btn-group">
-                            <a href="#" id="downloadStudent" class="btn btn-primary btn-lg">
-                                <i class="bi bi-file-earmark-word me-2"></i>
-                                Download Student Copy
-                            </a>
-                            <button type="button" class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-                                <span class="visually-hidden">Toggle Dropdown</span>
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="#" id="downloadStudentDocx">
-                                        <i class="bi bi-file-earmark-word me-2 text-primary"></i>Download as DOCX
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="#" id="downloadStudentPdf">
-                                        <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Download as PDF
-                                    </a>
-                                </li>
-                            </ul>
+                        {% endif %}
+
+                        <div class="generate-card">
+                            <div class="row g-4">
+                                <!-- MCQ Builder (one-by-one) -->
+                                <div class="col-12">
+                                    <h5 class="settings-title">
+                                        <i class="bi bi-plus-circle"></i> MCQ Builder
+                                    </h5>
+                                    <p class="text-muted small">Add questions one by one using the form below</p>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="mcq-builder-card">
+                                        <div class="mb-3">
+                                            <label for="builderQuestion" class="form-label fw-bold">Question
+                                                Text</label>
+                                            <input type="text" class="form-control" id="builderQuestion"
+                                                placeholder="Enter your question here...">
+                                        </div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label">ক) Option 1</label>
+                                                <input type="text" class="form-control" id="builderOpt1"
+                                                    placeholder="First option">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">খ) Option 2</label>
+                                                <input type="text" class="form-control" id="builderOpt2"
+                                                    placeholder="Second option">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">গ) Option 3</label>
+                                                <input type="text" class="form-control" id="builderOpt3"
+                                                    placeholder="Third option">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">ঘ) Option 4</label>
+                                                <input type="text" class="form-control" id="builderOpt4"
+                                                    placeholder="Fourth option">
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-6">
+                                                <label for="builderAnswer" class="form-label fw-bold">Correct
+                                                    Answer</label>
+                                                <select class="form-select" id="builderAnswer">
+                                                    <option value="ক">ক) Option 1</option>
+                                                    <option value="খ">খ) Option 2</option>
+                                                    <option value="গ">গ) Option 3</option>
+                                                    <option value="ঘ">ঘ) Option 4</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6 text-end">
+                                                <button type="button" class="btn btn-success" onclick="addQuestion()">
+                                                    <i class="bi bi-plus-lg me-1"></i> Add Question
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr class="my-2">
+
+                                <!-- Questions List (always visible) -->
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h5 class="settings-title mb-0">
+                                            <i class="bi bi-list-ol"></i> Questions (<span
+                                                id="customQuestionCount">0</span>)
+                                        </h5>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" id="clearAllBtn"
+                                            onclick="clearAllCustomQuestions()" style="display:none;">
+                                            <i class="bi bi-trash me-1"></i> Clear All
+                                        </button>
+                                    </div>
+                                    <div id="customQuestionsList" class="custom-questions-list">
+                                        <div class="text-center text-muted p-4">
+                                            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                                            <p>No questions added yet. Use the builder above or paste in bulk below.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr class="my-2">
+
+                                <!-- Bulk Add via Text Paste (collapsible) -->
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h5 class="settings-title mb-0">
+                                            <i class="bi bi-clipboard-plus"></i> Bulk Add (Paste Text)
+                                        </h5>
+                                        <button class="btn btn-sm btn-outline-primary" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#bulkPasteSection">
+                                            <i class="bi bi-chevron-down me-1"></i> Show / Hide
+                                        </button>
+                                    </div>
+                                    <div class="collapse mt-3" id="bulkPasteSection">
+                                        <div class="bulk-paste-instructions">
+                                            <p class="mb-2 fw-bold"><i class="bi bi-info-circle me-1"></i> How to paste
+                                                questions in bulk:</p>
+                                            <ul class="small mb-2">
+                                                <li>Each question starts with <code>Q1.</code>, <code>Q2.</code>, etc.
+                                                </li>
+                                                <li>Options use <code>ক) খ) গ) ঘ)</code> or <code>a) b) c) d)</code>
+                                                </li>
+                                                <li>Correct answer line: <code>Answer: ক</code> or
+                                                    <code>Answer: a</code>
+                                                </li>
+                                                <li>Leave <strong>one empty line</strong> between questions</li>
+                                            </ul>
+                                            <pre class="paste-example"><code>Q1. পানি কোন ধরণের যৌগ?
+ক) এসিড
+খ) ক্ষার
+গ) নিরপেক্ষ
+ঘ) লবণ
+Answer: গ
+
+Q2. Capital of Bangladesh?
+a) Chittagong
+b) Dhaka
+c) Khulna
+d) Rajshahi
+Answer: b</code></pre>
+                                        </div>
+                                        <textarea class="form-control paste-textarea mt-2" id="questionsTextarea"
+                                            rows="10" placeholder="Paste your questions here..."></textarea>
+                                        <div class="mt-2 text-end">
+                                            <button type="button" class="btn btn-success"
+                                                onclick="parseAndAddQuestions()">
+                                                <i class="bi bi-plus-circle me-1"></i> Add Pasted Questions
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <hr class="my-4">
+
+                                <!-- Paper Settings -->
+                                <div class="col-12">
+                                    <h5 class="settings-title">
+                                        <i class="bi bi-gear"></i> Paper Settings
+                                    </h5>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="customPaperTitle" class="form-label">Paper Title</label>
+                                        <input type="text" class="form-control" id="customPaperTitle" value="Home Test">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="customClassName" class="form-label">Class Name</label>
+                                        <input type="text" class="form-control" id="customClassName"
+                                            placeholder="e.g. দশম শ্রেণি">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="customSubjectName" class="form-label">Subject</label>
+                                        <input type="text" class="form-control" id="customSubjectName"
+                                            placeholder="e.g. পদার্থবিজ্ঞান">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="customTime" class="form-label">Time (Minutes)</label>
+                                        <input type="number" class="form-control" id="customTime" value="30" min="5"
+                                            max="180">
+                                    </div>
+                                </div>
+
+                                <!-- Generate Button -->
+                                <div class="col-12 text-center mt-4">
+                                    <button type="button" class="btn btn-primary btn-lg" id="generateCustomBtn"
+                                        onclick="generateCustomPaper()">
+                                        <i class="bi bi-file-earmark-plus me-2"></i>
+                                        Generate DOCX Paper
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- Teacher Copy - Split Button Dropdown -->
-                        <div class="btn-group">
-                            <a href="#" id="downloadTeacher" class="btn btn-success btn-lg">
-                                <i class="bi bi-file-earmark-check me-2"></i>
-                                Download Teacher Copy
-                            </a>
-                            <button type="button" class="btn btn-success btn-lg dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-                                <span class="visually-hidden">Toggle Dropdown</span>
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="#" id="downloadTeacherDocx">
-                                        <i class="bi bi-file-earmark-word me-2 text-primary"></i>Download as DOCX
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="#" id="downloadTeacherPdf">
-                                        <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Download as PDF
-                                    </a>
-                                </li>
-                            </ul>
+                        <!-- Custom Generation Loading -->
+                        <div class="generating-state" id="customGeneratingState" style="display: none;">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p>Generating your question paper...</p>
                         </div>
-                    </div>
-                    
-                    <div class="text-center mt-4">
-                        <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
-                            <i class="bi bi-arrow-repeat me-2"></i>
-                            Generate Another Paper
-                        </button>
-                    </div>
-                </div>
+
+                        <!-- Custom Result -->
+                        <div class="result-card" id="customResultCard" style="display: none;">
+                            <div class="result-header">
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                <h3>Question Paper Generated!</h3>
+                                <p>Your custom paper with <span id="customGeneratedCount">0</span> questions is ready.
+                                </p>
+                            </div>
+                            <div class="download-buttons">
+                                <a href="#" id="customDownloadStudent" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-file-earmark-word me-2"></i> Download Student Copy
+                                </a>
+                                <a href="#" id="customDownloadTeacher" class="btn btn-success btn-lg">
+                                    <i class="bi bi-file-earmark-check me-2"></i> Download Teacher Copy
+                                </a>
+                            </div>
+                            <div class="text-center mt-4">
+                                <button type="button" class="btn btn-outline-secondary" onclick="resetCustomForm()">
+                                    <i class="bi bi-arrow-repeat me-2"></i> Generate Another Paper
+                                </button>
+                            </div>
+                        </div>
+                    </div><!-- end customMode tab-pane -->
+
+                </div><!-- end tab-content -->
             </div>
         </div>
     </div>
@@ -223,105 +492,108 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const classSelect = document.getElementById('classSelect');
-    const subjectSelect = document.getElementById('subjectSelect');
-    const chaptersContainer = document.getElementById('chaptersContainer');
-    const questionsInfo = document.getElementById('questionsInfo');
-    const availableQuestions = document.getElementById('availableQuestions');
-    const generateForm = document.getElementById('generateForm');
-    const generateBtn = document.getElementById('generateBtn');
-    const generatingState = document.getElementById('generatingState');
-    const resultCard = document.getElementById('resultCard');
-    const questionSelectionPanel = document.getElementById('questionSelectionPanel');
-    const questionsList = document.getElementById('questionsList');
-    
-    let allQuestions = [];  // Store loaded questions
-    let chaptersInfo = {};  // Store chapter info
-    
-    // Load subjects when class changes
-    classSelect.addEventListener('change', function() {
-        const classId = this.value;
-        
-        // Reset subject and chapters
-        subjectSelect.innerHTML = '<option value="">-- Loading... --</option>';
-        subjectSelect.disabled = true;
-        chaptersContainer.innerHTML = `
+    document.addEventListener('DOMContentLoaded', function () {
+        const classSelect = document.getElementById('classSelect');
+        // Guard: DB-mode elements only exist for logged-in users
+        if (!classSelect) return;
+
+        const subjectSelect = document.getElementById('subjectSelect');
+        const chaptersContainer = document.getElementById('chaptersContainer');
+        const questionsInfo = document.getElementById('questionsInfo');
+        const availableQuestions = document.getElementById('availableQuestions');
+        const generateForm = document.getElementById('generateForm');
+        const generateBtn = document.getElementById('generateBtn');
+        const generatingState = document.getElementById('generatingState');
+        const resultCard = document.getElementById('resultCard');
+        const questionSelectionPanel = document.getElementById('questionSelectionPanel');
+        const questionsList = document.getElementById('questionsList');
+
+        let allQuestions = [];  // Store loaded questions
+        let chaptersInfo = {};  // Store chapter info
+
+        // Load subjects when class changes
+        classSelect.addEventListener('change', function () {
+            const classId = this.value;
+
+            // Reset subject and chapters
+            subjectSelect.innerHTML = '<option value="">-- Loading... --</option>';
+            subjectSelect.disabled = true;
+            chaptersContainer.innerHTML = `
             <div class="chapters-placeholder">
                 <i class="bi bi-arrow-up"></i>
                 <p>Please select a subject</p>
             </div>
         `;
-        questionsInfo.style.display = 'none';
-        questionSelectionPanel.style.display = 'none';
-        allQuestions = [];
-        
-        if (!classId) {
-            subjectSelect.innerHTML = '<option value="">-- Select Class First --</option>';
-            return;
-        }
-        
-        fetch(`/get-subjects/${classId}`)
-            .then(response => response.json())
-            .then(subjects => {
-                subjectSelect.innerHTML = '<option value="">-- Choose Subject --</option>';
-                subjects.forEach(s => {
-                    subjectSelect.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
+            questionsInfo.style.display = 'none';
+            questionSelectionPanel.style.display = 'none';
+            allQuestions = [];
+
+            if (!classId) {
+                subjectSelect.innerHTML = '<option value="">-- Select Class First --</option>';
+                return;
+            }
+
+            fetch(`/get-subjects/${classId}`)
+                .then(response => response.json())
+                .then(subjects => {
+                    subjectSelect.innerHTML = '<option value="">-- Choose Subject --</option>';
+                    subjects.forEach(s => {
+                        subjectSelect.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
+                    });
+                    subjectSelect.disabled = false;
+                })
+                .catch(err => {
+                    console.error('Error loading subjects:', err);
+                    subjectSelect.innerHTML = '<option value="">-- Error loading subjects --</option>';
                 });
-                subjectSelect.disabled = false;
-            })
-            .catch(err => {
-                console.error('Error loading subjects:', err);
-                subjectSelect.innerHTML = '<option value="">-- Error loading subjects --</option>';
-            });
-    });
-    
-    // Load chapters when subject changes
-    subjectSelect.addEventListener('change', function() {
-        const subjectId = this.value;
-        questionsInfo.style.display = 'none';
-        questionSelectionPanel.style.display = 'none';
-        allQuestions = [];
-        
-        if (!subjectId) {
-            chaptersContainer.innerHTML = `
+        });
+
+        // Load chapters when subject changes
+        subjectSelect.addEventListener('change', function () {
+            const subjectId = this.value;
+            questionsInfo.style.display = 'none';
+            questionSelectionPanel.style.display = 'none';
+            allQuestions = [];
+
+            if (!subjectId) {
+                chaptersContainer.innerHTML = `
                 <div class="chapters-placeholder">
                     <i class="bi bi-arrow-up"></i>
                     <p>Please select a subject</p>
                 </div>
             `;
-            return;
-        }
-        
-        chaptersContainer.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div></div>';
-        
-        fetch(`/get-chapters/${subjectId}`)
-            .then(response => response.json())
-            .then(chapters => {
-                if (chapters.length === 0) {
-                    chaptersContainer.innerHTML = `
+                return;
+            }
+
+            chaptersContainer.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div></div>';
+
+            fetch(`/get-chapters/${subjectId}`)
+                .then(response => response.json())
+                .then(chapters => {
+                    if (chapters.length === 0) {
+                        chaptersContainer.innerHTML = `
                         <div class="chapters-placeholder">
                             <i class="bi bi-exclamation-circle"></i>
                             <p>No chapters available for this subject</p>
                         </div>
                     `;
-                    return;
-                }
-                
-                let html = '<div class="chapters-grid">';
-                chapters.forEach(c => {
-                    const label = c.chapter_number 
-                        ? `অধ্যায় ${c.chapter_number}: ${c.name_bn || c.name}`
-                        : c.name_bn || c.name;
-                    html += `
+                        return;
+                    }
+
+                    let html = '<div class="chapters-grid">';
+                    chapters.forEach(c => {
+                        const label = c.chapter_number
+                            ? `অধ্যায় ${c.chapter_number}: ${c.name_bn || c.name}`
+                            : c.name_bn || c.name;
+                        html += `
                         <div class="chapter-checkbox">
                             <input type="checkbox" id="chapter_${c.id}" name="chapters" value="${c.id}" class="chapter-input">
                             <label for="chapter_${c.id}">${label}</label>
                         </div>
                     `;
-                });
-                html += '</div>';
-                html += `
+                    });
+                    html += '</div>';
+                    html += `
                     <div class="chapter-actions">
                         <button type="button" class="btn btn-sm btn-outline-primary" onclick="selectAllChapters()">
                             <i class="bi bi-check-all"></i> Select All
@@ -331,251 +603,251 @@ document.addEventListener('DOMContentLoaded', function() {
                         </button>
                     </div>
                 `;
-                chaptersContainer.innerHTML = html;
-                
-                // Add change listeners to checkboxes
-                document.querySelectorAll('.chapter-input').forEach(cb => {
-                    cb.addEventListener('change', updateQuestionCount);
-                });
-            })
-            .catch(err => {
-                console.error('Error loading chapters:', err);
-                chaptersContainer.innerHTML = `
+                    chaptersContainer.innerHTML = html;
+
+                    // Add change listeners to checkboxes
+                    document.querySelectorAll('.chapter-input').forEach(cb => {
+                        cb.addEventListener('change', updateQuestionCount);
+                    });
+                })
+                .catch(err => {
+                    console.error('Error loading chapters:', err);
+                    chaptersContainer.innerHTML = `
                     <div class="chapters-placeholder">
                         <i class="bi bi-exclamation-triangle"></i>
                         <p>Error loading chapters</p>
                     </div>
                 `;
-            });
+                });
+        });
+
+        // Update question count when chapters are selected
+        function updateQuestionCount() {
+            const selectedChapters = Array.from(document.querySelectorAll('.chapter-input:checked'))
+                .map(cb => parseInt(cb.value));
+
+            const questionsBadge = document.getElementById('questionsBadge');
+
+            if (selectedChapters.length === 0) {
+                questionsInfo.style.display = 'none';
+                questionSelectionPanel.style.display = 'none';
+                return;
+            }
+
+            // Always show the info section when chapters are selected
+            questionsInfo.style.display = 'flex';
+
+            fetch('/get-question-count', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ chapter_ids: selectedChapters })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    availableQuestions.textContent = data.count;
+
+                    // Style badge based on count
+                    if (data.count === 0) {
+                        questionsBadge.classList.add('no-questions');
+                        questionsBadge.classList.remove('has-questions');
+                    } else {
+                        questionsBadge.classList.remove('no-questions');
+                        questionsBadge.classList.add('has-questions');
+                    }
+                })
+                .catch(err => console.error('Error:', err));
+        }
+
+        // Form submission
+        generateForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const selectedChapters = Array.from(document.querySelectorAll('.chapter-input:checked'))
+                .map(cb => parseInt(cb.value));
+
+            if (selectedChapters.length === 0) {
+                alert('Please select at least one chapter');
+                return;
+            }
+
+            // Get selected question IDs if question panel is visible
+            const selectedQuestionIds = Array.from(document.querySelectorAll('.question-input:checked'))
+                .map(cb => parseInt(cb.value));
+
+            // If questions panel is visible but no questions selected
+            if (questionSelectionPanel.style.display !== 'none' && selectedQuestionIds.length === 0) {
+                alert('Please select at least one question');
+                return;
+            }
+
+            const formData = {
+                class_id: parseInt(classSelect.value),
+                subject_id: parseInt(subjectSelect.value),
+                chapter_ids: selectedChapters,
+                question_ids: selectedQuestionIds.length > 0 ? selectedQuestionIds : [],
+                question_count: parseInt(document.getElementById('questionCount').value),
+                time_minutes: parseInt(document.getElementById('timeMinutes').value),
+                title: document.getElementById('paperTitle').value,
+                randomize: document.getElementById('randomizeOrder')?.checked || false
+            };
+
+            // Show loading state
+            generateBtn.disabled = true;
+            generateForm.style.display = 'none';
+            generatingState.style.display = 'block';
+            resultCard.style.display = 'none';
+
+            fetch('/generate-paper', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    generatingState.style.display = 'none';
+
+                    if (data.error) {
+                        alert(data.error);
+                        generateForm.style.display = 'block';
+                        generateBtn.disabled = false;
+                        return;
+                    }
+
+                    // Show result
+                    document.getElementById('generatedCount').textContent = data.question_count;
+
+                    const studentUrl = data.student_download;
+                    const teacherUrl = data.teacher_download;
+                    const studentPdfUrl = studentUrl + '?format=pdf';
+                    const teacherPdfUrl = teacherUrl + '?format=pdf';
+
+                    // Main buttons default to DOCX
+                    document.getElementById('downloadStudent').href = studentUrl;
+                    document.getElementById('downloadTeacher').href = teacherUrl;
+
+                    // Dropdown items
+                    document.getElementById('downloadStudentDocx').href = studentUrl;
+                    document.getElementById('downloadStudentPdf').href = studentPdfUrl;
+                    document.getElementById('downloadTeacherDocx').href = teacherUrl;
+                    document.getElementById('downloadTeacherPdf').href = teacherPdfUrl;
+
+                    // Click handlers for main buttons (DOCX)
+                    document.getElementById('downloadStudent').onclick = function (e) {
+                        e.preventDefault();
+                        window.location.href = studentUrl;
+                    };
+                    document.getElementById('downloadTeacher').onclick = function (e) {
+                        e.preventDefault();
+                        window.location.href = teacherUrl;
+                    };
+
+                    // Click handlers for dropdown items
+                    document.getElementById('downloadStudentDocx').onclick = function (e) {
+                        e.preventDefault();
+                        window.location.href = studentUrl;
+                    };
+                    document.getElementById('downloadStudentPdf').onclick = function (e) {
+                        e.preventDefault();
+                        window.location.href = studentPdfUrl;
+                    };
+                    document.getElementById('downloadTeacherDocx').onclick = function (e) {
+                        e.preventDefault();
+                        window.location.href = teacherUrl;
+                    };
+                    document.getElementById('downloadTeacherPdf').onclick = function (e) {
+                        e.preventDefault();
+                        window.location.href = teacherPdfUrl;
+                    };
+
+                    resultCard.style.display = 'block';
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    generatingState.style.display = 'none';
+                    generateForm.style.display = 'block';
+                    generateBtn.disabled = false;
+                    alert('An error occurred. Please try again.');
+                });
+        });
     });
-    
-    // Update question count when chapters are selected
-    function updateQuestionCount() {
+
+    // Load questions for selected chapters
+    function loadQuestions() {
         const selectedChapters = Array.from(document.querySelectorAll('.chapter-input:checked'))
             .map(cb => parseInt(cb.value));
-        
-        const questionsBadge = document.getElementById('questionsBadge');
-        
+
         if (selectedChapters.length === 0) {
-            questionsInfo.style.display = 'none';
-            questionSelectionPanel.style.display = 'none';
+            alert('Please select at least one chapter first');
             return;
         }
-        
-        // Always show the info section when chapters are selected
-        questionsInfo.style.display = 'flex';
-        
-        fetch('/get-question-count', {
+
+        const questionsList = document.getElementById('questionsList');
+        const questionSelectionPanel = document.getElementById('questionSelectionPanel');
+
+        questionsList.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div><p>Loading questions...</p></div>';
+        questionSelectionPanel.style.display = 'block';
+
+        fetch('/get-questions-for-chapters', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ chapter_ids: selectedChapters })
         })
-        .then(response => response.json())
-        .then(data => {
-            availableQuestions.textContent = data.count;
-            
-            // Style badge based on count
-            if (data.count === 0) {
-                questionsBadge.classList.add('no-questions');
-                questionsBadge.classList.remove('has-questions');
-            } else {
-                questionsBadge.classList.remove('no-questions');
-                questionsBadge.classList.add('has-questions');
-            }
-        })
-        .catch(err => console.error('Error:', err));
-    }
-    
-    // Form submission
-    generateForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const selectedChapters = Array.from(document.querySelectorAll('.chapter-input:checked'))
-            .map(cb => parseInt(cb.value));
-        
-        if (selectedChapters.length === 0) {
-            alert('Please select at least one chapter');
-            return;
-        }
-        
-        // Get selected question IDs if question panel is visible
-        const selectedQuestionIds = Array.from(document.querySelectorAll('.question-input:checked'))
-            .map(cb => parseInt(cb.value));
-        
-        // If questions panel is visible but no questions selected
-        if (questionSelectionPanel.style.display !== 'none' && selectedQuestionIds.length === 0) {
-            alert('Please select at least one question');
-            return;
-        }
-        
-        const formData = {
-            class_id: parseInt(classSelect.value),
-            subject_id: parseInt(subjectSelect.value),
-            chapter_ids: selectedChapters,
-            question_ids: selectedQuestionIds.length > 0 ? selectedQuestionIds : [],
-            question_count: parseInt(document.getElementById('questionCount').value),
-            time_minutes: parseInt(document.getElementById('timeMinutes').value),
-            title: document.getElementById('paperTitle').value,
-            randomize: document.getElementById('randomizeOrder')?.checked || false
-        };
-        
-        // Show loading state
-        generateBtn.disabled = true;
-        generateForm.style.display = 'none';
-        generatingState.style.display = 'block';
-        resultCard.style.display = 'none';
-        
-        fetch('/generate-paper', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(formData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            generatingState.style.display = 'none';
-            
-            if (data.error) {
-                alert(data.error);
-                generateForm.style.display = 'block';
-                generateBtn.disabled = false;
-                return;
-            }
-            
-            // Show result
-            document.getElementById('generatedCount').textContent = data.question_count;
+            .then(response => response.json())
+            .then(data => {
+                window.allQuestions = data.questions;
+                window.chaptersInfo = data.chapters;
 
-            const studentUrl = data.student_download;
-            const teacherUrl = data.teacher_download;
-            const studentPdfUrl = studentUrl + '?format=pdf';
-            const teacherPdfUrl = teacherUrl + '?format=pdf';
-
-            // Main buttons default to DOCX
-            document.getElementById('downloadStudent').href = studentUrl;
-            document.getElementById('downloadTeacher').href = teacherUrl;
-
-            // Dropdown items
-            document.getElementById('downloadStudentDocx').href = studentUrl;
-            document.getElementById('downloadStudentPdf').href = studentPdfUrl;
-            document.getElementById('downloadTeacherDocx').href = teacherUrl;
-            document.getElementById('downloadTeacherPdf').href = teacherPdfUrl;
-            
-            // Click handlers for main buttons (DOCX)
-            document.getElementById('downloadStudent').onclick = function(e) {
-                e.preventDefault();
-                window.location.href = studentUrl;
-            };
-            document.getElementById('downloadTeacher').onclick = function(e) {
-                e.preventDefault();
-                window.location.href = teacherUrl;
-            };
-
-            // Click handlers for dropdown items
-            document.getElementById('downloadStudentDocx').onclick = function(e) {
-                e.preventDefault();
-                window.location.href = studentUrl;
-            };
-            document.getElementById('downloadStudentPdf').onclick = function(e) {
-                e.preventDefault();
-                window.location.href = studentPdfUrl;
-            };
-            document.getElementById('downloadTeacherDocx').onclick = function(e) {
-                e.preventDefault();
-                window.location.href = teacherUrl;
-            };
-            document.getElementById('downloadTeacherPdf').onclick = function(e) {
-                e.preventDefault();
-                window.location.href = teacherPdfUrl;
-            };
-            
-            resultCard.style.display = 'block';
-        })
-        .catch(err => {
-            console.error('Error:', err);
-            generatingState.style.display = 'none';
-            generateForm.style.display = 'block';
-            generateBtn.disabled = false;
-            alert('An error occurred. Please try again.');
-        });
-    });
-});
-
-// Load questions for selected chapters
-function loadQuestions() {
-    const selectedChapters = Array.from(document.querySelectorAll('.chapter-input:checked'))
-        .map(cb => parseInt(cb.value));
-    
-    if (selectedChapters.length === 0) {
-        alert('Please select at least one chapter first');
-        return;
-    }
-    
-    const questionsList = document.getElementById('questionsList');
-    const questionSelectionPanel = document.getElementById('questionSelectionPanel');
-    
-    questionsList.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div><p>Loading questions...</p></div>';
-    questionSelectionPanel.style.display = 'block';
-    
-    fetch('/get-questions-for-chapters', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ chapter_ids: selectedChapters })
-    })
-    .then(response => response.json())
-    .then(data => {
-        window.allQuestions = data.questions;
-        window.chaptersInfo = data.chapters;
-        
-        if (data.questions.length === 0) {
-            questionsList.innerHTML = `
+                if (data.questions.length === 0) {
+                    questionsList.innerHTML = `
                 <div class="text-center p-4 text-muted">
                     <i class="bi bi-inbox" style="font-size: 2rem;"></i>
                     <p>No questions found in selected chapters</p>
                 </div>
             `;
-            return;
-        }
-        
-        renderQuestionsList(data.questions, data.chapters);
-        updateSelectedCount();
-    })
-    .catch(err => {
-        console.error('Error loading questions:', err);
-        questionsList.innerHTML = `
+                    return;
+                }
+
+                renderQuestionsList(data.questions, data.chapters);
+                updateSelectedCount();
+            })
+            .catch(err => {
+                console.error('Error loading questions:', err);
+                questionsList.innerHTML = `
             <div class="text-center p-4 text-danger">
                 <i class="bi bi-exclamation-triangle"></i>
                 <p>Error loading questions</p>
             </div>
         `;
-    });
-}
+            });
+    }
 
-// Render questions list grouped by chapter
-function renderQuestionsList(questions, chapters) {
-    const questionsList = document.getElementById('questionsList');
-    
-    // Group questions by chapter
-    const grouped = {};
-    questions.forEach(q => {
-        if (!grouped[q.chapter_id]) {
-            grouped[q.chapter_id] = [];
-        }
-        grouped[q.chapter_id].push(q);
-    });
-    
-    let html = '';
-    for (const [chapterId, chapterQuestions] of Object.entries(grouped)) {
-        const chapter = chapters[chapterId];
-        const chapterLabel = chapter.chapter_number 
-            ? `অধ্যায় ${chapter.chapter_number}: ${chapter.name}`
-            : chapter.name;
-        
-        html += `
+    // Render questions list grouped by chapter
+    function renderQuestionsList(questions, chapters) {
+        const questionsList = document.getElementById('questionsList');
+
+        // Group questions by chapter
+        const grouped = {};
+        questions.forEach(q => {
+            if (!grouped[q.chapter_id]) {
+                grouped[q.chapter_id] = [];
+            }
+            grouped[q.chapter_id].push(q);
+        });
+
+        let html = '';
+        for (const [chapterId, chapterQuestions] of Object.entries(grouped)) {
+            const chapter = chapters[chapterId];
+            const chapterLabel = chapter.chapter_number
+                ? `অধ্যায় ${chapter.chapter_number}: ${chapter.name}`
+                : chapter.name;
+
+            html += `
             <div class="chapter-questions-group">
                 <div class="chapter-group-header">
                     <span class="chapter-group-title">${chapterLabel}</span>
@@ -583,10 +855,10 @@ function renderQuestionsList(questions, chapters) {
                 </div>
                 <div class="chapter-group-questions">
         `;
-        
-        chapterQuestions.forEach((q, idx) => {
-            const difficultyClass = q.difficulty === 'easy' ? 'success' : q.difficulty === 'hard' ? 'danger' : 'warning';
-            html += `
+
+            chapterQuestions.forEach((q, idx) => {
+                const difficultyClass = q.difficulty === 'easy' ? 'success' : q.difficulty === 'hard' ? 'danger' : 'warning';
+                html += `
                 <div class="question-item">
                     <div class="question-checkbox">
                         <input type="checkbox" id="question_${q.id}" value="${q.id}" class="question-input" onchange="updateSelectedCount()">
@@ -598,101 +870,467 @@ function renderQuestionsList(questions, chapters) {
                     </label>
                 </div>
             `;
-        });
-        
-        html += `
+            });
+
+            html += `
                 </div>
             </div>
         `;
+        }
+
+        questionsList.innerHTML = html;
     }
-    
-    questionsList.innerHTML = html;
-}
 
-// Update selected question count
-function updateSelectedCount() {
-    const count = document.querySelectorAll('.question-input:checked').length;
-    document.getElementById('selectedQuestionCount').textContent = count;
-    
-    // Update question count input
-    if (count > 0) {
-        document.getElementById('questionCount').value = count;
+    // Update selected question count
+    function updateSelectedCount() {
+        const count = document.querySelectorAll('.question-input:checked').length;
+        document.getElementById('selectedQuestionCount').textContent = count;
+
+        // Update question count input
+        if (count > 0) {
+            document.getElementById('questionCount').value = count;
+        }
     }
-}
 
-// Select all questions
-function selectAllQuestions() {
-    document.querySelectorAll('.question-input').forEach(cb => {
-        cb.checked = true;
-    });
-    updateSelectedCount();
-}
-
-// Deselect all questions
-function deselectAllQuestions() {
-    document.querySelectorAll('.question-input').forEach(cb => {
-        cb.checked = false;
-    });
-    updateSelectedCount();
-}
-
-// Randomize question selection
-function randomizeQuestions() {
-    const countInput = document.getElementById('questionCount');
-    const desiredCount = parseInt(countInput.value) || 30;
-    const allCheckboxes = Array.from(document.querySelectorAll('.question-input'));
-    
-    // First deselect all
-    allCheckboxes.forEach(cb => cb.checked = false);
-    
-    // Shuffle and select random questions
-    const shuffled = allCheckboxes.sort(() => Math.random() - 0.5);
-    const toSelect = Math.min(desiredCount, shuffled.length);
-    
-    for (let i = 0; i < toSelect; i++) {
-        shuffled[i].checked = true;
+    // Select all questions
+    function selectAllQuestions() {
+        document.querySelectorAll('.question-input').forEach(cb => {
+            cb.checked = true;
+        });
+        updateSelectedCount();
     }
-    
-    updateSelectedCount();
-}
 
-function selectAllChapters() {
-    document.querySelectorAll('.chapter-input').forEach(cb => {
-        cb.checked = true;
-    });
-    // Trigger change event on the first checkbox to update count
-    const firstCb = document.querySelector('.chapter-input');
-    if (firstCb) {
-        firstCb.dispatchEvent(new Event('change'));
+    // Deselect all questions
+    function deselectAllQuestions() {
+        document.querySelectorAll('.question-input').forEach(cb => {
+            cb.checked = false;
+        });
+        updateSelectedCount();
     }
-}
 
-function deselectAllChapters() {
-    document.querySelectorAll('.chapter-input').forEach(cb => {
-        cb.checked = false;
-    });
-    document.getElementById('questionsInfo').style.display = 'none';
-}
+    // Randomize question selection
+    function randomizeQuestions() {
+        const countInput = document.getElementById('questionCount');
+        const desiredCount = parseInt(countInput.value) || 30;
+        const allCheckboxes = Array.from(document.querySelectorAll('.question-input'));
 
-function resetForm() {
-    document.getElementById('generateForm').style.display = 'block';
-    document.getElementById('resultCard').style.display = 'none';
-    document.getElementById('generateBtn').disabled = false;
-    document.getElementById('questionSelectionPanel').style.display = 'none';
-    
-    // Reset form
-    document.getElementById('classSelect').value = '';
-    document.getElementById('subjectSelect').innerHTML = '<option value="">-- Select Class First --</option>';
-    document.getElementById('subjectSelect').disabled = true;
-    document.getElementById('chaptersContainer').innerHTML = `
+        // First deselect all
+        allCheckboxes.forEach(cb => cb.checked = false);
+
+        // Shuffle and select random questions
+        const shuffled = allCheckboxes.sort(() => Math.random() - 0.5);
+        const toSelect = Math.min(desiredCount, shuffled.length);
+
+        for (let i = 0; i < toSelect; i++) {
+            shuffled[i].checked = true;
+        }
+
+        updateSelectedCount();
+    }
+
+    function selectAllChapters() {
+        document.querySelectorAll('.chapter-input').forEach(cb => {
+            cb.checked = true;
+        });
+        // Trigger change event on the first checkbox to update count
+        const firstCb = document.querySelector('.chapter-input');
+        if (firstCb) {
+            firstCb.dispatchEvent(new Event('change'));
+        }
+    }
+
+    function deselectAllChapters() {
+        document.querySelectorAll('.chapter-input').forEach(cb => {
+            cb.checked = false;
+        });
+        document.getElementById('questionsInfo').style.display = 'none';
+    }
+
+    function resetForm() {
+        document.getElementById('generateForm').style.display = 'block';
+        document.getElementById('resultCard').style.display = 'none';
+        document.getElementById('generateBtn').disabled = false;
+        document.getElementById('questionSelectionPanel').style.display = 'none';
+
+        // Reset form
+        document.getElementById('classSelect').value = '';
+        document.getElementById('subjectSelect').innerHTML = '<option value="">-- Select Class First --</option>';
+        document.getElementById('subjectSelect').disabled = true;
+        document.getElementById('chaptersContainer').innerHTML = `
         <div class="chapters-placeholder">
             <i class="bi bi-arrow-up"></i>
             <p>Please select a class and subject first</p>
         </div>
     `;
-    document.getElementById('questionsInfo').style.display = 'none';
-    document.getElementById('questionsList').innerHTML = '';
-    window.allQuestions = [];
-}
+        document.getElementById('questionsInfo').style.display = 'none';
+        document.getElementById('questionsList').innerHTML = '';
+        window.allQuestions = [];
+    }
+
+    // ==========================================
+    // CUSTOM QUESTIONS
+    // ==========================================
+    let customQuestions = [];
+
+    // Add a question from the MCQ builder form directly to the list
+    function addQuestion() {
+        const qText = document.getElementById('builderQuestion').value.trim();
+        const opt1 = document.getElementById('builderOpt1').value.trim();
+        const opt2 = document.getElementById('builderOpt2').value.trim();
+        const opt3 = document.getElementById('builderOpt3').value.trim();
+        const opt4 = document.getElementById('builderOpt4').value.trim();
+        const answerKey = document.getElementById('builderAnswer').value;
+
+        if (!qText) { alert('Please enter a question.'); return; }
+        if (!opt1 || !opt2 || !opt3 || !opt4) { alert('Please fill in all 4 options.'); return; }
+
+        const options = [opt1, opt2, opt3, opt4];
+        const ansMap = { '\u0995': 0, '\u0996': 1, '\u0997': 2, '\u0998': 3 };
+        const correctAnswer = options[ansMap[answerKey] !== undefined ? ansMap[answerKey] : 0];
+
+        customQuestions.push({
+            question_text: qText,
+            answer_options: options,
+            correct_answer: correctAnswer
+        });
+
+        renderQuestionsList();
+
+        // Clear form
+        document.getElementById('builderQuestion').value = '';
+        document.getElementById('builderOpt1').value = '';
+        document.getElementById('builderOpt2').value = '';
+        document.getElementById('builderOpt3').value = '';
+        document.getElementById('builderOpt4').value = '';
+        document.getElementById('builderAnswer').value = '\u0995';
+        document.getElementById('builderQuestion').focus();
+    }
+
+    // Remove a single question
+    function removeQuestion(index) {
+        customQuestions.splice(index, 1);
+        renderQuestionsList();
+    }
+
+    // Clear all questions
+    function clearAllCustomQuestions() {
+        if (customQuestions.length === 0) return;
+        if (!confirm('Clear all ' + customQuestions.length + ' questions?')) return;
+        customQuestions = [];
+        renderQuestionsList();
+    }
+
+    // Parse bulk pasted text and ADD to existing questions
+    function parseAndAddQuestions() {
+        const raw = document.getElementById('questionsTextarea').value.trim();
+        if (!raw) { alert('Please paste some questions first.'); return; }
+
+        const blocks = raw.split(/\n\s*\n/).filter(b => b.trim());
+        const parsed = [];
+        const errors = [];
+
+        const allOptionPrefixes = [
+            /^\s*(?:\u0995\)|a\))\s*/i,
+            /^\s*(?:\u0996\)|b\))\s*/i,
+            /^\s*(?:\u0997\)|c\))\s*/i,
+            /^\s*(?:\u0998\)|d\))\s*/i
+        ];
+        const answerPattern = /^\s*Answer\s*:\s*(.+)/i;
+
+        blocks.forEach((block, bIdx) => {
+            const lines = block.split('\n').map(l => l.trim()).filter(l => l);
+            if (lines.length < 3) {
+                errors.push('Block ' + (bIdx + 1) + ': too few lines');
+                return;
+            }
+
+            let qText = lines[0].replace(/^Q\d+[\.)\:]\s*/, '').trim();
+            if (!qText) { errors.push('Block ' + (bIdx + 1) + ': empty question'); return; }
+
+            const options = [];
+            let correctAnswer = null;
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i];
+                const ansMatch = line.match(answerPattern);
+                if (ansMatch) { correctAnswer = ansMatch[1].trim(); continue; }
+
+                let matched = false;
+                for (const prefix of allOptionPrefixes) {
+                    if (prefix.test(line)) {
+                        options.push(line.replace(prefix, '').trim());
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched && options.length < 4) options.push(line);
+            }
+
+            if (options.length < 2) {
+                errors.push('Block ' + (bIdx + 1) + ': needs at least 2 options');
+                return;
+            }
+
+            let resolvedAnswer = options[0];
+            if (correctAnswer) {
+                const bnMap = { '\u0995': 0, '\u0996': 1, '\u0997': 2, '\u0998': 3 };
+                const enMap = { 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+                const ansLower = correctAnswer.toLowerCase();
+
+                if (bnMap[correctAnswer] !== undefined && bnMap[correctAnswer] < options.length) {
+                    resolvedAnswer = options[bnMap[correctAnswer]];
+                } else if (enMap[ansLower] !== undefined && enMap[ansLower] < options.length) {
+                    resolvedAnswer = options[enMap[ansLower]];
+                } else {
+                    const found = options.find(o => o === correctAnswer);
+                    if (found) resolvedAnswer = found;
+                }
+            }
+
+            parsed.push({
+                question_text: qText,
+                answer_options: options,
+                correct_answer: resolvedAnswer
+            });
+        });
+
+        if (errors.length > 0 && parsed.length === 0) {
+            alert('Could not parse any questions:\n' + errors.join('\n'));
+            return;
+        }
+
+        // Append parsed questions to existing list
+        customQuestions = customQuestions.concat(parsed);
+        renderQuestionsList();
+
+        // Clear textarea after successful parse
+        document.getElementById('questionsTextarea').value = '';
+
+        let msg = 'Added ' + parsed.length + ' questions!';
+        if (errors.length > 0) msg += '\n\nWarnings:\n' + errors.join('\n');
+        alert(msg);
+    }
+
+    // Render the questions list
+    function renderQuestionsList() {
+        const count = customQuestions.length;
+        document.getElementById('customQuestionCount').textContent = count;
+        document.getElementById('clearAllBtn').style.display = count > 0 ? 'inline-block' : 'none';
+
+        const listEl = document.getElementById('customQuestionsList');
+        if (count === 0) {
+            listEl.innerHTML = '<div class="text-center text-muted p-4"><i class="bi bi-inbox" style="font-size: 2rem;"></i><p>No questions added yet. Use the builder above or paste in bulk below.</p></div>';
+            return;
+        }
+
+        const bp = ['\u0995)', '\u0996)', '\u0997)', '\u0998)'];
+        let html = '';
+        customQuestions.forEach((q, i) => {
+            const ci = q.answer_options.indexOf(q.correct_answer);
+            html += '<div class="custom-question-item"><div class="cq-header"><span class="cq-number">' + (i + 1) + '.</span><span class="cq-text">' + q.question_text + '</span><button type="button" class="btn btn-sm btn-outline-danger cq-remove" onclick="removeQuestion(' + i + ')" title="Remove"><i class="bi bi-x"></i></button></div><div class="cq-options">';
+            q.answer_options.forEach((opt, j) => {
+                html += '<span class="cq-opt' + (j === ci ? ' cq-correct' : '') + '">' + bp[j] + ' ' + opt + '</span>';
+            });
+            html += '</div></div>';
+        });
+        listEl.innerHTML = html;
+    }
+
+    // Generate DOCX from custom questions
+    function generateCustomPaper() {
+        if (customQuestions.length === 0) {
+            alert('Please add at least one question first.');
+            return;
+        }
+
+        const paperConfig = {
+            title: document.getElementById('customPaperTitle').value || 'Home Test',
+            class_name: document.getElementById('customClassName').value || '',
+            subject_name: document.getElementById('customSubjectName').value || '',
+            time: parseInt(document.getElementById('customTime').value) || 30,
+            marks: customQuestions.length
+        };
+
+        const btn = document.getElementById('generateCustomBtn');
+        const card = btn.closest('.generate-card');
+        const loadingState = document.getElementById('customGeneratingState');
+        btn.disabled = true;
+        card.style.display = 'none';
+        loadingState.style.display = 'block';
+
+        fetch('/generate-custom-paper', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                questions: customQuestions,
+                paper_config: paperConfig
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                loadingState.style.display = 'none';
+                if (data.error) { alert(data.error); card.style.display = 'block'; btn.disabled = false; return; }
+                document.getElementById('customGeneratedCount').textContent = data.question_count;
+                document.getElementById('customDownloadStudent').href = data.student_download;
+                document.getElementById('customDownloadTeacher').href = data.teacher_download;
+                document.getElementById('customResultCard').style.display = 'block';
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                loadingState.style.display = 'none';
+                card.style.display = 'block';
+                btn.disabled = false;
+                alert('An error occurred. Please try again.');
+            });
+    }
+
+    function resetCustomForm() {
+        document.querySelector('#customMode .generate-card').style.display = 'block';
+        document.getElementById('customResultCard').style.display = 'none';
+        document.getElementById('generateCustomBtn').disabled = false;
+    }
 </script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mode-tabs {
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 12px;
+        padding: 6px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .mode-tabs .nav-link {
+        border-radius: 10px;
+        font-weight: 600;
+        padding: 10px 20px;
+        color: #6b7280;
+        transition: all .3s;
+    }
+
+    .mode-tabs .nav-link.active {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    /* Paste textarea */
+    .paste-textarea {
+        font-family: 'SolaimanLipi', 'Noto Sans Bengali', monospace;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        background: #f8f9ff;
+        border: 2px dashed #d1d5db;
+        border-radius: 12px;
+        padding: 1rem;
+        resize: vertical;
+    }
+
+    .paste-textarea:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+    }
+
+    /* MCQ Builder card */
+    .mcq-builder-card {
+        background: #f8f9ff;
+        border: 2px dashed #d1d5db;
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+
+    /* Parsed questions preview list */
+    .custom-questions-list {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        background: #fafafa;
+    }
+
+    .custom-question-item {
+        padding: 12px 16px;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background .2s;
+    }
+
+    .custom-question-item:hover {
+        background: #f0f4ff;
+    }
+
+    .custom-question-item:last-child {
+        border-bottom: none;
+    }
+
+    .cq-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .cq-number {
+        font-weight: 700;
+        color: #667eea;
+        min-width: 30px;
+    }
+
+    .cq-text {
+        flex: 1;
+        font-weight: 500;
+    }
+
+    .cq-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 6px;
+        margin-left: 38px;
+    }
+
+    .cq-opt {
+        font-size: .8rem;
+        color: #6b7280;
+        background: #fff;
+        padding: 2px 8px;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .cq-opt.cq-correct {
+        color: #059669;
+        background: #ecfdf5;
+        border-color: #a7f3d0;
+        font-weight: 600;
+    }
+
+    .cq-remove {
+        padding: 2px 6px;
+        font-size: .75rem;
+        opacity: .5;
+        margin-left: auto;
+    }
+
+    .cq-remove:hover {
+        opacity: 1;
+    }
+
+    /* Bulk paste instructions */
+    .bulk-paste-instructions {
+        background: #f0f4ff;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 1rem;
+    }
+
+    .paste-example {
+        background: #1f2937;
+        color: #a5f3fc;
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 0.85rem;
+        margin: 0;
+        overflow-x: auto;
+    }
+</style>
 {% endblock %}
