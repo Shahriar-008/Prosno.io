@@ -110,12 +110,15 @@ class SupabaseAuth:
 
     def exchange_code_for_session(self, code, code_verifier=None):
         """Exchange an OAuth authorization code for a user session."""
-        payload = {"code": code}
+        payload = {
+            "code": code,
+            "grant_type": "authorization_code",
+        }
         if code_verifier:
             payload['code_verifier'] = code_verifier
 
         resp = requests.post(
-            f"{self.base_url}/token?grant_type=authorization_code",
+            f"{self.base_url}/token",
             json=payload,
             headers=self.headers,
             timeout=15,
