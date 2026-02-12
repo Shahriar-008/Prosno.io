@@ -5,8 +5,11 @@ Lightweight wrapper around Supabase Auth REST API using requests.
 No heavy SDK dependencies needed - just uses the GoTrue REST endpoints.
 """
 import requests
-from urllib.parse import urlencode
+import logging
+from urllib.parse import urlencode, urlparse
 
+# Configure logger
+logger = logging.getLogger(__name__)
 
 class SupabaseAuth:
     """Simple Supabase Auth client using REST API."""
@@ -26,18 +29,51 @@ class SupabaseAuth:
             'Content-Type': 'application/json',
         }
 
+    def _log_request(self, method, url, data=None):
+        """Log request details (redacting sensitive info)."""
+        safe_data = data.copy() if data else {}
+        if 'password' in safe_data:
+            safe_data['password'] = '********'
+        logger.info(f"Supabase Auth Request: {method} {url} | Data: {safe_data}")
+
+    def _log_response(self, response):
+        """Log response details."""
+        try:
+            body = response.json()
+        except Exception:
+            body = response.text
+        
+        level = logging.INFO if response.status_code < 400 else logging.ERROR
+        logger.log(level, f"Supabase Auth Response: {response.status_code} | Body: {body}")
+
+    def _request(self, method, endpoint, json=None, headers=None):
+        """Internal helper to make requests with logging."""
+        url = f"{self.base_url}/{endpoint}"
+        req_headers = {**self.headers, **(headers or {})}
+        
+        self._log_request(method, url, json)
+        
+        try:
+            resp = requests.request(
+                method,
+                url,
+                json=json,
+                headers=req_headers,
+                timeout=15
+            )
+            self._log_response(resp)
+            return resp
+        except Exception as e:
+            logger.error(f"Supabase Auth Network Error: {e}")
+            raise
+
     def sign_up(self, email, password):
         """Register a new user.
 
         Returns dict with 'user' and optionally 'session' keys.
         Raises SupabaseAuthError on failure.
         """
-        resp = requests.post(
-            f"{self.base_url}/signup",
-            json={"email": email, "password": password},
-            headers=self.headers,
-            timeout=15
-        )
+        resp = self._request('POST', 'signup', json={"email": email, "password": password})
         data = resp.json()
         if resp.status_code >= 400:
             raise SupabaseAuthError(data.get('msg') or data.get('error_description') or data.get('message', 'Registration failed'))
@@ -49,12 +85,7 @@ class SupabaseAuth:
         Returns dict with 'user' and 'session' keys (including access_token).
         Raises SupabaseAuthError on failure.
         """
-        resp = requests.post(
-            f"{self.base_url}/token?grant_type=password",
-            json={"email": email, "password": password},
-            headers=self.headers,
-            timeout=15
-        )
+        resp = self._request('POST', 'token?grant_type=password', json={"email": email, "password": password})
         data = resp.json()
         if resp.status_code >= 400:
             raise SupabaseAuthError(data.get('msg') or data.get('error_description') or data.get('message', 'Login failed'))
@@ -62,29 +93,19 @@ class SupabaseAuth:
 
     def sign_out(self, access_token):
         """Sign out a user by invalidating their token."""
-        headers = {**self.headers, 'Authorization': f'Bearer {access_token}'}
+        headers = {'Authorization': f'Bearer {access_token}'}
         try:
-            requests.post(
-                f"{self.base_url}/logout",
-                headers=headers,
-                timeout=10
-            )
+            self._request('POST', 'logout', headers=headers)
         except Exception:
             pass  # Best effort
 
     def get_user(self, access_token):
         """Get user details from access token."""
-        headers = {**self.headers, 'Authorization': f'Bearer {access_token}'}
-        resp = requests.get(
-            f"{self.base_url}/user",
-            headers=headers,
-            timeout=10
-        )
+        headers = {'Authorization': f'Bearer {access_token}'}
+        resp = self._request('GET', 'user', headers=headers)
         if resp.status_code >= 400:
             return None
         return resp.json()
-
-    # ── OAuth (Google Sign-In) ─────────────────────────────────
 
     # ── OAuth (Google Sign-In) ─────────────────────────────────
     
@@ -106,7 +127,9 @@ class SupabaseAuth:
             params['code_challenge'] = code_challenge
             params['code_challenge_method'] = 's256'
             
-        return f"{self.base_url}/authorize?{urlencode(params)}"
+        url = f"{self.base_url}/authorize?{urlencode(params)}"
+        logger.info(f"Generated OAuth URL: {url}")
+        return url
 
     def exchange_code_for_session(self, code, code_verifier=None):
         """Exchange an OAuth authorization code for a user session."""
@@ -117,12 +140,7 @@ class SupabaseAuth:
         if code_verifier:
             payload['code_verifier'] = code_verifier
 
-        resp = requests.post(
-            f"{self.base_url}/token",
-            json=payload,
-            headers=self.headers,
-            timeout=15,
-        )
+        resp = self._request('POST', 'token', json=payload)
         data = resp.json()
         if resp.status_code >= 400:
             raise SupabaseAuthError(
@@ -136,3 +154,4 @@ class SupabaseAuth:
 class SupabaseAuthError(Exception):
     """Raised when a Supabase Auth API call fails."""
     pass
+
