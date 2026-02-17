@@ -119,11 +119,23 @@ def register():
 
         try:
             data = supabase.sign_up(email, password)
+            current_app.logger.info(f"Sign-up response keys: {list(data.keys())}")
 
-            user_data = data.get('user', {})
+            # Handle both Supabase response formats:
+            # - Auto-confirm ON:  {"access_token": "...", "user": {...}}
+            # - Auto-confirm OFF: {"id": "...", "email": "...", "identities": [...], ...}
+            if 'user' in data:
+                user_data = data['user']
+            elif 'id' in data:
+                # User data is at the top level (email confirmation enabled)
+                user_data = data
+            else:
+                user_data = {}
+
             identities = user_data.get('identities', [])
+            user_id = user_data.get('id')
 
-            if user_data and identities:
+            if user_id and identities:
                 # Check if session was returned (auto-confirm enabled)
                 if data.get('access_token'):
                     session['user'] = {
@@ -137,10 +149,11 @@ def register():
                 else:
                     flash('Account created! Please check your email to confirm, then log in.', 'success')
                     return redirect(url_for('auth.login'))
-            elif user_data and not identities:
+            elif user_id and not identities:
                 # User already exists (Supabase returns empty identities for duplicates)
                 flash('An account with this email already exists. Please log in.', 'error')
             else:
+                current_app.logger.error(f"Unexpected sign-up response: {data}")
                 flash('Registration failed. Please try again.', 'error')
 
         except SupabaseAuthError as e:

@@ -140,20 +140,24 @@ class SupabaseAuth:
     def exchange_code_for_session(self, code, code_verifier=None):
         """Exchange an OAuth authorization code for a user session."""
         payload = {
-            "code": code,
-            "grant_type": "authorization_code",
+            "auth_code": code,
         }
         if code_verifier:
             payload['code_verifier'] = code_verifier
 
-        resp = self._request('POST', 'token', json=payload)
+        # grant_type must be a query parameter, not in the JSON body
+        # (matching how sign_in uses 'token?grant_type=password')
+        resp = self._request('POST', 'token?grant_type=pkce', json=payload)
         data = resp.json()
+        logger.debug(f"Code exchange raw response (status={resp.status_code}): {data}")
         if resp.status_code >= 400:
-            raise SupabaseAuthError(
+            error_msg = (
                 data.get('msg')
                 or data.get('error_description')
                 or data.get('message', 'OAuth code exchange failed')
             )
+            logger.error(f"Code exchange failed: {error_msg} | Full response: {data}")
+            raise SupabaseAuthError(error_msg)
         return data
 
 
