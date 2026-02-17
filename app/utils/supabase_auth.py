@@ -75,8 +75,11 @@ class SupabaseAuth:
         """
         resp = self._request('POST', 'signup', json={"email": email, "password": password})
         data = resp.json()
+        logger.debug(f"Sign-up raw response (status={resp.status_code}): {data}")
         if resp.status_code >= 400:
-            raise SupabaseAuthError(data.get('msg') or data.get('error_description') or data.get('message', 'Registration failed'))
+            error_msg = data.get('msg') or data.get('error_description') or data.get('message', 'Registration failed')
+            logger.error(f"Sign-up failed: {error_msg} | Full response: {data}")
+            raise SupabaseAuthError(error_msg)
         return data
 
     def sign_in(self, email, password):
@@ -87,8 +90,11 @@ class SupabaseAuth:
         """
         resp = self._request('POST', 'token?grant_type=password', json={"email": email, "password": password})
         data = resp.json()
+        logger.debug(f"Sign-in raw response (status={resp.status_code}): {data}")
         if resp.status_code >= 400:
-            raise SupabaseAuthError(data.get('msg') or data.get('error_description') or data.get('message', 'Login failed'))
+            error_msg = data.get('msg') or data.get('error_description') or data.get('message', 'Login failed')
+            logger.error(f"Sign-in failed: {error_msg} | Full response: {data}")
+            raise SupabaseAuthError(error_msg)
         return data
 
     def sign_out(self, access_token):

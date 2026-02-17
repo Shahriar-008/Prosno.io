@@ -66,16 +66,23 @@ def login():
 
         except SupabaseAuthError as e:
             error_msg = str(e)
+            current_app.logger.error(f"Supabase login error: {error_msg}")
             if 'Invalid login credentials' in error_msg:
                 flash('Invalid email or password.', 'error')
             elif 'Email not confirmed' in error_msg:
                 flash('Please confirm your email before logging in. Check your inbox.', 'warning')
             else:
-                flash('Login failed. Please try again.', 'error')
-                current_app.logger.error(f"Supabase login error: {error_msg}")
+                # Show actual error in debug mode for easier diagnosis
+                if current_app.debug:
+                    flash(f'Login failed: {error_msg}', 'error')
+                else:
+                    flash('Login failed. Please try again.', 'error')
         except Exception as e:
-            flash('Login failed. Please try again.', 'error')
             current_app.logger.error(f"Login error: {e}")
+            if current_app.debug:
+                flash(f'Login error: {e}', 'error')
+            else:
+                flash('Login failed. Please try again.', 'error')
 
     return render_template('main/login.html')
 
@@ -138,16 +145,23 @@ def register():
 
         except SupabaseAuthError as e:
             error_msg = str(e)
+            current_app.logger.error(f"Supabase registration error: {error_msg}")
             if 'already registered' in error_msg.lower():
                 flash('An account with this email already exists. Please log in.', 'error')
             elif 'password' in error_msg.lower():
                 flash('Password is too weak. Use at least 6 characters.', 'error')
             else:
-                flash('Registration failed. Please try again.', 'error')
-                current_app.logger.error(f"Supabase registration error: {error_msg}")
+                # Show actual error in debug mode
+                if current_app.debug:
+                    flash(f'Registration failed: {error_msg}', 'error')
+                else:
+                    flash('Registration failed. Please try again.', 'error')
         except Exception as e:
-            flash('Registration failed. Please try again.', 'error')
             current_app.logger.error(f"Registration error: {e}")
+            if current_app.debug:
+                flash(f'Registration error: {e}', 'error')
+            else:
+                flash('Registration failed. Please try again.', 'error')
 
     return render_template('main/register.html')
 
