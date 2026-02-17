@@ -353,11 +353,11 @@
 
                                 <hr class="my-2">
 
-                                <!-- Bulk Add via Text Paste (collapsible) -->
+                                <!-- Bulk Add (collapsible with Text/JSON toggle) -->
                                 <div class="col-12">
                                     <div class="d-flex justify-content-between align-items-center">
                                         <h5 class="settings-title mb-0">
-                                            <i class="bi bi-clipboard-plus"></i> Bulk Add (Paste Text)
+                                            <i class="bi bi-clipboard-plus"></i> Bulk Add
                                         </h5>
                                         <button class="btn btn-sm btn-outline-primary" type="button"
                                             data-bs-toggle="collapse" data-bs-target="#bulkPasteSection">
@@ -365,7 +365,20 @@
                                         </button>
                                     </div>
                                     <div class="collapse mt-3" id="bulkPasteSection">
-                                        <div class="bulk-paste-instructions">
+                                        <!-- Format Toggle -->
+                                        <div class="bulk-format-toggle mb-3">
+                                            <button type="button" class="bulk-toggle-btn active" id="toggleTextBtn"
+                                                onclick="setBulkMode('text')">
+                                                <i class="bi bi-text-paragraph me-1"></i> Text Format
+                                            </button>
+                                            <button type="button" class="bulk-toggle-btn" id="toggleJsonBtn"
+                                                onclick="setBulkMode('json')">
+                                                <i class="bi bi-braces me-1"></i> JSON Format
+                                            </button>
+                                        </div>
+
+                                        <!-- Text Format Instructions -->
+                                        <div class="bulk-paste-instructions" id="textFormatInstructions">
                                             <p class="mb-2 fw-bold"><i class="bi bi-info-circle me-1"></i> How to paste
                                                 questions in bulk:</p>
                                             <ul class="small mb-2">
@@ -392,10 +405,39 @@ c) Khulna
 d) Rajshahi
 Answer: b</code></pre>
                                         </div>
+
+                                        <!-- JSON Format Instructions -->
+                                        <div class="bulk-paste-instructions" id="jsonFormatInstructions"
+                                            style="display:none;">
+                                            <p class="mb-2 fw-bold"><i class="bi bi-info-circle me-1"></i> Paste a JSON
+                                                array of question objects:</p>
+                                            <p class="small text-muted mb-2">Supports both <strong>simple</strong> and
+                                                <strong>complex</strong> question types.
+                                            </p>
+                                            <pre class="paste-example"><code>[
+  {
+    "id": "১",
+    "question_text": "S-এর ইলেকট্রন বিন্যাস কোনটি?",
+    "type": "simple",
+    "answer_options": ["২,৮,১", "২,৮,২", "২,৮,৩", "২,৮,৬"],
+    "correct_answer": "২,৮,৬"
+  },
+  {
+    "id": "২",
+    "question_text": "নিচের কোনগুলো সমযোজী যৌগ?",
+    "type": "complex",
+    "sub_options": ["i. CO₂", "ii. Na₂O", "iii. NH₃"],
+    "final_prompt": "নিচের কোনটি সঠিক?",
+    "answer_options": ["i ও ii", "i ও iii", "ii ও iii", "i, ii ও iii"],
+    "correct_answer": "i ও iii"
+  }
+]</code></pre>
+                                        </div>
+
                                         <textarea class="form-control paste-textarea mt-2" id="questionsTextarea"
                                             rows="10" placeholder="Paste your questions here..."></textarea>
                                         <div class="mt-2 text-end">
-                                            <button type="button" class="btn btn-success"
+                                            <button type="button" class="btn btn-success" id="bulkAddBtn"
                                                 onclick="parseAndAddQuestions()">
                                                 <i class="bi bi-plus-circle me-1"></i> Add Pasted Questions
                                             </button>
@@ -468,12 +510,57 @@ Answer: b</code></pre>
                                 </p>
                             </div>
                             <div class="download-buttons">
-                                <a href="#" id="customDownloadStudent" class="btn btn-primary btn-lg">
-                                    <i class="bi bi-file-earmark-word me-2"></i> Download Student Copy
-                                </a>
-                                <a href="#" id="customDownloadTeacher" class="btn btn-success btn-lg">
-                                    <i class="bi bi-file-earmark-check me-2"></i> Download Teacher Copy
-                                </a>
+                                <!-- Student Copy - Split Button Dropdown -->
+                                <div class="btn-group">
+                                    <a href="#" id="customDownloadStudent" class="btn btn-primary btn-lg">
+                                        <i class="bi bi-file-earmark-word me-2"></i>
+                                        Download Student Copy
+                                    </a>
+                                    <button type="button"
+                                        class="btn btn-primary btn-lg dropdown-toggle dropdown-toggle-split"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="visually-hidden">Toggle Dropdown</span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="#" id="customDownloadStudentDocx">
+                                                <i class="bi bi-file-earmark-word me-2 text-primary"></i>Download as
+                                                DOCX
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" id="customDownloadStudentPdf">
+                                                <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Download as PDF
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <!-- Teacher Copy - Split Button Dropdown -->
+                                <div class="btn-group">
+                                    <a href="#" id="customDownloadTeacher" class="btn btn-success btn-lg">
+                                        <i class="bi bi-file-earmark-check me-2"></i>
+                                        Download Teacher Copy
+                                    </a>
+                                    <button type="button"
+                                        class="btn btn-success btn-lg dropdown-toggle dropdown-toggle-split"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span class="visually-hidden">Toggle Dropdown</span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="#" id="customDownloadTeacherDocx">
+                                                <i class="bi bi-file-earmark-word me-2 text-primary"></i>Download as
+                                                DOCX
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" id="customDownloadTeacherPdf">
+                                                <i class="bi bi-file-earmark-pdf me-2 text-danger"></i>Download as PDF
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
                             </div>
                             <div class="text-center mt-4">
                                 <button type="button" class="btn btn-outline-secondary" onclick="resetCustomForm()">
@@ -1024,6 +1111,96 @@ Answer: b</code></pre>
         renderQuestionsList();
     }
 
+    // ---- Bulk format toggle ----
+    let bulkMode = 'text'; // 'text' or 'json'
+
+    function setBulkMode(mode) {
+        bulkMode = mode;
+        const textBtn = document.getElementById('toggleTextBtn');
+        const jsonBtn = document.getElementById('toggleJsonBtn');
+        const textInst = document.getElementById('textFormatInstructions');
+        const jsonInst = document.getElementById('jsonFormatInstructions');
+        const textarea = document.getElementById('questionsTextarea');
+        const addBtn = document.getElementById('bulkAddBtn');
+
+        if (mode === 'json') {
+            textBtn.classList.remove('active');
+            jsonBtn.classList.add('active');
+            textInst.style.display = 'none';
+            jsonInst.style.display = 'block';
+            textarea.placeholder = '[{"question_text": "...", "answer_options": [...], "correct_answer": "..."}]';
+            addBtn.onclick = parseJsonQuestions;
+        } else {
+            jsonBtn.classList.remove('active');
+            textBtn.classList.add('active');
+            jsonInst.style.display = 'none';
+            textInst.style.display = 'block';
+            textarea.placeholder = 'Paste your questions here...';
+            addBtn.onclick = parseAndAddQuestions;
+        }
+    }
+
+    // Parse JSON pasted questions and ADD to existing questions
+    function parseJsonQuestions() {
+        const raw = document.getElementById('questionsTextarea').value.trim();
+        if (!raw) { alert('Please paste some JSON first.'); return; }
+
+        let arr;
+        try {
+            arr = JSON.parse(raw);
+        } catch (e) {
+            alert('Invalid JSON. Please check your syntax.\n\nError: ' + e.message);
+            return;
+        }
+
+        if (!Array.isArray(arr)) {
+            // Allow single object by wrapping it
+            arr = [arr];
+        }
+
+        const parsed = [];
+        const errors = [];
+
+        arr.forEach((obj, idx) => {
+            const num = idx + 1;
+            if (!obj.question_text) { errors.push('Item ' + num + ': missing question_text'); return; }
+            if (!Array.isArray(obj.answer_options) || obj.answer_options.length < 2) {
+                errors.push('Item ' + num + ': answer_options must be an array with at least 2 items');
+                return;
+            }
+            if (!obj.correct_answer) { errors.push('Item ' + num + ': missing correct_answer'); return; }
+
+            const question = {
+                question_text: obj.question_text,
+                answer_options: obj.answer_options,
+                correct_answer: obj.correct_answer
+            };
+
+            // Preserve complex question fields
+            if (obj.type === 'complex') {
+                question.type = 'complex';
+                if (obj.sub_options) question.sub_options = obj.sub_options;
+                if (obj.final_prompt) question.final_prompt = obj.final_prompt;
+            }
+
+            parsed.push(question);
+        });
+
+        if (errors.length > 0 && parsed.length === 0) {
+            alert('Could not parse any questions:\n' + errors.join('\n'));
+            return;
+        }
+
+        customQuestions = customQuestions.concat(parsed);
+        renderQuestionsList();
+
+        document.getElementById('questionsTextarea').value = '';
+
+        let msg = 'Added ' + parsed.length + ' questions from JSON!';
+        if (errors.length > 0) msg += '\n\nWarnings:\n' + errors.join('\n');
+        alert(msg);
+    }
+
     // Parse bulk pasted text and ADD to existing questions
     function parseAndAddQuestions() {
         const raw = document.getElementById('questionsTextarea').value.trim();
@@ -1180,8 +1357,44 @@ Answer: b</code></pre>
                 loadingState.style.display = 'none';
                 if (data.error) { alert(data.error); card.style.display = 'block'; btn.disabled = false; return; }
                 document.getElementById('customGeneratedCount').textContent = data.question_count;
-                document.getElementById('customDownloadStudent').href = data.student_download;
-                document.getElementById('customDownloadTeacher').href = data.teacher_download;
+
+                const studentUrl = data.student_download;
+                const teacherUrl = data.teacher_download;
+                const studentPdfUrl = studentUrl + '?format=pdf';
+                const teacherPdfUrl = teacherUrl + '?format=pdf';
+
+                // Main buttons default to DOCX
+                document.getElementById('customDownloadStudent').href = studentUrl;
+                document.getElementById('customDownloadTeacher').href = teacherUrl;
+
+                // Dropdown items
+                document.getElementById('customDownloadStudentDocx').href = studentUrl;
+                document.getElementById('customDownloadStudentPdf').href = studentPdfUrl;
+                document.getElementById('customDownloadTeacherDocx').href = teacherUrl;
+                document.getElementById('customDownloadTeacherPdf').href = teacherPdfUrl;
+
+                // Click handlers for main buttons
+                document.getElementById('customDownloadStudent').onclick = function (e) {
+                    e.preventDefault(); window.location.href = studentUrl;
+                };
+                document.getElementById('customDownloadTeacher').onclick = function (e) {
+                    e.preventDefault(); window.location.href = teacherUrl;
+                };
+
+                // Click handlers for dropdown items
+                document.getElementById('customDownloadStudentDocx').onclick = function (e) {
+                    e.preventDefault(); window.location.href = studentUrl;
+                };
+                document.getElementById('customDownloadStudentPdf').onclick = function (e) {
+                    e.preventDefault(); window.location.href = studentPdfUrl;
+                };
+                document.getElementById('customDownloadTeacherDocx').onclick = function (e) {
+                    e.preventDefault(); window.location.href = teacherUrl;
+                };
+                document.getElementById('customDownloadTeacherPdf').onclick = function (e) {
+                    e.preventDefault(); window.location.href = teacherPdfUrl;
+                };
+
                 document.getElementById('customResultCard').style.display = 'block';
             })
             .catch(err => {
@@ -1322,6 +1535,38 @@ Answer: b</code></pre>
 
     .cq-remove:hover {
         opacity: 1;
+    }
+
+    /* Bulk format toggle */
+    .bulk-format-toggle {
+        display: inline-flex;
+        background: #f1f3f5;
+        border-radius: 10px;
+        padding: 4px;
+        gap: 4px;
+    }
+
+    .bulk-toggle-btn {
+        border: none;
+        background: transparent;
+        padding: 8px 18px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: .875rem;
+        color: #6b7280;
+        cursor: pointer;
+        transition: all .25s;
+    }
+
+    .bulk-toggle-btn:hover {
+        color: #374151;
+        background: rgba(255, 255, 255, 0.6);
+    }
+
+    .bulk-toggle-btn.active {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
     }
 
     /* Bulk paste instructions */

@@ -288,8 +288,9 @@ def download_paper(paper_id, paper_type):
     if paper_type not in ('student', 'teacher'):
         abort(400, description="Invalid paper type")
     
-    # Teacher copies (answer keys) require authentication
-    if paper_type == 'teacher' and not session.get('user'):
+    # Teacher copies (answer keys) require authentication, EXCEPT for custom papers
+    # Custom papers are created by guest users so they should always be downloadable
+    if paper_type == 'teacher' and not session.get('user') and not paper.custom_questions_json:
         abort(403, description="Authentication required for answer keys")
     
     # Determine requested format (docx or pdf)
@@ -411,6 +412,36 @@ def _serve_pdf(paper, paper_type, show_answer):
     )
 
     try:
+        # --- Custom paper PDF (guest mode) ---
+        if paper.custom_questions_json:
+            custom_config = paper.custom_paper_config or {
+                'title': paper.title or 'Custom Paper',
+                'time': paper.time_minutes or 30,
+                'marks': paper.question_count or len(paper.custom_questions_json)
+            }
+
+            student_buf, teacher_buf = generate_paper_to_memory_pdf(
+                paper.custom_questions_json, custom_config,
+                student_only=not show_answer,
+                teacher_only=show_answer
+            )
+            buffer = teacher_buf if show_answer else student_buf
+
+            if buffer is None:
+                current_app.logger.error(f"PDF generation returned None for custom paper {paper.id}")
+                return jsonify({'error': 'PDF generation failed'}), 500
+
+            paper.download_count += 1
+            db.session.commit()
+
+            return send_file(
+                buffer,
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/pdf',
+            )
+
+        # --- DB paper PDF (logged-in users) ---
         # Fetch questions from DB
         question_ids = paper.question_ids or []
         if question_ids:
