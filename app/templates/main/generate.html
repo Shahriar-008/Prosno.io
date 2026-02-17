@@ -1113,7 +1113,7 @@ Answer: b</code></pre>
             correct_answer: correctAnswer
         });
 
-        renderQuestionsList();
+        renderCustomQuestionsList();
         showToast('✅ Question added! Total: ' + customQuestions.length, 'success');
 
         // Clear form
@@ -1129,7 +1129,7 @@ Answer: b</code></pre>
     // Remove a single question
     function removeQuestion(index) {
         customQuestions.splice(index, 1);
-        renderQuestionsList();
+        renderCustomQuestionsList();
     }
 
     // Clear all questions
@@ -1137,7 +1137,7 @@ Answer: b</code></pre>
         if (customQuestions.length === 0) return;
         if (!confirm('Clear all ' + customQuestions.length + ' questions?')) return;
         customQuestions = [];
-        renderQuestionsList();
+        renderCustomQuestionsList();
     }
 
     // ---- Bulk format toggle ----
@@ -1221,7 +1221,7 @@ Answer: b</code></pre>
         }
 
         customQuestions = customQuestions.concat(parsed);
-        renderQuestionsList();
+        renderCustomQuestionsList();
 
         document.getElementById('questionsTextarea').value = '';
 
@@ -1311,7 +1311,7 @@ Answer: b</code></pre>
 
         // Append parsed questions to existing list
         customQuestions = customQuestions.concat(parsed);
-        renderQuestionsList();
+        renderCustomQuestionsList();
 
         // Clear textarea after successful parse
         document.getElementById('questionsTextarea').value = '';
@@ -1322,7 +1322,7 @@ Answer: b</code></pre>
     }
 
     // Render the questions list
-    function renderQuestionsList() {
+    function renderCustomQuestionsList() {
         const count = customQuestions.length;
         document.getElementById('customQuestionCount').textContent = count;
         document.getElementById('clearAllBtn').style.display = count > 0 ? 'inline-block' : 'none';
