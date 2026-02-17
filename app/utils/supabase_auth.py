@@ -67,13 +67,16 @@ class SupabaseAuth:
             logger.error(f"Supabase Auth Network Error: {e}")
             raise
 
-    def sign_up(self, email, password):
+    def sign_up(self, email, password, user_metadata=None):
         """Register a new user.
 
         Returns dict with 'user' and optionally 'session' keys.
         Raises SupabaseAuthError on failure.
         """
-        resp = self._request('POST', 'signup', json={"email": email, "password": password})
+        payload = {"email": email, "password": password}
+        if user_metadata:
+            payload["data"] = user_metadata
+        resp = self._request('POST', 'signup', json=payload)
         data = resp.json()
         logger.debug(f"Sign-up raw response (status={resp.status_code}): {data}")
         if resp.status_code >= 400:

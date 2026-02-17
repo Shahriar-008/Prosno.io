@@ -52,6 +52,7 @@ def login():
             session['user'] = {
                 'id': user_data.get('id'),
                 'email': user_data.get('email', email),
+                'username': user_data.get('user_metadata', {}).get('username', ''),
                 'access_token': data.get('access_token'),
             }
             session.permanent = True
@@ -98,9 +99,10 @@ def register():
         email = request.form.get('email', '').strip()
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
+        username = request.form.get('username', '').strip()
 
         # Validation
-        if not email or not password:
+        if not email or not password or not username:
             flash('Please fill in all fields.', 'error')
             return render_template('main/register.html')
 
@@ -118,7 +120,7 @@ def register():
             return render_template('main/register.html')
 
         try:
-            data = supabase.sign_up(email, password)
+            data = supabase.sign_up(email, password, user_metadata={'username': username})
             current_app.logger.info(f"Sign-up response keys: {list(data.keys())}")
 
             # Handle both Supabase response formats:
@@ -141,6 +143,7 @@ def register():
                     session['user'] = {
                         'id': user_data.get('id'),
                         'email': user_data.get('email', email),
+                        'username': username,
                         'access_token': data.get('access_token'),
                     }
                     session.permanent = True
@@ -276,6 +279,7 @@ def google_callback():
         session['user'] = {
             'id': user_data.get('id'),
             'email': user_data.get('email', ''),
+            'username': user_data.get('user_metadata', {}).get('username', '') or user_data.get('user_metadata', {}).get('full_name', ''),
             'full_name': user_data.get('user_metadata', {}).get('full_name', ''),
             'avatar_url': user_data.get('user_metadata', {}).get('avatar_url', ''),
             'access_token': data.get('access_token'),

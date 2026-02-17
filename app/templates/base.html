@@ -62,15 +62,27 @@
 
                     {% if session.get('user') %}
                     {# Public user logged in via Supabase #}
-                    <li class="nav-item ms-lg-3">
-                        <span class="nav-link text-muted">
-                            <i class="bi bi-person-circle me-1"></i>{{ session['user']['email'] }}
-                        </span>
-                    </li>
-                    <li class="nav-item">
-                        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('auth.logout') }}">
-                            <i class="bi bi-box-arrow-right me-1"></i>Logout
+                    <li class="nav-item dropdown ms-lg-3">
+                        <a class="btn btn-outline-primary btn-sm dropdown-toggle" href="#" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle me-1"></i>
+                            {{ session['user'].get('username') or session['user'].get('email', 'User') }}
                         </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <span class="dropdown-item-text text-muted small">
+                                    <i class="bi bi-envelope me-1"></i>{{ session['user']['email'] }}
+                                </span>
+                            </li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                                    <i class="bi bi-box-arrow-right me-1"></i> Logout
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     {% elif current_user.is_authenticated %}
                     {# Admin/editor logged in via Flask-Login #}

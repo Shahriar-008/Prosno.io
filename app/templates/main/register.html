@@ -32,11 +32,19 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <div class="mb-3">
+                            <label for="username" class="form-label">
+                                <i class="bi bi-person me-1"></i> Username
+                            </label>
+                            <input type="text" class="form-control" id="username" name="username"
+                                placeholder="Choose a display name" required autofocus>
+                        </div>
+
+                        <div class="mb-3">
                             <label for="email" class="form-label">
                                 <i class="bi bi-envelope me-1"></i> Email Address
                             </label>
                             <input type="email" class="form-control" id="email" name="email"
-                                placeholder="Enter your email" required autofocus>
+                                placeholder="Enter your email" required>
                         </div>
 
                         <div class="mb-3">
