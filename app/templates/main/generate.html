@@ -907,6 +907,8 @@ Answer: b</code></pre>
         questionsList.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div><p>Loading questions...</p></div>';
         questionSelectionPanel.style.display = 'block';
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
         fetch('/get-questions-for-chapters', {
             method: 'POST',
             headers: {
