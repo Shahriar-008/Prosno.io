@@ -7,6 +7,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin, current_user
 from flask import abort
 from app import db, login_manager
+from cryptography.fernet import Fernet
+from flask import current_app
+import os
 
 
 @login_manager.user_loader
@@ -188,6 +191,8 @@ class GeneratedPaper(db.Model):
     time_minutes = db.Column(db.Integer)
     file_path = db.Column(db.String(500))
     file_path_answers = db.Column(db.String(500))
+    custom_questions_json = db.Column(db.JSON)  # Stores custom questions for regeneration
+    custom_paper_config = db.Column(db.JSON)    # Stores paper config for custom papers
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     download_count = db.Column(db.Integer, default=0)
     
@@ -205,7 +210,7 @@ class AIGeneratorConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     
     # API Configuration
-    api_key = db.Column(db.String(500))  # Encrypted in production
+    _api_key = db.Column('api_key', db.String(500))  # Internal encrypted storage
     api_provider = db.Column(db.String(50), default='gemini')  # gemini, openai
     model_name = db.Column(db.String(100), default='gemini-2.0-flash')
     
@@ -239,6 +244,42 @@ class AIGeneratorConfig(db.Model):
     
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @property
+    def api_key(self):
+        """Decrypts and returns the API key."""
+        if not self._api_key:
+            return None
+        try:
+            key = current_app.config.get('ENCRYPTION_KEY')
+            if not key:
+                # Fallback if no key configured (or development) logic could go here
+                # For now, return raw if decryption fails or warn
+                return self._api_key
+            f = Fernet(key)
+            return f.decrypt(self._api_key.encode()).decode()
+        except Exception as e:
+            # If decryption fails (e.g. key changed or bad data), return raw or None
+            return self._api_key
+
+    @api_key.setter
+    def api_key(self, value):
+        """Encrypts and stores the API key."""
+        if not value:
+            self._api_key = None
+            return
+        
+        try:
+            key = current_app.config.get('ENCRYPTION_KEY')
+            if not key:
+                # If no key, store as plaintext (dev mode fallback)
+                self._api_key = value
+                return
+            f = Fernet(key)
+            self._api_key = f.encrypt(value.encode()).decode()
+        except Exception as e:
+            # Fallback to plaintext if encryption fails
+            self._api_key = value
     
     def __repr__(self):
         return f'<AIGeneratorConfig {self.id}>'

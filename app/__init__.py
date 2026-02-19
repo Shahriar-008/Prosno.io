@@ -41,6 +41,10 @@ def create_app(config_class=Config):
     csrf.init_app(app)
     limiter.init_app(app)
 
+    # ProxyFix for Render (handling HTTPS headers)
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
     login_manager.login_view = 'admin.login'
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
@@ -71,14 +75,36 @@ def create_app(config_class=Config):
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response
 
+    # Initialize Supabase Auth client for public user auth
+    supabase_url = os.environ.get('SUPABASE_URL')
+    supabase_key = os.environ.get('SUPABASE_KEY')
+    if supabase_url and supabase_key:
+        try:
+            from app.utils.supabase_auth import SupabaseAuth
+            app.config['SUPABASE_CLIENT'] = SupabaseAuth(supabase_url, supabase_key)
+            print("Supabase Auth initialized successfully.")
+        except Exception as e:
+            print(f"Warning: Could not initialize Supabase Auth: {e}")
+            app.config['SUPABASE_CLIENT'] = None
+    else:
+        app.config['SUPABASE_CLIENT'] = None
+        if not app.debug:
+            warnings.warn(
+                "SUPABASE_URL and SUPABASE_KEY not set. "
+                "Public user authentication will be disabled.",
+                UserWarning
+            )
+
     # Register blueprints
     from app.routes.main import main_bp
     from app.routes.admin import admin_bp
     from app.routes.api import api_bp
+    from app.routes.auth import auth_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(auth_bp)
 
     # Ensure output folder exists
     import os
@@ -129,15 +155,27 @@ def _create_admin_user():
     password = os.environ.get('ADMIN_PASSWORD', '12345')
     email = os.environ.get('ADMIN_EMAIL', 'admin@prosno.io')
     
-    # Security warning for default credentials
+    # Security: refuse to create admin with default password in production
     if not os.environ.get('ADMIN_PASSWORD'):
-        warnings.warn(
-            "\n" + "=" * 60 + "\n"
-            "SECURITY WARNING: Using default admin password '12345'!\n"
-            "Set ADMIN_PASSWORD environment variable in production.\n"
-            "=" * 60 + "\n",
-            UserWarning
-        )
+        import flask
+        # Check if running in production (not debug mode)
+        # We can't easily check app.debug here, so check for production env vars
+        if os.environ.get('RENDER') or os.environ.get('DYNO') or os.environ.get('PRODUCTION'):
+            print(
+                "\n" + "=" * 60 + "\n"
+                "CRITICAL: ADMIN_PASSWORD not set in production!\n"
+                "Admin user NOT created. Set ADMIN_PASSWORD env var.\n"
+                "=" * 60 + "\n"
+            )
+            return
+        else:
+            warnings.warn(
+                "\n" + "=" * 60 + "\n"
+                "SECURITY WARNING: Using default admin password '12345'!\n"
+                "Set ADMIN_PASSWORD environment variable in production.\n"
+                "=" * 60 + "\n",
+                UserWarning
+            )
     
     try:
         user = User(username=username, email=email, is_admin=True, role=ROLE_ADMIN)
@@ -249,6 +287,8 @@ def _apply_schema_migrations(db):
             ('chapters', 'created_by_id', "INTEGER REFERENCES users(id)"),
             # GeneratedPaper migrations
             ('generated_papers', 'question_ids', "JSON"),
+            ('generated_papers', 'custom_questions_json', "JSON"),
+            ('generated_papers', 'custom_paper_config', "JSON"),
         ]
         
         for table_name, column_name, column_def in migrations:

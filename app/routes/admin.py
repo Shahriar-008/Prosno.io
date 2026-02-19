@@ -1,7 +1,7 @@
 """
 Admin routes for Prosno.io
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime
 from functools import wraps
@@ -483,7 +483,8 @@ def bulk_upload_questions():
         except json.JSONDecodeError:
             flash('Invalid JSON format', 'error')
         except Exception as e:
-            flash(f'Error uploading questions: {str(e)}', 'error')
+            current_app.logger.error(f'Bulk upload error: {e}')
+            flash('Error uploading questions. Please check your data format.', 'error')
     
     classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
     return render_template('admin/bulk_upload.html', classes=classes)
@@ -535,6 +536,7 @@ def ai_generator():
 
 @admin_bp.route('/ai-generator/settings', methods=['POST'])
 @login_required
+@admin_required
 def ai_generator_settings():
     """Update AI Generator settings"""
     from app.utils.ai_generator import DEFAULT_PROMPT_TEMPLATE
@@ -563,6 +565,7 @@ def ai_generator_settings():
 
 @admin_bp.route('/ai-generator/start', methods=['POST'])
 @login_required
+@admin_required
 def ai_generator_start():
     """Start the AI generator"""
     from app.utils.ai_generator import start_generator
@@ -589,6 +592,7 @@ def ai_generator_start():
 
 @admin_bp.route('/ai-generator/stop', methods=['POST'])
 @login_required
+@admin_required
 def ai_generator_stop():
     """Stop the AI generator"""
     from app.utils.ai_generator import stop_generator
@@ -634,6 +638,7 @@ def ai_generator_logs():
 
 @admin_bp.route('/ai-generator/reset-stats', methods=['POST'])
 @login_required
+@admin_required
 def ai_generator_reset_stats():
     """Reset AI generator statistics"""
     config = AIGeneratorConfig.query.first()
@@ -650,6 +655,7 @@ def ai_generator_reset_stats():
 
 @admin_bp.route('/ai-generator/clear-logs', methods=['POST'])
 @login_required
+@admin_required
 def ai_generator_clear_logs():
     """Clear all AI generator logs"""
     AIGeneratorLog.query.delete()
@@ -679,6 +685,11 @@ def add_user():
         email = request.form.get('email')
         password = request.form.get('password')
         role = request.form.get('role', ROLE_EDITOR)
+        
+        # Password validation
+        if not password or len(password) < 8:
+            flash('Password must be at least 8 characters long.', 'error')
+            return render_template('admin/user_form.html', user=None, ROLE_ADMIN=ROLE_ADMIN, ROLE_EDITOR=ROLE_EDITOR)
         
         # Validate
         if User.query.filter_by(username=username).first():
