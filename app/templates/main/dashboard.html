@@ -43,8 +43,8 @@
                     </div>
                     <div class="stat-item">
                         <i class="bi bi-question-circle-fill"></i>
-                        <span><strong>{{ question_sets|sum(attribute='questions_json')|length if question_sets else 0
-                                }}</strong> total questions</span>
+                        <span><strong>{{ question_sets|map(attribute='questions_json')|map('length')|sum }}</strong>
+                            total questions</span>
                     </div>
                 </div>
 
