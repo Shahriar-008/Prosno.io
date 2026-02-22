@@ -1303,7 +1303,7 @@ def generate_paper_to_memory_pdf(
     
     if not student_only:
         teacher_buffer = create_question_paper_pdf(
-            question_list, None, paper_config, show_answer=True, omr_style=omr_style
+            question_list, None, paper_config, show_answer=True, omr_style=True
         )
     
     # Free up memory after PDF generation (important for low-memory environments)
@@ -1340,7 +1340,7 @@ def generate_paper_from_db_pdf(
 
     teacher_path = os.path.join(output_folder, f"{base}_teacher.pdf")
     create_question_paper_pdf(
-        question_list, teacher_path, paper_config, show_answer=True, omr_style=omr_style
+        question_list, teacher_path, paper_config, show_answer=True, omr_style=True
     )
 
     # Free up memory after PDF generation

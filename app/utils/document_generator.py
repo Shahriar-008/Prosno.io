@@ -217,6 +217,8 @@ def add_question_to_document(document, q, show_answer=False, omr_style=True):
 
     # A. Add Question Text (with math support)
     p = document.add_paragraph()
+    p.paragraph_format.keep_with_next = True
+    p.paragraph_format.space_after = Pt(0)
     question_text = q.get("question_text", "")
     q_id = str(q.get("id", ""))
     
@@ -237,6 +239,8 @@ def add_question_to_document(document, q, show_answer=False, omr_style=True):
     if q.get("type") == "complex":
         for sub_opt in q.get("sub_options", []):
             p_sub = document.add_paragraph()
+            p_sub.paragraph_format.keep_with_next = True
+            p_sub.paragraph_format.space_after = Pt(0)
             p_sub.style = 'List Bullet'
             if _has_math_expression(sub_opt):
                 _add_math_text_to_paragraph(p_sub, sub_opt, font_size=Pt(8), font_name='Nirmala UI')
@@ -246,6 +250,8 @@ def add_question_to_document(document, q, show_answer=False, omr_style=True):
                 run.font.name = 'Nirmala UI'
         
         prompt_p = document.add_paragraph()
+        prompt_p.paragraph_format.keep_with_next = True
+        prompt_p.paragraph_format.space_after = Pt(0)
         final_prompt = q.get("final_prompt", "নিচের কোনটি সঠিক?")
         if _has_math_expression(final_prompt):
             _add_math_text_to_paragraph(prompt_p, final_prompt, font_size=Pt(8), font_name='Nirmala UI', bold=True)
@@ -261,6 +267,25 @@ def add_question_to_document(document, q, show_answer=False, omr_style=True):
 
     if len(options) >= 4:
         opt_table = document.add_table(rows=2, cols=2)
+
+        # --- Make option table compact: zero cell margins & cantSplit rows ---
+        tbl = opt_table._tbl
+        tblPr = tbl.tblPr if tbl.tblPr is not None else OxmlElement('w:tblPr')
+        # Zero cell margins
+        tblCellMar = OxmlElement('w:tblCellMar')
+        for side in ['top', 'left', 'bottom', 'right']:
+            el = OxmlElement(f'w:{side}')
+            el.set(qn('w:w'), '0')
+            el.set(qn('w:type'), 'dxa')
+            tblCellMar.append(el)
+        tblPr.append(tblCellMar)
+        # Prevent rows from splitting across columns/pages
+        for row in opt_table.rows:
+            tr = row._tr
+            trPr = tr.get_or_add_trPr()
+            cantSplit = OxmlElement('w:cantSplit')
+            trPr.append(cantSplit)
+
         cell_data = [
             (opt_table.cell(0, 0), options[0], bengali_prefixes[0]),
             (opt_table.cell(0, 1), options[1], bengali_prefixes[1]),
@@ -271,6 +296,8 @@ def add_question_to_document(document, q, show_answer=False, omr_style=True):
         for c, option_text, prefix in cell_data:
             p = c.paragraphs[0]
             p.text = ''
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(0)
             
             option_str = str(option_text).strip()
             is_correct = (show_answer is True) and (option_str == correct_ans)
@@ -443,11 +470,11 @@ def generate_paper_to_memory(questions, paper_config, omr_style=True):
         q_dict['id'] = str(idx)
         question_list.append(q_dict)
     
-    # Generate Student Copy (No Answers) - in memory
+    # Generate Student Copy (No Answers) - in memory (respects omr_style toggle)
     student_buffer = create_question_paper(question_list, None, paper_config, show_answer=False, omr_style=omr_style)
     
-    # Generate Teacher Copy (With Answers) - in memory
-    teacher_buffer = create_question_paper(question_list, None, paper_config, show_answer=True, omr_style=omr_style)
+    # Generate Teacher Copy (With Answers) - always show circles for correct answers
+    teacher_buffer = create_question_paper(question_list, None, paper_config, show_answer=True, omr_style=True)
     
     # Free up memory after document generation
     del question_list
@@ -489,13 +516,13 @@ def generate_paper_from_db(questions, paper_config, output_folder, omr_style=Tru
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     
-    # Generate Student Copy (No Answers)
+    # Generate Student Copy (No Answers) - respects omr_style toggle
     student_path = os.path.join(output_folder, f"{base_filename}_student.docx")
     create_question_paper(question_list, student_path, paper_config, show_answer=False, omr_style=omr_style)
     
-    # Generate Teacher Copy (With Answers)
+    # Generate Teacher Copy (With Answers) - always show circles for correct answers
     teacher_path = os.path.join(output_folder, f"{base_filename}_teacher.docx")
-    create_question_paper(question_list, teacher_path, paper_config, show_answer=True, omr_style=omr_style)
+    create_question_paper(question_list, teacher_path, paper_config, show_answer=True, omr_style=True)
     
     # Free up memory after document generation (important for low-memory environments)
     del question_list
