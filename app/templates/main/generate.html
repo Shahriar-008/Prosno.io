@@ -165,6 +165,16 @@
                                         </div>
                                     </div>
 
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" id="omrStyleToggle" checked>
+                                            <label class="form-check-label" for="omrStyleToggle">
+                                                <i class="bi bi-circle me-1"></i> OMR Circles
+                                            </label>
+                                            <div class="form-text small">Show OMR-style circles beside options</div>
+                                        </div>
+                                    </div>
+
                                     <!-- Generate Button -->
                                     <div class="col-12 text-center mt-4">
                                         <button type="submit" class="btn btn-primary btn-lg" id="generateBtn">
@@ -483,6 +493,17 @@ Answer: b</code></pre>
                                         <label for="customTime" class="form-label">Time (Minutes)</label>
                                         <input type="number" class="form-control" id="customTime" value="30" min="5"
                                             max="180">
+                                    </div>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <div class="form-check form-switch mt-4">
+                                        <input class="form-check-input" type="checkbox" id="customOmrStyleToggle"
+                                            checked>
+                                        <label class="form-check-label" for="customOmrStyleToggle">
+                                            <i class="bi bi-circle me-1"></i> OMR Circles
+                                        </label>
+                                        <div class="form-text small">Show OMR-style circles</div>
                                     </div>
                                 </div>
 
@@ -805,7 +826,8 @@ Answer: b</code></pre>
                 question_count: parseInt(document.getElementById('questionCount').value),
                 time_minutes: parseInt(document.getElementById('timeMinutes').value),
                 title: document.getElementById('paperTitle').value,
-                randomize: document.getElementById('randomizeOrder')?.checked || false
+                randomize: document.getElementById('randomizeOrder')?.checked || false,
+                omr_style: document.getElementById('omrStyleToggle').checked
             };
 
             // Show loading state
@@ -1378,7 +1400,8 @@ Answer: b</code></pre>
             },
             body: JSON.stringify({
                 questions: customQuestions,
-                paper_config: paperConfig
+                paper_config: paperConfig,
+                omr_style: document.getElementById('customOmrStyleToggle').checked
             })
         })
             .then(response => response.json())

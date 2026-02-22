@@ -127,6 +127,7 @@ def generate_paper():
     time_minutes = data.get('time_minutes', 30)
     paper_title = data.get('title', 'Home Test')
     randomize = data.get('randomize', False)
+    omr_style = data.get('omr_style', True)
     
     # Validate input
     if not all([class_id, subject_id, chapter_ids]):
@@ -175,7 +176,7 @@ def generate_paper():
     # Generate the papers
     output_folder = current_app.config.get('OUTPUT_FOLDER', 'output')
     student_path, teacher_path = generate_paper_from_db(
-        questions, paper_config, output_folder
+        questions, paper_config, output_folder, omr_style=omr_style
     )
     
     # Save to database for tracking (including question IDs for regeneration)
@@ -188,7 +189,8 @@ def generate_paper():
         question_count=len(questions),
         time_minutes=time_minutes,
         file_path=student_path,
-        file_path_answers=teacher_path
+        file_path_answers=teacher_path,
+        omr_style=omr_style
     )
     db.session.add(paper)
     db.session.commit()
@@ -242,6 +244,7 @@ def generate_custom_paper():
                 return jsonify({'error': f'Question {i+1} needs at least 2 answer options'}), 400
 
         paper_config = data.get('paper_config', {})
+        omr_style = data.get('omr_style', True)
         paper_config.setdefault('title', 'Home Test')
         paper_config.setdefault('marks', len(questions))
         paper_config.setdefault('time', len(questions))
@@ -250,7 +253,7 @@ def generate_custom_paper():
         import uuid
         output_folder = current_app.config.get('OUTPUT_FOLDER', 'output')
         student_path, teacher_path = generate_paper_from_db(
-            questions, paper_config, output_folder
+            questions, paper_config, output_folder, omr_style=omr_style
         )
 
         # Save to DB for download tracking (no class/subject IDs for custom papers)
@@ -261,7 +264,8 @@ def generate_custom_paper():
             file_path=student_path,
             file_path_answers=teacher_path,
             custom_questions_json=questions,
-            custom_paper_config=paper_config
+            custom_paper_config=paper_config,
+            omr_style=omr_style
         )
         db.session.add(paper)
         db.session.commit()
@@ -412,6 +416,9 @@ def _serve_pdf(paper, paper_type, show_answer):
     )
 
     try:
+        # Retrieve stored omr_style (default True for backward compat)
+        omr_style = paper.omr_style if paper.omr_style is not None else True
+
         # --- Custom paper PDF (guest mode) ---
         if paper.custom_questions_json:
             custom_config = paper.custom_paper_config or {
@@ -423,7 +430,8 @@ def _serve_pdf(paper, paper_type, show_answer):
             student_buf, teacher_buf = generate_paper_to_memory_pdf(
                 paper.custom_questions_json, custom_config,
                 student_only=not show_answer,
-                teacher_only=show_answer
+                teacher_only=show_answer,
+                omr_style=omr_style
             )
             buffer = teacher_buf if show_answer else student_buf
 
@@ -481,7 +489,8 @@ def _serve_pdf(paper, paper_type, show_answer):
         student_buf, teacher_buf = generate_paper_to_memory_pdf(
             questions, paper_config,
             student_only=not show_answer,
-            teacher_only=show_answer
+            teacher_only=show_answer,
+            omr_style=omr_style
         )
         buffer = teacher_buf if show_answer else student_buf
 

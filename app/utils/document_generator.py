@@ -207,7 +207,7 @@ def to_bengali_numeral(num_str):
     return bengali_str
 
 
-def add_question_to_document(document, q, show_answer=False):
+def add_question_to_document(document, q, show_answer=False, omr_style=True):
     """Adds a single formatted question to the document object with math expression support."""
     
     OMR_CIRCLE = '◯'
@@ -274,13 +274,13 @@ def add_question_to_document(document, q, show_answer=False):
             
             option_str = str(option_text).strip()
             is_correct = (show_answer is True) and (option_str == correct_ans)
-            current_circle = FILLED_CIRCLE if is_correct else OMR_CIRCLE
-
-            run_circle = p.add_run(current_circle)
-            run_circle.font.size = Pt(8)
-            run_circle.font.name = 'Nirmala UI'
-            if is_correct:
-                run_circle.bold = True
+            if omr_style:
+                current_circle = FILLED_CIRCLE if is_correct else OMR_CIRCLE
+                run_circle = p.add_run(current_circle)
+                run_circle.font.size = Pt(8)
+                run_circle.font.name = 'Nirmala UI'
+                if is_correct:
+                    run_circle.bold = True
             
             # Add option with math support
             if _has_math_expression(option_str):
@@ -324,7 +324,7 @@ def add_question_to_document(document, q, show_answer=False):
                 correct_run.font.name = 'Nirmala UI'
 
 
-def create_question_paper(questions, output_path, paper_config, show_answer=False):
+def create_question_paper(questions, output_path, paper_config, show_answer=False, omr_style=True):
     """
     Generates a COMPACT two-column MCQ paper with a FULL-WIDTH header.
     
@@ -333,6 +333,7 @@ def create_question_paper(questions, output_path, paper_config, show_answer=Fals
         output_path: Path to save the document
         paper_config: Dict with title, class_name, subject_name, time, marks
         show_answer: Whether to show correct answers
+        omr_style: Whether to show OMR circles beside options
     """
     num_questions = len(questions)
     time_minutes = paper_config.get('time', num_questions)
@@ -402,7 +403,7 @@ def create_question_paper(questions, output_path, paper_config, show_answer=Fals
 
     # Populate Questions (into the new 2-column section)
     for q in questions:
-        add_question_to_document(document, q, show_answer=show_answer)
+        add_question_to_document(document, q, show_answer=show_answer, omr_style=omr_style)
         
     # Save the Document
     if output_path is None:
@@ -420,13 +421,14 @@ def create_question_paper(questions, output_path, paper_config, show_answer=Fals
     return output_path
 
 
-def generate_paper_to_memory(questions, paper_config):
+def generate_paper_to_memory(questions, paper_config, omr_style=True):
     """
     Generate both student and teacher copies as in-memory BytesIO buffers.
     
     Args:
         questions: List of Question model objects or dicts
         paper_config: Configuration dict for the paper
+        omr_style: Whether to show OMR circles beside options
         
     Returns:
         Tuple of (student_buffer, teacher_buffer) - BytesIO objects
@@ -442,10 +444,10 @@ def generate_paper_to_memory(questions, paper_config):
         question_list.append(q_dict)
     
     # Generate Student Copy (No Answers) - in memory
-    student_buffer = create_question_paper(question_list, None, paper_config, show_answer=False)
+    student_buffer = create_question_paper(question_list, None, paper_config, show_answer=False, omr_style=omr_style)
     
     # Generate Teacher Copy (With Answers) - in memory
-    teacher_buffer = create_question_paper(question_list, None, paper_config, show_answer=True)
+    teacher_buffer = create_question_paper(question_list, None, paper_config, show_answer=True, omr_style=omr_style)
     
     # Free up memory after document generation
     del question_list
@@ -454,7 +456,7 @@ def generate_paper_to_memory(questions, paper_config):
     return student_buffer, teacher_buffer
 
 
-def generate_paper_from_db(questions, paper_config, output_folder):
+def generate_paper_from_db(questions, paper_config, output_folder, omr_style=True):
     """
     Generate both student and teacher copies of question paper.
     
@@ -462,6 +464,7 @@ def generate_paper_from_db(questions, paper_config, output_folder):
         questions: List of Question model objects or dicts
         paper_config: Configuration dict for the paper
         output_folder: Folder to save generated files
+        omr_style: Whether to show OMR circles beside options
         
     Returns:
         Tuple of (student_file_path, teacher_file_path)
@@ -488,11 +491,11 @@ def generate_paper_from_db(questions, paper_config, output_folder):
     
     # Generate Student Copy (No Answers)
     student_path = os.path.join(output_folder, f"{base_filename}_student.docx")
-    create_question_paper(question_list, student_path, paper_config, show_answer=False)
+    create_question_paper(question_list, student_path, paper_config, show_answer=False, omr_style=omr_style)
     
     # Generate Teacher Copy (With Answers)
     teacher_path = os.path.join(output_folder, f"{base_filename}_teacher.docx")
-    create_question_paper(question_list, teacher_path, paper_config, show_answer=True)
+    create_question_paper(question_list, teacher_path, paper_config, show_answer=True, omr_style=omr_style)
     
     # Free up memory after document generation (important for low-memory environments)
     del question_list
