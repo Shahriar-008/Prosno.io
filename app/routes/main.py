@@ -1,11 +1,12 @@
 """
 Main routes for Prosno.io
 """
+from datetime import datetime, date
 from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort, session
 import os
 
 from app import db, csrf, limiter
-from app.models import Class, Subject, Chapter, Question, GeneratedPaper, QuestionSet
+from app.models import Class, Subject, Chapter, Question, GeneratedPaper, QuestionSet, GenerationLog
 from app.utils.document_generator import generate_paper_from_db, generate_paper_to_memory
 from app.utils.pdf_generator import generate_paper_to_memory_pdf
 
@@ -14,6 +15,24 @@ main_bp = Blueprint('main', __name__)
 # --- Anti-scraping limits ---
 MAX_QUESTIONS_PER_PAPER = 50       # Max questions allowed in one paper
 MAX_CHAPTERS_PER_REQUEST = 5       # Max chapters that can be queried at once
+DAILY_GENERATION_LIMIT = 10        # Max papers a logged-in user can generate per day
+
+
+def _get_user_credits(user_id):
+    """Return (used, limit, remaining) for the user's daily paper generation quota."""
+    today_start = datetime.combine(date.today(), datetime.min.time())
+    used = GenerationLog.query.filter(
+        GenerationLog.user_id == user_id,
+        GenerationLog.created_at >= today_start
+    ).count()
+    remaining = max(0, DAILY_GENERATION_LIMIT - used)
+    return used, DAILY_GENERATION_LIMIT, remaining
+
+
+def _log_generation(user_id, gen_type='db'):
+    """Record a paper generation event for the credit system."""
+    log = GenerationLog(user_id=user_id, generation_type=gen_type)
+    db.session.add(log)
 
 
 @main_bp.route('/')
@@ -129,6 +148,16 @@ def get_questions_for_chapters():
 @limiter.limit("10 per day")
 def generate_paper():
     """Generate question paper"""
+    # --- Credit check for logged-in users ---
+    user = session.get('user')
+    if user:
+        _used, _limit, _remaining = _get_user_credits(user['id'])
+        if _remaining <= 0:
+            return jsonify({
+                'error': 'Daily generation limit reached (0 credits left). Please wait until tomorrow.',
+                'credits_exhausted': True
+            }), 429
+
     data = request.get_json()
     
     class_id = data.get('class_id')
@@ -216,6 +245,9 @@ def generate_paper():
         omr_style=omr_style
     )
     db.session.add(paper)
+    # Log generation for credit system
+    if user:
+        _log_generation(user['id'], gen_type='db')
     db.session.commit()
     
     return jsonify({
@@ -247,6 +279,16 @@ def generate_custom_paper():
         }
     }
     """
+    # --- Credit check for logged-in users ---
+    user = session.get('user')
+    if user:
+        _used, _limit, _remaining = _get_user_credits(user['id'])
+        if _remaining <= 0:
+            return jsonify({
+                'error': 'Daily generation limit reached (0 credits left). Please wait until tomorrow.',
+                'credits_exhausted': True
+            }), 429
+
     try:
         data = request.get_json()
         if not data:
@@ -291,6 +333,9 @@ def generate_custom_paper():
             omr_style=omr_style
         )
         db.session.add(paper)
+        # Log generation for credit system
+        if user:
+            _log_generation(user['id'], gen_type='custom')
         db.session.commit()
 
         return jsonify({
@@ -602,7 +647,26 @@ def dashboard():
         QuestionSet.updated_at.desc()
     ).all()
     
-    return render_template('main/dashboard.html', question_sets=sets)
+    # Credit / usage data
+    credit_used, credit_limit, credit_remaining = _get_user_credits(user['id'])
+    
+    return render_template(
+        'main/dashboard.html',
+        question_sets=sets,
+        credit_used=credit_used,
+        credit_limit=credit_limit,
+        credit_remaining=credit_remaining,
+    )
+
+
+@main_bp.route('/api/credits')
+def api_credits():
+    """Return current credit/usage info as JSON."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+    used, limit, remaining = _get_user_credits(user['id'])
+    return jsonify({'used': used, 'limit': limit, 'remaining': remaining})
 
 
 @main_bp.route('/question-set/<int:set_id>')

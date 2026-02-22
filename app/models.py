@@ -235,6 +235,19 @@ class QuestionSet(db.Model):
         return f'<QuestionSet {self.id} - {self.name}>'
 
 
+class GenerationLog(db.Model):
+    """Track paper generations per user for the credit/usage system"""
+    __tablename__ = 'generation_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(255), nullable=False, index=True)  # Supabase UUID
+    generation_type = db.Column(db.String(20), default='db')  # 'db' or 'custom'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<GenerationLog {self.id} user={self.user_id}>'
+
+
 class AIGeneratorConfig(db.Model):
     """AI Generator configuration and state"""
     __tablename__ = 'ai_generator_config'

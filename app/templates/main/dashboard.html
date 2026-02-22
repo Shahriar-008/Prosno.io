@@ -19,6 +19,51 @@
                     </div>
                 </div>
 
+                <!-- ── Usage / Credit Card ────────────────────────── -->
+                {% set pct = ((credit_used / credit_limit) * 100) | int if credit_limit else 0 %}
+                {% set bar_pct = [pct, 100] | min %}
+                <div
+                    class="usage-card mb-4 {% if credit_remaining == 0 %}usage-card--exhausted{% elif credit_remaining <= 1 %}usage-card--critical{% elif credit_remaining <= 3 %}usage-card--warning{% endif %}">
+                    <div class="usage-card-body">
+                        <div class="usage-header">
+                            <div class="usage-title">
+                                <i class="bi bi-lightning-charge-fill"></i> Daily Usage
+                            </div>
+                            <div class="usage-counter">
+                                <span class="usage-remaining">{{ credit_remaining }}</span>
+                                <span class="usage-separator">/</span>
+                                <span class="usage-total">{{ credit_limit }}</span>
+                                <span class="usage-label">left</span>
+                            </div>
+                        </div>
+
+                        <div class="usage-bar-track">
+                            <div class="usage-bar-fill" style="width: {{ bar_pct }}%"></div>
+                        </div>
+
+                        <div class="usage-footer">
+                            {% if credit_remaining == 0 %}
+                            <!-- Upsell: credits exhausted -->
+                            <div class="usage-exhausted">
+                                <span class="usage-exhausted-icon">⏳</span>
+                                <span>You've used all your daily credits.</span>
+                                <button class="btn btn-sm btn-outline-secondary usage-wait-btn" disabled>
+                                    <i class="bi bi-clock-history me-1"></i>Wait for Reset
+                                </button>
+                            </div>
+                            {% elif credit_remaining == 1 %}
+                            <span class="usage-badge badge bg-danger">Only 1 credit left!</span>
+                            <span class="usage-reset-hint">Resets every 24 hours</span>
+                            {% elif credit_remaining <= 3 %} <span class="usage-badge badge bg-warning text-dark">
+                                Running low</span>
+                                <span class="usage-reset-hint">Resets every 24 hours</span>
+                                {% else %}
+                                <span class="usage-reset-hint">Resets every 24 hours</span>
+                                {% endif %}
+                        </div>
+                    </div>
+                </div>
+
                 {% if question_sets|length == 0 %}
                 <!-- Empty State -->
                 <div class="empty-state text-center py-5">
@@ -409,6 +454,179 @@
 
     .qs-source.bg-primary {
         background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    }
+
+    /* ── Usage / Credit Card ─────────────────────── */
+    .usage-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        transition: border-color 0.3s ease;
+    }
+
+    .usage-card-body {
+        padding: 20px 24px;
+    }
+
+    .usage-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+    }
+
+    .usage-title {
+        font-weight: 600;
+        font-size: 1rem;
+        color: #1e293b;
+    }
+
+    .usage-title i {
+        color: #6366f1;
+        margin-right: 6px;
+    }
+
+    .usage-counter {
+        display: flex;
+        align-items: baseline;
+        gap: 3px;
+    }
+
+    .usage-remaining {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #6366f1;
+        line-height: 1;
+    }
+
+    .usage-separator {
+        font-size: 1rem;
+        font-weight: 400;
+        color: #94a3b8;
+    }
+
+    .usage-total {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #64748b;
+    }
+
+    .usage-label {
+        font-size: 0.8rem;
+        color: #94a3b8;
+        margin-left: 4px;
+    }
+
+    /* Progress bar */
+    .usage-bar-track {
+        height: 10px;
+        background: #f1f5f9;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 12px;
+    }
+
+    .usage-bar-fill {
+        height: 100%;
+        border-radius: 10px;
+        background: linear-gradient(90deg, #6366f1, #818cf8);
+        transition: width 0.6s ease, background 0.4s ease;
+    }
+
+    /* Warning state (2-3 remaining) */
+    .usage-card--warning {
+        border-color: #fbbf24;
+    }
+
+    .usage-card--warning .usage-remaining {
+        color: #d97706;
+    }
+
+    .usage-card--warning .usage-bar-fill {
+        background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    }
+
+    .usage-card--warning .usage-title i {
+        color: #d97706;
+    }
+
+    /* Critical state (1 remaining) */
+    .usage-card--critical {
+        border-color: #f87171;
+    }
+
+    .usage-card--critical .usage-remaining {
+        color: #dc2626;
+    }
+
+    .usage-card--critical .usage-bar-fill {
+        background: linear-gradient(90deg, #ef4444, #f87171);
+    }
+
+    .usage-card--critical .usage-title i {
+        color: #dc2626;
+    }
+
+    /* Exhausted state (0 remaining) */
+    .usage-card--exhausted {
+        border-color: #fca5a5;
+        background: linear-gradient(135deg, #fff5f5, #fff);
+    }
+
+    .usage-card--exhausted .usage-remaining {
+        color: #dc2626;
+    }
+
+    .usage-card--exhausted .usage-bar-fill {
+        background: linear-gradient(90deg, #dc2626, #ef4444);
+    }
+
+    .usage-card--exhausted .usage-title i {
+        color: #dc2626;
+    }
+
+    /* Footer / badges */
+    .usage-footer {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 28px;
+    }
+
+    .usage-reset-hint {
+        font-size: 0.78rem;
+        color: #94a3b8;
+        margin-left: auto;
+    }
+
+    .usage-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+
+    .usage-exhausted {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        font-size: 0.88rem;
+        color: #dc2626;
+        font-weight: 500;
+    }
+
+    .usage-exhausted-icon {
+        font-size: 1.2rem;
+    }
+
+    .usage-wait-btn {
+        margin-left: auto;
+        font-size: 0.78rem;
+        border-color: #e2e8f0;
+        color: #64748b;
+        cursor: not-allowed;
+        opacity: 0.7;
     }
 </style>
 {% endblock %}
