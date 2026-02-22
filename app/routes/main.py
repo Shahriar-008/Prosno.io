@@ -127,7 +127,6 @@ def generate_paper():
     time_minutes = data.get('time_minutes', 30)
     paper_title = data.get('title', 'Home Test')
     randomize = data.get('randomize', False)
-    omr_style = data.get('omr_style', True)
     
     # Validate input
     if not all([class_id, subject_id, chapter_ids]):
@@ -176,7 +175,7 @@ def generate_paper():
     # Generate the papers
     output_folder = current_app.config.get('OUTPUT_FOLDER', 'output')
     student_path, teacher_path = generate_paper_from_db(
-        questions, paper_config, output_folder, omr_style=omr_style
+        questions, paper_config, output_folder
     )
     
     # Save to database for tracking (including question IDs for regeneration)
@@ -189,8 +188,7 @@ def generate_paper():
         question_count=len(questions),
         time_minutes=time_minutes,
         file_path=student_path,
-        file_path_answers=teacher_path,
-        omr_style=omr_style
+        file_path_answers=teacher_path
     )
     db.session.add(paper)
     db.session.commit()
@@ -248,13 +246,11 @@ def generate_custom_paper():
         paper_config.setdefault('marks', len(questions))
         paper_config.setdefault('time', len(questions))
 
-        omr_style = paper_config.get('omr_style', True)
-
         # Generate papers to disk
         import uuid
         output_folder = current_app.config.get('OUTPUT_FOLDER', 'output')
         student_path, teacher_path = generate_paper_from_db(
-            questions, paper_config, output_folder, omr_style=omr_style
+            questions, paper_config, output_folder
         )
 
         # Save to DB for download tracking (no class/subject IDs for custom papers)
@@ -265,8 +261,7 @@ def generate_custom_paper():
             file_path=student_path,
             file_path_answers=teacher_path,
             custom_questions_json=questions,
-            custom_paper_config=paper_config,
-            omr_style=omr_style
+            custom_paper_config=paper_config
         )
         db.session.add(paper)
         db.session.commit()
@@ -304,11 +299,10 @@ def download_paper(paper_id, paper_type):
         abort(400, description="Invalid format. Use 'docx' or 'pdf'.")
     
     show_answer = (paper_type == 'teacher')
-    omr_style = paper.omr_style if paper.omr_style is not None else True
     
     # PDF is always generated on-demand from stored question IDs
     if output_format == 'pdf':
-        return _serve_pdf(paper, paper_type, show_answer, omr_style=omr_style)
+        return _serve_pdf(paper, paper_type, show_answer)
     
     # --- DOCX path (existing logic) ---
     filename = (
@@ -339,7 +333,7 @@ def download_paper(paper_id, paper_type):
             'marks': paper.question_count or len(paper.custom_questions_json)
         }
         student_buffer, teacher_buffer = generate_paper_to_memory(
-            paper.custom_questions_json, custom_config, omr_style=omr_style
+            paper.custom_questions_json, custom_config
         )
         buffer = teacher_buffer if show_answer else student_buffer
         
@@ -393,7 +387,7 @@ def download_paper(paper_id, paper_type):
     }
     
     # Generate to memory and serve directly
-    student_buffer, teacher_buffer = generate_paper_to_memory(questions, paper_config, omr_style=omr_style)
+    student_buffer, teacher_buffer = generate_paper_to_memory(questions, paper_config)
     buffer = teacher_buffer if show_answer else student_buffer
     
     paper.download_count += 1
@@ -407,7 +401,7 @@ def download_paper(paper_id, paper_type):
     )
 
 
-def _serve_pdf(paper, paper_type, show_answer, omr_style=True):
+def _serve_pdf(paper, paper_type, show_answer):
     """Generate PDF on-demand from stored question IDs and serve it."""
     import traceback
     
@@ -429,8 +423,7 @@ def _serve_pdf(paper, paper_type, show_answer, omr_style=True):
             student_buf, teacher_buf = generate_paper_to_memory_pdf(
                 paper.custom_questions_json, custom_config,
                 student_only=not show_answer,
-                teacher_only=show_answer,
-                omr_style=omr_style
+                teacher_only=show_answer
             )
             buffer = teacher_buf if show_answer else student_buf
 
@@ -488,8 +481,7 @@ def _serve_pdf(paper, paper_type, show_answer, omr_style=True):
         student_buf, teacher_buf = generate_paper_to_memory_pdf(
             questions, paper_config,
             student_only=not show_answer,
-            teacher_only=show_answer,
-            omr_style=omr_style
+            teacher_only=show_answer
         )
         buffer = teacher_buf if show_answer else student_buf
 

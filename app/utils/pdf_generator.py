@@ -581,7 +581,7 @@ class MathImageFlowable(Flowable):
 
 
 # --- WeasyPrint HTML renderer helper ---
-def _build_html(questions: list, paper_config: dict, show_answer: bool, omr_style: bool = True) -> str:
+def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
     """
     Return HTML string for the question paper with proper math rendering.
     
@@ -689,25 +689,19 @@ def _build_html(questions: list, paper_config: dict, show_answer: bool, omr_styl
             for i in range(4):
                 opt_text = format_math(opts[i])
                 is_correct = show_answer and (str(opts[i]).strip() == correct)
-                circle_html = ''
-                if omr_style:
-                    circle_cls = 'circle filled' if is_correct else 'circle'
-                    circle_html = f"<span class='{circle_cls}'></span>"
+                circle_cls = 'circle filled' if is_correct else 'circle'
                 # prefix Bengali letters
                 prefix = ['ক)', 'খ)', 'গ)', 'ঘ)'][i]
-                q_block.append(f"<td>{circle_html}{prefix} {opt_text}</td>")
+                q_block.append(f"<td><span class='{circle_cls}'></span>{prefix} {opt_text}</td>")
                 if i % 2 == 1 and i != 3:
                     q_block.append('</tr><tr>')
             q_block.append('</tr></table>')
         else:
             for i, opt in enumerate(opts):
                 is_correct = show_answer and (str(opt).strip() == correct)
-                circle_html = ''
-                if omr_style:
-                    circle_cls = 'circle filled' if is_correct else 'circle'
-                    circle_html = f"<span class='{circle_cls}'></span>"
+                circle_cls = 'circle filled' if is_correct else 'circle'
                 prefix = ['ক)', 'খ)', 'গ)', 'ঘ)'][i] if i < 4 else ''
-                q_block.append(f"<div>{circle_html}{prefix} {format_math(opt)}</div>")
+                q_block.append(f"<div><span class='{circle_cls}'></span>{prefix} {format_math(opt)}</div>")
 
         q_block.append('</div>')
         q_html.append(''.join(q_block))
@@ -974,7 +968,7 @@ def _build_question_flowable(text: str, style: ParagraphStyle, prefix: str = '')
     return Paragraph(full_text, style)
 
 
-def _build_question_cell(q: dict, show_answer: bool, styles: dict, omr_style: bool = True) -> list:
+def _build_question_cell(q: dict, show_answer: bool, styles: dict) -> list:
     """Build flowables for one question (for use in a table cell).
     
     Uses inline math formatting to keep fractions and superscripts within
@@ -1012,7 +1006,7 @@ def _build_question_cell(q: dict, show_answer: bool, styles: dict, omr_style: bo
                 prefix = BENGALI_PREFIXES[opt_idx]
                 style = styles['option_bold'] if is_correct else styles['option_normal']
                 # Use OptionFlowable which now supports fractions
-                cell = OptionFlowable(prefix, opt_text, style, filled=is_correct, omr_style=omr_style)
+                cell = OptionFlowable(prefix, opt_text, style, filled=is_correct)
                 row.append(cell)
             rows.append(row)
 
@@ -1024,7 +1018,7 @@ def _build_question_cell(q: dict, show_answer: bool, styles: dict, omr_style: bo
             is_correct = show_answer and str(opt).strip() == correct_ans
             prefix = BENGALI_PREFIXES[j] if j < len(BENGALI_PREFIXES) else ''
             style = styles['option_bold'] if is_correct else styles['option_normal']
-            flowables.append(OptionFlowable(prefix, str(opt), style, filled=is_correct, omr_style=omr_style))
+            flowables.append(OptionFlowable(prefix, str(opt), style, filled=is_correct))
 
     return flowables
 
@@ -1034,16 +1028,15 @@ class OptionFlowable(Flowable):
 
     Supports inline fractions and math expressions using inline formatting.
     """
-    __slots__ = ('prefix', 'text', 'style', 'filled', 'circle_dia', 'omr_style', 'content_flowable', 'width', 'height')
+    __slots__ = ('prefix', 'text', 'style', 'filled', 'circle_dia', 'content_flowable', 'width', 'height')
 
-    def __init__(self, prefix: str, text: str, style: ParagraphStyle, filled: bool = False, circle_dia: int = 8, omr_style: bool = True):
+    def __init__(self, prefix: str, text: str, style: ParagraphStyle, filled: bool = False, circle_dia: int = 8):
         super().__init__()
         self.prefix = prefix
         self.text = text  # Store unescaped, process in wrap
         self.style = style
         self.filled = filled
         self.circle_dia = circle_dia
-        self.omr_style = omr_style
         self.content_flowable = None  # Lazy creation
 
     def wrap(self, availWidth, availHeight):
@@ -1052,35 +1045,26 @@ class OptionFlowable(Flowable):
             formatted = _escape_and_format_math(self.text)
             self.content_flowable = Paragraph(f'{self.prefix} {formatted}', self.style)
         
-        if self.omr_style:
-            gap = 4
-            text_avail = max(availWidth - (self.circle_dia + gap), 10)
-            _, h = self.content_flowable.wrap(text_avail, availHeight)
-            self.width = availWidth
-            self.height = max(h, self.circle_dia)
-        else:
-            _, h = self.content_flowable.wrap(availWidth, availHeight)
-            self.width = availWidth
-            self.height = h
+        gap = 4
+        text_avail = max(availWidth - (self.circle_dia + gap), 10)
+        _, h = self.content_flowable.wrap(text_avail, availHeight)
+        self.width = availWidth
+        self.height = max(h, self.circle_dia)
         return (self.width, self.height)
 
     def draw(self):
         c = self.canv
-        if self.omr_style:
-            radius = self.circle_dia / 2.0
-            x = radius
-            y = self.height / 2.0
-            c.saveState()
-            c.setLineWidth(0.8)
-            c.setStrokeColor(colors.black)
-            c.setFillColor(colors.black if self.filled else colors.white)
-            c.circle(x, y, radius, stroke=1, fill=1)
-            # Draw content flowable
-            self.content_flowable.drawOn(c, self.circle_dia + 4, 0)
-            c.restoreState()
-        else:
-            # No circle, draw text at x=0
-            self.content_flowable.drawOn(c, 0, 0)
+        radius = self.circle_dia / 2.0
+        x = radius
+        y = self.height / 2.0
+        c.saveState()
+        c.setLineWidth(0.8)
+        c.setStrokeColor(colors.black)
+        c.setFillColor(colors.black if self.filled else colors.white)
+        c.circle(x, y, radius, stroke=1, fill=1)
+        # Draw content flowable
+        self.content_flowable.drawOn(c, self.circle_dia + 4, 0)
+        c.restoreState()
 
 
 # ---------------------------------------------------------------------------
@@ -1091,7 +1075,6 @@ def create_question_paper_pdf(
     output_path: Optional[str],
     paper_config: dict,
     show_answer: bool = False,
-    omr_style: bool = True,
 ) -> Union[io.BytesIO, str]:
     """
     Generate a two-column MCQ question paper as PDF.
@@ -1109,7 +1092,7 @@ def create_question_paper_pdf(
             pdf_path = os.path.join(tmpdir, 'paper.pdf')
             # Create DOCX using the existing document generator
             from . import document_generator as _docgen
-            _docgen.create_question_paper(questions, docx_path, paper_config, show_answer=show_answer, omr_style=omr_style)
+            _docgen.create_question_paper(questions, docx_path, paper_config, show_answer=show_answer)
 
             # Run headless conversion
             cmd = [soffice_path, '--headless', '--convert-to', 'pdf', '--outdir', tmpdir, docx_path]
@@ -1151,7 +1134,7 @@ def create_question_paper_pdf(
 
     if weasy_ok:
         try:
-            html = _build_html(questions, paper_config, show_answer, omr_style=omr_style)
+            html = _build_html(questions, paper_config, show_answer)
             # If output_path is None, return BytesIO buffer
             if output_path is None:
                 from weasyprint import HTML
@@ -1236,11 +1219,11 @@ def create_question_paper_pdf(
     # Build cell content for each column
     left_cell_content = []
     for q in left_questions:
-        left_cell_content.extend(_build_question_cell(q, show_answer, styles, omr_style=omr_style))
+        left_cell_content.extend(_build_question_cell(q, show_answer, styles))
 
     right_cell_content = []
     for q in right_questions:
-        right_cell_content.extend(_build_question_cell(q, show_answer, styles, omr_style=omr_style))
+        right_cell_content.extend(_build_question_cell(q, show_answer, styles))
 
     # Create two-column table
     # Each cell contains a nested table with the questions
@@ -1280,7 +1263,6 @@ def generate_paper_to_memory_pdf(
     paper_config: dict,
     student_only: bool = False,
     teacher_only: bool = False,
-    omr_style: bool = True,
 ) -> tuple:
     """Generate PDF copies as BytesIO buffers.
     
@@ -1300,12 +1282,12 @@ def generate_paper_to_memory_pdf(
     
     if not teacher_only:
         student_buffer = create_question_paper_pdf(
-            question_list, None, paper_config, show_answer=False, omr_style=omr_style
+            question_list, None, paper_config, show_answer=False
         )
     
     if not student_only:
         teacher_buffer = create_question_paper_pdf(
-            question_list, None, paper_config, show_answer=True, omr_style=omr_style
+            question_list, None, paper_config, show_answer=True
         )
     
     # Free up memory after PDF generation (important for low-memory environments)
@@ -1320,7 +1302,6 @@ def generate_paper_from_db_pdf(
     questions: list,
     paper_config: dict,
     output_folder: str,
-    omr_style: bool = True,
 ) -> tuple:
     """Generate both student and teacher PDF copies saved to disk."""
     import uuid as _uuid
@@ -1337,12 +1318,12 @@ def generate_paper_from_db_pdf(
 
     student_path = os.path.join(output_folder, f"{base}_student.pdf")
     create_question_paper_pdf(
-        question_list, student_path, paper_config, show_answer=False, omr_style=omr_style
+        question_list, student_path, paper_config, show_answer=False
     )
 
     teacher_path = os.path.join(output_folder, f"{base}_teacher.pdf")
     create_question_paper_pdf(
-        question_list, teacher_path, paper_config, show_answer=True, omr_style=omr_style
+        question_list, teacher_path, paper_config, show_answer=True
     )
 
     # Free up memory after PDF generation

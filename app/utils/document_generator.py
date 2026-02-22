@@ -207,7 +207,7 @@ def to_bengali_numeral(num_str):
     return bengali_str
 
 
-def add_question_to_document(document, q, show_answer=False, omr_style=True):
+def add_question_to_document(document, q, show_answer=False):
     """Adds a single formatted question to the document object with math expression support."""
     
     OMR_CIRCLE = '◯'
@@ -274,14 +274,13 @@ def add_question_to_document(document, q, show_answer=False, omr_style=True):
             
             option_str = str(option_text).strip()
             is_correct = (show_answer is True) and (option_str == correct_ans)
+            current_circle = FILLED_CIRCLE if is_correct else OMR_CIRCLE
 
-            if omr_style:
-                current_circle = FILLED_CIRCLE if is_correct else OMR_CIRCLE
-                run_circle = p.add_run(current_circle)
-                run_circle.font.size = Pt(8)
-                run_circle.font.name = 'Nirmala UI'
-                if is_correct:
-                    run_circle.bold = True
+            run_circle = p.add_run(current_circle)
+            run_circle.font.size = Pt(8)
+            run_circle.font.name = 'Nirmala UI'
+            if is_correct:
+                run_circle.bold = True
             
             # Add option with math support
             if _has_math_expression(option_str):
@@ -325,7 +324,7 @@ def add_question_to_document(document, q, show_answer=False, omr_style=True):
                 correct_run.font.name = 'Nirmala UI'
 
 
-def create_question_paper(questions, output_path, paper_config, show_answer=False, omr_style=True):
+def create_question_paper(questions, output_path, paper_config, show_answer=False):
     """
     Generates a COMPACT two-column MCQ paper with a FULL-WIDTH header.
     
@@ -403,7 +402,7 @@ def create_question_paper(questions, output_path, paper_config, show_answer=Fals
 
     # Populate Questions (into the new 2-column section)
     for q in questions:
-        add_question_to_document(document, q, show_answer=show_answer, omr_style=omr_style)
+        add_question_to_document(document, q, show_answer=show_answer)
         
     # Save the Document
     if output_path is None:
@@ -421,7 +420,7 @@ def create_question_paper(questions, output_path, paper_config, show_answer=Fals
     return output_path
 
 
-def generate_paper_to_memory(questions, paper_config, omr_style=True):
+def generate_paper_to_memory(questions, paper_config):
     """
     Generate both student and teacher copies as in-memory BytesIO buffers.
     
@@ -443,10 +442,10 @@ def generate_paper_to_memory(questions, paper_config, omr_style=True):
         question_list.append(q_dict)
     
     # Generate Student Copy (No Answers) - in memory
-    student_buffer = create_question_paper(question_list, None, paper_config, show_answer=False, omr_style=omr_style)
+    student_buffer = create_question_paper(question_list, None, paper_config, show_answer=False)
     
     # Generate Teacher Copy (With Answers) - in memory
-    teacher_buffer = create_question_paper(question_list, None, paper_config, show_answer=True, omr_style=omr_style)
+    teacher_buffer = create_question_paper(question_list, None, paper_config, show_answer=True)
     
     # Free up memory after document generation
     del question_list
@@ -455,7 +454,7 @@ def generate_paper_to_memory(questions, paper_config, omr_style=True):
     return student_buffer, teacher_buffer
 
 
-def generate_paper_from_db(questions, paper_config, output_folder, omr_style=True):
+def generate_paper_from_db(questions, paper_config, output_folder):
     """
     Generate both student and teacher copies of question paper.
     
@@ -489,11 +488,11 @@ def generate_paper_from_db(questions, paper_config, output_folder, omr_style=Tru
     
     # Generate Student Copy (No Answers)
     student_path = os.path.join(output_folder, f"{base_filename}_student.docx")
-    create_question_paper(question_list, student_path, paper_config, show_answer=False, omr_style=omr_style)
+    create_question_paper(question_list, student_path, paper_config, show_answer=False)
     
     # Generate Teacher Copy (With Answers)
     teacher_path = os.path.join(output_folder, f"{base_filename}_teacher.docx")
-    create_question_paper(question_list, teacher_path, paper_config, show_answer=True, omr_style=omr_style)
+    create_question_paper(question_list, teacher_path, paper_config, show_answer=True)
     
     # Free up memory after document generation (important for low-memory environments)
     del question_list
