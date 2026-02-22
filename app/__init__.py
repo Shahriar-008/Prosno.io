@@ -289,6 +289,7 @@ def _apply_schema_migrations(db):
             ('generated_papers', 'question_ids', "JSON"),
             ('generated_papers', 'custom_questions_json', "JSON"),
             ('generated_papers', 'custom_paper_config', "JSON"),
+            ('generated_papers', 'omr_style', "BOOLEAN DEFAULT TRUE"),
         ]
         
         for table_name, column_name, column_def in migrations:

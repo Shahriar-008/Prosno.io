@@ -193,6 +193,7 @@ class GeneratedPaper(db.Model):
     file_path_answers = db.Column(db.String(500))
     custom_questions_json = db.Column(db.JSON)  # Stores custom questions for regeneration
     custom_paper_config = db.Column(db.JSON)    # Stores paper config for custom papers
+    omr_style = db.Column(db.Boolean, default=True)  # Whether to show OMR circles
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     download_count = db.Column(db.Integer, default=0)
     
