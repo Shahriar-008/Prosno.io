@@ -9,11 +9,11 @@
     --primary-light: #6366f1;
     --primary-dark: #4338ca;
     --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    
+
     /* Secondary Colors */
     --secondary: #10b981;
     --accent: #f59e0b;
-    
+
     /* Neutrals */
     --gray-50: #f9fafb;
     --gray-100: #f3f4f6;
@@ -25,7 +25,7 @@
     --gray-700: #374151;
     --gray-800: #1f2937;
     --gray-900: #111827;
-    
+
     /* Other */
     --white: #ffffff;
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -33,7 +33,7 @@
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    
+
     --radius: 12px;
     --radius-lg: 20px;
     --transition: all 0.3s ease;
@@ -96,7 +96,7 @@ img {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
-.navbar > .container {
+.navbar>.container {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -518,6 +518,7 @@ img {
     text-align: center;
     padding: 0.75rem;
     font-size: 1rem;
+    display: inline-flex !important;
 }
 
 /* ── Responsive ── */
@@ -729,7 +730,7 @@ img {
     color: var(--gray-700);
 }
 
-.q-options > span {
+.q-options>span {
     display: flex;
     align-items: center;
     gap: 0.35rem;
@@ -787,9 +788,12 @@ img {
 }
 
 @keyframes float {
-    0%, 100% {
+
+    0%,
+    100% {
         transform: translateY(0);
     }
+
     50% {
         transform: translateY(-10px);
     }
@@ -1578,29 +1582,29 @@ img {
     .hero-image {
         display: none;
     }
-    
+
     .hero-content {
         text-align: center;
     }
-    
+
     .hero-subtitle {
         margin-left: auto;
         margin-right: auto;
     }
-    
+
     .hero-cta {
         justify-content: center;
     }
-    
+
     .hero-stats {
         justify-content: center;
     }
-    
+
     .cta-card {
         text-align: center;
         padding: 3rem 2rem;
     }
-    
+
     .cta-card .text-lg-end {
         text-align: center !important;
         margin-top: 1.5rem;
@@ -1611,27 +1615,27 @@ img {
     .section-title {
         font-size: 2rem;
     }
-    
+
     .hero-title {
         font-size: 2rem;
     }
-    
+
     .hero-stats {
         gap: 1.5rem;
     }
-    
+
     .stat-number {
         font-size: 1.5rem;
     }
-    
+
     .generate-card {
         padding: 1.5rem;
     }
-    
+
     .download-buttons {
         flex-direction: column;
     }
-    
+
     .footer-bottom-links {
         justify-content: center;
         margin-top: 1rem;
