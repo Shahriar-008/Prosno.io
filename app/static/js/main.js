@@ -2,11 +2,11 @@
  * Prosno.io - Main JavaScript
  */
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Navbar scroll effect
+document.addEventListener('DOMContentLoaded', function () {
+    // ── Navbar scroll effect ──
     const navbar = document.querySelector('.navbar');
     if (navbar) {
-        window.addEventListener('scroll', function() {
+        window.addEventListener('scroll', function () {
             if (window.scrollY > 50) {
                 navbar.classList.add('scrolled');
             } else {
@@ -14,10 +14,49 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
+    // ── Profile dropdown toggle ──
+    const profileWrapper = document.getElementById('navProfileWrapper');
+    const avatarBtn = document.getElementById('navAvatarBtn');
+    if (avatarBtn && profileWrapper) {
+        avatarBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            profileWrapper.classList.toggle('open');
+        });
+        document.addEventListener('click', function (e) {
+            if (!profileWrapper.contains(e.target)) {
+                profileWrapper.classList.remove('open');
+            }
+        });
+    }
+
+    // ── Mobile overlay ──
+    const hamburger = document.getElementById('navHamburger');
+    const mobileOverlay = document.getElementById('navMobileOverlay');
+    const mobileClose = document.getElementById('navMobileClose');
+    if (hamburger && mobileOverlay) {
+        hamburger.addEventListener('click', function () {
+            mobileOverlay.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        });
+        if (mobileClose) {
+            mobileClose.addEventListener('click', function () {
+                mobileOverlay.classList.remove('open');
+                document.body.style.overflow = '';
+            });
+        }
+        // Close on link click
+        mobileOverlay.querySelectorAll('.nav-mobile-link, .nav-mobile-action').forEach(function (link) {
+            link.addEventListener('click', function () {
+                mobileOverlay.classList.remove('open');
+                document.body.style.overflow = '';
+            });
+        });
+    }
+
     // Smooth scrolling for anchor links
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function(e) {
+        anchor.addEventListener('click', function (e) {
             const href = this.getAttribute('href');
             if (href !== '#') {
                 e.preventDefault();
@@ -33,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-    
+
     // Auto-dismiss flash messages
     const flashMessages = document.querySelectorAll('.flash-messages .alert');
     flashMessages.forEach(message => {
@@ -42,15 +81,15 @@ document.addEventListener('DOMContentLoaded', function() {
             bsAlert.close();
         }, 5000);
     });
-    
+
     // CSRF token for fetch requests
-    window.getCsrfToken = function() {
+    window.getCsrfToken = function () {
         const meta = document.querySelector('meta[name="csrf-token"]');
         return meta ? meta.getAttribute('content') : '';
     };
-    
+
     // Fetch wrapper with CSRF
-    window.fetchWithCsrf = function(url, options = {}) {
+    window.fetchWithCsrf = function (url, options = {}) {
         const defaultOptions = {
             headers: {
                 'Content-Type': 'application/json',

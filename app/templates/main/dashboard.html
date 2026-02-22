@@ -284,9 +284,56 @@
     }
 
     function regenerateFromSet(id) {
-        // Redirect to generate page with set_id parameter
-        // The generate page can load the saved questions from this set
-        window.location.href = '/generate?load_set=' + id;
+        const card = document.getElementById('qs-card-' + id);
+        const btn = card.querySelector('.qs-card-footer button');
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
+
+        fetch('/regenerate-from-set/' + id, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+        })
+            .then(r => r.json().then(data => ({ ok: r.ok, data })))
+            .then(({ ok, data }) => {
+                if (!ok || !data.success) {
+                    dashToast('❌ ' + (data.error || 'Generation failed'), 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = origHtml;
+                    return;
+                }
+                // Replace button area with download links
+                const footer = card.querySelector('.qs-card-footer');
+                const dlHtml = `
+                    <div class="d-flex gap-2 flex-wrap align-items-center w-100 justify-content-end">
+                        <span class="text-success me-auto" style="font-size:0.85rem;">
+                            <i class="bi bi-check-circle-fill me-1"></i>Ready
+                        </span>
+                        <div class="btn-group btn-group-sm">
+                            <a href="${data.student_download}" class="btn btn-primary btn-sm">
+                                <i class="bi bi-download me-1"></i>DOCX
+                            </a>
+                            <a href="${data.student_download}?format=pdf" class="btn btn-outline-primary btn-sm">
+                                PDF
+                            </a>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <a href="${data.teacher_download}" class="btn btn-success btn-sm">
+                                <i class="bi bi-key me-1"></i>Answer DOCX
+                            </a>
+                            <a href="${data.teacher_download}?format=pdf" class="btn btn-outline-success btn-sm">
+                                PDF
+                            </a>
+                        </div>
+                    </div>`;
+                footer.innerHTML = dlHtml;
+                dashToast('✅ Paper generated! Download below.', 'success');
+            })
+            .catch(() => {
+                dashToast('❌ Generation failed', 'error');
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            });
     }
 </script>
 {% endblock %}

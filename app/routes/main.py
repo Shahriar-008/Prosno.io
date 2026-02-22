@@ -634,6 +634,89 @@ def save_question_set():
     return jsonify({'success': True, 'id': qs.id, 'message': 'Question set saved!'})
 
 
+@main_bp.route('/regenerate-from-set/<int:set_id>', methods=['POST'])
+@limiter.limit("20 per minute")
+def regenerate_from_set(set_id):
+    """Regenerate a paper directly from a saved question set and return download links."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    # Credit check
+    _used, _limit, _remaining = _get_user_credits(user['id'])
+    if _remaining <= 0:
+        return jsonify({
+            'error': 'Daily generation limit reached (0 credits left). Please wait until tomorrow.',
+            'credits_exhausted': True
+        }), 429
+
+    qs = QuestionSet.query.filter_by(id=set_id, user_id=user['id']).first()
+    if not qs:
+        return jsonify({'error': 'Question set not found.'}), 404
+
+    questions = qs.questions_json
+    if not questions:
+        return jsonify({'error': 'No questions in this set.'}), 400
+
+    paper_config = qs.paper_config or {}
+    paper_config.setdefault('title', qs.name or 'Question Paper')
+    paper_config.setdefault('marks', len(questions))
+    paper_config.setdefault('time', len(questions))
+    omr_style = paper_config.pop('omr_style', True)
+
+    output_folder = current_app.config.get('OUTPUT_FOLDER', 'output')
+
+    if qs.source == 'db':
+        # DB-sourced set: fetch actual Question objects by ID
+        question_ids = [q.get('id') for q in questions if q.get('id')]
+        if question_ids:
+            db_questions = Question.query.filter(Question.id.in_(
+                [int(qid) for qid in question_ids]
+            )).all()
+            if db_questions:
+                order_map = {str(qid): idx for idx, qid in enumerate(question_ids)}
+                db_questions = sorted(db_questions, key=lambda q: order_map.get(str(q.id), 0))
+                student_path, teacher_path = generate_paper_from_db(
+                    db_questions, paper_config, output_folder, omr_style=omr_style
+                )
+            else:
+                # Fallback to custom-style generation if DB questions deleted
+                student_path, teacher_path = generate_paper_from_db(
+                    questions, paper_config, output_folder, omr_style=omr_style
+                )
+        else:
+            student_path, teacher_path = generate_paper_from_db(
+                questions, paper_config, output_folder, omr_style=omr_style
+            )
+    else:
+        # Custom-sourced set
+        student_path, teacher_path = generate_paper_from_db(
+            questions, paper_config, output_folder, omr_style=omr_style
+        )
+
+    paper = GeneratedPaper(
+        title=paper_config.get('title', 'Regenerated Paper'),
+        question_count=len(questions),
+        time_minutes=paper_config.get('time', 30),
+        file_path=student_path,
+        file_path_answers=teacher_path,
+        custom_questions_json=questions,
+        custom_paper_config=paper_config,
+        omr_style=omr_style
+    )
+    db.session.add(paper)
+    _log_generation(user['id'], gen_type=qs.source or 'custom')
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'paper_id': paper.id,
+        'question_count': len(questions),
+        'student_download': f'/download/{paper.id}/student',
+        'teacher_download': f'/download/{paper.id}/teacher'
+    })
+
+
 @main_bp.route('/dashboard')
 def dashboard():
     """User dashboard listing saved question sets."""

@@ -34,90 +34,180 @@
 
 <body>
     <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light fixed-top">
+    <nav class="navbar fixed-top" id="mainNavbar">
         <div class="container">
+            <!-- Logo -->
             <a class="navbar-brand" href="{{ url_for('main.index') }}">
                 <span class="brand-icon"><i class="bi bi-file-earmark-text"></i></span>
-                <span class="brand-text">Prosno.io</span>
+                <span class="brand-text">Prosno<span class="brand-dot">.</span>io</span>
             </a>
 
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            <!-- Desktop Nav Links (center) -->
+            <div class="nav-links-desktop" id="navLinksDesktop">
+                {% if session.get('user') %}
+                {# ── Logged-in (Supabase user) ── #}
+                <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}"
+                    href="{{ url_for('main.dashboard') }}">
+                    <i class="bi bi-grid-1x2-fill nav-link-icon"></i> Dashboard
+                </a>
+                <a class="nav-link {% if request.endpoint == 'main.generate' %}active{% endif %}"
+                    href="{{ url_for('main.generate') }}">
+                    <i class="bi bi-plus-square-fill nav-link-icon"></i> Create
+                </a>
+                {% elif current_user.is_authenticated %}
+                {# ── Admin (Flask-Login) ── #}
+                <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}"
+                    href="{{ url_for('main.dashboard') }}">
+                    <i class="bi bi-grid-1x2-fill nav-link-icon"></i> Dashboard
+                </a>
+                <a class="nav-link {% if request.endpoint == 'main.generate' %}active{% endif %}"
+                    href="{{ url_for('main.generate') }}">
+                    <i class="bi bi-plus-square-fill nav-link-icon"></i> Create
+                </a>
+                {% else %}
+                {# ── Logged-out (marketing) ── #}
+                <a class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}"
+                    href="{{ url_for('main.index') }}">Home</a>
+                <a class="nav-link {% if request.endpoint == 'main.generate' %}active{% endif %}"
+                    href="{{ url_for('main.generate') }}">Features</a>
+                <a class="nav-link {% if request.endpoint == 'main.about' %}active{% endif %}"
+                    href="{{ url_for('main.about') }}">About</a>
+                <a class="nav-link {% if request.endpoint == 'main.contact' %}active{% endif %}"
+                    href="{{ url_for('main.contact') }}">Contact</a>
+                {% endif %}
+            </div>
 
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.index') }}">Home</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.generate') }}">Generate Paper</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.about') }}">About</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.contact') }}">Contact</a>
-                    </li>
+            <!-- Right-side actions -->
+            <div class="nav-actions">
+                {% if session.get('user') %}
+                {# ── Logged-in actions ── #}
+                <div class="nav-profile-wrapper" id="navProfileWrapper">
+                    <button class="nav-avatar-btn" id="navAvatarBtn" aria-label="Profile menu">
+                        <span class="nav-avatar">
+                            {{ (session['user'].get('username') or session['user'].get('email', 'U'))[0]|upper }}
+                        </span>
+                        <i class="bi bi-chevron-down nav-avatar-chevron"></i>
+                    </button>
+                    <!-- Profile Dropdown -->
+                    <div class="nav-dropdown" id="navDropdown">
+                        <div class="nav-dropdown-header">
+                            <span class="nav-dropdown-name">
+                                {{ session['user'].get('username') or 'User' }}
+                            </span>
+                            <span class="nav-dropdown-email">
+                                {{ session['user'].get('email', '') }}
+                            </span>
+                        </div>
+                        <div class="nav-dropdown-divider"></div>
+                        <a class="nav-dropdown-item" href="{{ url_for('main.dashboard') }}">
+                            <i class="bi bi-grid-1x2"></i> My Dashboard
+                        </a>
+                        <a class="nav-dropdown-item" href="#">
+                            <i class="bi bi-gear"></i> Settings
+                        </a>
+                        <a class="nav-dropdown-item" href="#">
+                            <i class="bi bi-credit-card"></i> Billing
+                        </a>
+                        <div class="nav-dropdown-divider"></div>
+                        <a class="nav-dropdown-item nav-dropdown-danger" href="{{ url_for('auth.logout') }}">
+                            <i class="bi bi-box-arrow-right"></i> Log out
+                        </a>
+                    </div>
+                </div>
 
-                    {% if session.get('user') %}
-                    {# Public user logged in via Supabase #}
-                    <li class="nav-item dropdown ms-lg-3">
-                        <a class="btn btn-outline-primary btn-sm dropdown-toggle" href="#" role="button"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle me-1"></i>
-                            {{ session['user'].get('username') or session['user'].get('email', 'User') }}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li>
-                                <span class="dropdown-item-text text-muted small">
-                                    <i class="bi bi-envelope me-1"></i>{{ session['user']['email'] }}
-                                </span>
-                            </li>
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('main.dashboard') }}">
-                                    <i class="bi bi-grid-1x2 me-1"></i> My Dashboard
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
-                                    <i class="bi bi-box-arrow-right me-1"></i> Logout
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                    {% elif current_user.is_authenticated %}
-                    {# Admin/editor logged in via Flask-Login #}
-                    <li class="nav-item ms-lg-3">
-                        <a class="btn btn-primary btn-sm" href="{{ url_for('admin.dashboard') }}">
-                            <i class="bi bi-shield-lock me-1"></i>Admin Panel
-                        </a>
-                    </li>
-                    <li class="nav-item ms-lg-1">
-                        <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin.logout') }}">
-                            <i class="bi bi-box-arrow-right me-1"></i>Logout
-                        </a>
-                    </li>
-                    {% else %}
-                    {# Not logged in at all #}
-                    <li class="nav-item ms-lg-3">
-                        <a class="btn btn-outline-primary btn-sm me-2" href="{{ url_for('auth.login') }}">
-                            <i class="bi bi-box-arrow-in-right me-1"></i>Login
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="btn btn-primary btn-sm" href="{{ url_for('auth.register') }}">
-                            <i class="bi bi-person-plus me-1"></i>Register
-                        </a>
-                    </li>
-                    {% endif %}
-                </ul>
+                {% elif current_user.is_authenticated %}
+                {# ── Admin actions ── #}
+                <a class="nav-btn nav-btn-primary" href="{{ url_for('admin.dashboard') }}">
+                    <i class="bi bi-shield-lock"></i> Admin Panel
+                </a>
+                <a class="nav-btn nav-btn-ghost" href="{{ url_for('admin.logout') }}">
+                    Log out
+                </a>
+
+                {% else %}
+                {# ── Logged-out actions ── #}
+                <a class="nav-btn nav-btn-ghost" href="{{ url_for('auth.login') }}">Log in</a>
+                <a class="nav-btn nav-btn-cta" href="{{ url_for('auth.register') }}">
+                    Get Started Free <i class="bi bi-arrow-right"></i>
+                </a>
+                {% endif %}
+
+                <!-- Mobile Hamburger -->
+                <button class="nav-hamburger" id="navHamburger" aria-label="Open menu">
+                    <span></span><span></span><span></span>
+                </button>
             </div>
         </div>
     </nav>
+
+    <!-- Mobile Overlay -->
+    <div class="nav-mobile-overlay" id="navMobileOverlay">
+        <div class="nav-mobile-header">
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                <span class="brand-icon"><i class="bi bi-file-earmark-text"></i></span>
+                <span class="brand-text">Prosno<span class="brand-dot">.</span>io</span>
+            </a>
+            <button class="nav-mobile-close" id="navMobileClose" aria-label="Close menu">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="nav-mobile-links">
+            {% if session.get('user') %}
+            <a class="nav-mobile-link" href="{{ url_for('main.dashboard') }}">
+                <i class="bi bi-grid-1x2-fill"></i> Dashboard
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('main.generate') }}">
+                <i class="bi bi-plus-square-fill"></i> Create
+            </a>
+            <div class="nav-mobile-divider"></div>
+            <a class="nav-mobile-link" href="#">
+                <i class="bi bi-gear"></i> Settings
+            </a>
+            <a class="nav-mobile-link" href="#">
+                <i class="bi bi-credit-card"></i> Billing
+            </a>
+            <div class="nav-mobile-divider"></div>
+            <a class="nav-mobile-link nav-mobile-danger" href="{{ url_for('auth.logout') }}">
+                <i class="bi bi-box-arrow-right"></i> Log out
+            </a>
+            {% elif current_user.is_authenticated %}
+            <a class="nav-mobile-link" href="{{ url_for('main.dashboard') }}">
+                <i class="bi bi-grid-1x2-fill"></i> Dashboard
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('main.generate') }}">
+                <i class="bi bi-plus-square-fill"></i> Create
+            </a>
+            <div class="nav-mobile-divider"></div>
+            <a class="nav-mobile-link" href="{{ url_for('admin.dashboard') }}">
+                <i class="bi bi-shield-lock"></i> Admin Panel
+            </a>
+            <a class="nav-mobile-link nav-mobile-danger" href="{{ url_for('admin.logout') }}">
+                <i class="bi bi-box-arrow-right"></i> Log out
+            </a>
+            {% else %}
+            <a class="nav-mobile-link" href="{{ url_for('main.index') }}">
+                <i class="bi bi-house"></i> Home
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('main.generate') }}">
+                <i class="bi bi-lightning-charge"></i> Features
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('main.about') }}">
+                <i class="bi bi-info-circle"></i> About
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('main.contact') }}">
+                <i class="bi bi-envelope"></i> Contact
+            </a>
+            {% endif %}
+        </div>
+        <div class="nav-mobile-footer">
+            {% if not session.get('user') and not current_user.is_authenticated %}
+            <a class="nav-btn nav-btn-ghost nav-mobile-action" href="{{ url_for('auth.login') }}">Log in</a>
+            <a class="nav-btn nav-btn-cta nav-mobile-action" href="{{ url_for('auth.register') }}">
+                Get Started Free <i class="bi bi-arrow-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
 
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
