@@ -204,6 +204,37 @@ class GeneratedPaper(db.Model):
         return f'<GeneratedPaper {self.id}>'
 
 
+class QuestionSet(db.Model):
+    """Saved question sets for public users (SaaS dashboard)"""
+    __tablename__ = 'question_sets'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(100), nullable=False, index=True)  # Supabase UUID
+    name = db.Column(db.String(200), nullable=False)
+    questions_json = db.Column(db.JSON, nullable=False)  # Full question data
+    paper_config = db.Column(db.JSON)  # Title, class, subject, time, marks, omr_style
+    source = db.Column(db.String(20), default='custom')  # 'db' or 'custom'
+    paper_id = db.Column(db.Integer, db.ForeignKey('generated_papers.id'))  # Optional link
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    paper = db.relationship('GeneratedPaper', backref='question_sets')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'question_count': len(self.questions_json) if self.questions_json else 0,
+            'source': self.source,
+            'paper_config': self.paper_config,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M') if self.updated_at else None,
+        }
+    
+    def __repr__(self):
+        return f'<QuestionSet {self.id} - {self.name}>'
+
+
 class AIGeneratorConfig(db.Model):
     """AI Generator configuration and state"""
     __tablename__ = 'ai_generator_config'

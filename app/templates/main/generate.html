@@ -257,7 +257,12 @@
                                 </div>
                             </div>
 
-                            <div class="text-center mt-4">
+                            <div class="text-center mt-4 d-flex justify-content-center gap-3">
+                                <button type="button" class="btn btn-outline-warning" id="saveToAccountBtn"
+                                    onclick="saveToAccount('db')">
+                                    <i class="bi bi-bookmark-plus me-2"></i>
+                                    Save to My Account
+                                </button>
                                 <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
                                     <i class="bi bi-arrow-repeat me-2"></i>
                                     Generate Another Paper
@@ -595,7 +600,12 @@ Answer: b</code></pre>
                                 </a>
                                 {% endif %}
                             </div>
-                            <div class="text-center mt-4">
+                            <div class="text-center mt-4 d-flex justify-content-center gap-3">
+                                <button type="button" class="btn btn-outline-warning" id="customSaveToAccountBtn"
+                                    onclick="saveToAccount('custom')">
+                                    <i class="bi bi-bookmark-plus me-2"></i>
+                                    Save to My Account
+                                </button>
                                 <button type="button" class="btn btn-outline-secondary" onclick="resetCustomForm()">
                                     <i class="bi bi-arrow-repeat me-2"></i> Generate Another Paper
                                 </button>
@@ -902,6 +912,10 @@ Answer: b</code></pre>
                     };
 
                     resultCard.style.display = 'block';
+                    // Track paper_id for save feature
+                    if (typeof lastGeneratedPaperId !== 'undefined') {
+                        lastGeneratedPaperId = data.paper_id;
+                    }
                 })
                 .catch(err => {
                     console.error('Error:', err);
@@ -1506,6 +1520,105 @@ Answer: b</code></pre>
             .catch(function (err) {
                 overlay.style.display = 'none';
                 showToast('❌ ' + err.message, 'error');
+            });
+    }
+
+    // ── Save to Account ──────────────────────────────────────
+    let lastGeneratedPaperId = null;
+    let lastFormData = null;
+
+    function saveToAccount(source) {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        let payload = {};
+
+        if (source === 'db') {
+            // DB mode: send selected question IDs + paper config
+            const selectedIds = Array.from(document.querySelectorAll('.question-input:checked'))
+                .map(cb => parseInt(cb.value));
+
+            // Build question list from loaded questions
+            const questions = (window.allQuestions || []).filter(q => selectedIds.includes(q.id));
+
+            const paperTitle = document.getElementById('paperTitle')?.value || 'Question Paper';
+            const className = document.getElementById('classSelect')?.selectedOptions[0]?.text || '';
+            const subjectName = document.getElementById('subjectSelect')?.selectedOptions[0]?.text || '';
+            const timeMinutes = parseInt(document.getElementById('timeMinutes')?.value) || 30;
+
+            payload = {
+                name: paperTitle + ' (' + questions.length + ' questions)',
+                questions: questions,
+                source: 'db',
+                paper_id: lastGeneratedPaperId,
+                paper_config: {
+                    title: paperTitle,
+                    class_name: className,
+                    subject_name: subjectName,
+                    time: timeMinutes,
+                    marks: questions.length
+                }
+            };
+        } else {
+            // Custom mode
+            if (!customQuestions || customQuestions.length === 0) {
+                showToast('❌ No questions to save.', 'error');
+                return;
+            }
+
+            const customTitle = document.getElementById('customPaperTitle')?.value || 'Custom Paper';
+
+            payload = {
+                name: customTitle + ' (' + customQuestions.length + ' questions)',
+                questions: customQuestions,
+                source: 'custom',
+                paper_config: {
+                    title: customTitle,
+                    class_name: document.getElementById('customClassName')?.value || '',
+                    subject_name: document.getElementById('customSubjectName')?.value || '',
+                    time: parseInt(document.getElementById('customTime')?.value) || 30,
+                    marks: customQuestions.length
+                }
+            };
+        }
+
+        // Determine which button was clicked to update its state
+        const btnId = source === 'db' ? 'saveToAccountBtn' : 'customSaveToAccountBtn';
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i> Saving...';
+        }
+
+        fetch('/save-question-set', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(payload)
+        })
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.login_required) {
+                    showToast('🔒 Please <a href="/login?next=/generate" style="color:#fff;text-decoration:underline;">login</a> to save question sets.', 'warning');
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-bookmark-plus me-2"></i> Save to My Account'; }
+                    return;
+                }
+                if (data.error) {
+                    showToast('❌ ' + data.error, 'error');
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-bookmark-plus me-2"></i> Save to My Account'; }
+                    return;
+                }
+                showToast('✅ ' + data.message + ' <a href="/dashboard" style="color:#fff;text-decoration:underline;">View Dashboard</a>', 'success');
+                if (btn) {
+                    btn.innerHTML = '<i class="bi bi-bookmark-check me-2"></i> Saved!';
+                    btn.classList.remove('btn-outline-warning');
+                    btn.classList.add('btn-success');
+                }
+            })
+            .catch(err => {
+                console.error('Save error:', err);
+                showToast('❌ Failed to save. Please try again.', 'error');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-bookmark-plus me-2"></i> Save to My Account'; }
             });
     }
 </script>

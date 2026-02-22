@@ -5,11 +5,15 @@ from flask import Blueprint, render_template, request, jsonify, send_file, curre
 import os
 
 from app import db, csrf, limiter
-from app.models import Class, Subject, Chapter, Question, GeneratedPaper
+from app.models import Class, Subject, Chapter, Question, GeneratedPaper, QuestionSet
 from app.utils.document_generator import generate_paper_from_db, generate_paper_to_memory
 from app.utils.pdf_generator import generate_paper_to_memory_pdf
 
 main_bp = Blueprint('main', __name__)
+
+# --- Anti-scraping limits ---
+MAX_QUESTIONS_PER_PAPER = 50       # Max questions allowed in one paper
+MAX_CHAPTERS_PER_REQUEST = 5       # Max chapters that can be queried at once
 
 
 @main_bp.route('/')
@@ -77,12 +81,18 @@ def get_question_count():
 @main_bp.route('/get-questions-for-chapters', methods=['POST'])
 @limiter.limit("30 per minute")
 def get_questions_for_chapters():
-    """Get all questions for selected chapters"""
+    """Get question previews for selected chapters (truncated, no full text)."""
     data = request.get_json()
     chapter_ids = data.get('chapter_ids', [])
     
     if not chapter_ids:
         return jsonify({'questions': []})
+    
+    # Limit chapters per request to prevent bulk scraping
+    if len(chapter_ids) > MAX_CHAPTERS_PER_REQUEST:
+        return jsonify({
+            'error': f'Maximum {MAX_CHAPTERS_PER_REQUEST} chapters can be selected at once.'
+        }), 400
     
     questions = Question.query.filter(
         Question.chapter_id.in_(chapter_ids),
@@ -100,6 +110,7 @@ def get_questions_for_chapters():
                 'chapter_number': chapter.chapter_number
             }
     
+    # Only send question text for preview — options/answers stay server-side
     return jsonify({
         'questions': [{
             'id': q.id,
@@ -115,6 +126,7 @@ def get_questions_for_chapters():
 
 @main_bp.route('/generate-paper', methods=['POST'])
 @limiter.limit("20 per minute")
+@limiter.limit("10 per day")
 def generate_paper():
     """Generate question paper"""
     data = request.get_json()
@@ -133,6 +145,10 @@ def generate_paper():
     if not all([class_id, subject_id, chapter_ids]):
         return jsonify({'error': 'Missing required fields'}), 400
     
+    # Enforce chapter limit
+    if len(chapter_ids) > MAX_CHAPTERS_PER_REQUEST:
+        return jsonify({'error': f'Maximum {MAX_CHAPTERS_PER_REQUEST} chapters allowed per paper.'}), 400
+    
     # Get class and subject info
     class_obj = Class.query.get(class_id)
     subject_obj = Subject.query.get(subject_id)
@@ -142,6 +158,12 @@ def generate_paper():
     
     # Fetch questions - either specific IDs or from chapters
     if question_ids:
+        # Enforce question limit
+        if len(question_ids) > MAX_QUESTIONS_PER_PAPER:
+            return jsonify({
+                'error': f'Maximum {MAX_QUESTIONS_PER_PAPER} questions allowed per paper.'
+            }), 400
+        
         # User selected specific questions
         questions = Question.query.filter(
             Question.id.in_(question_ids),
@@ -156,10 +178,11 @@ def generate_paper():
             random.shuffle(questions)
     else:
         # Random selection from chapters (legacy behavior)
+        capped_count = min(question_count, MAX_QUESTIONS_PER_PAPER)
         questions = Question.query.filter(
             Question.chapter_id.in_(chapter_ids),
             Question.is_active == True
-        ).order_by(db.func.random()).limit(question_count).all()
+        ).order_by(db.func.random()).limit(capped_count).all()
     
     if not questions:
         return jsonify({'error': 'No questions found for selected criteria'}), 404
@@ -523,3 +546,118 @@ def about():
 def contact():
     """Contact page"""
     return render_template('main/contact.html')
+
+
+# ── SaaS Dashboard ────────────────────────────────────────────
+
+def _require_user():
+    """Return Supabase user dict or None. Use in routes to guard access."""
+    return session.get('user')
+
+
+@main_bp.route('/save-question-set', methods=['POST'])
+@limiter.limit("30 per minute")
+def save_question_set():
+    """Save a question set to the user's account."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Please login to save question sets.', 'login_required': True}), 401
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided.'}), 400
+    
+    questions = data.get('questions', [])
+    if not questions:
+        return jsonify({'error': 'No questions to save.'}), 400
+    
+    name = data.get('name', '').strip()
+    if not name:
+        name = f"Question Set - {len(questions)} questions"
+    
+    qs = QuestionSet(
+        user_id=user['id'],
+        name=name[:200],
+        questions_json=questions,
+        paper_config=data.get('paper_config'),
+        source=data.get('source', 'custom'),
+        paper_id=data.get('paper_id'),
+    )
+    db.session.add(qs)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'id': qs.id, 'message': 'Question set saved!'})
+
+
+@main_bp.route('/dashboard')
+def dashboard():
+    """User dashboard listing saved question sets."""
+    user = _require_user()
+    if not user:
+        from flask import redirect, url_for, flash
+        flash('Please login to access your dashboard.', 'info')
+        return redirect(url_for('auth.login', next='/dashboard'))
+    
+    sets = QuestionSet.query.filter_by(user_id=user['id']).order_by(
+        QuestionSet.updated_at.desc()
+    ).all()
+    
+    return render_template('main/dashboard.html', question_sets=sets)
+
+
+@main_bp.route('/question-set/<int:set_id>')
+def view_question_set(set_id):
+    """View a single saved question set (JSON)."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+    
+    qs = QuestionSet.query.filter_by(id=set_id, user_id=user['id']).first()
+    if not qs:
+        return jsonify({'error': 'Question set not found.'}), 404
+    
+    result = qs.to_dict()
+    result['questions'] = qs.questions_json
+    return jsonify(result)
+
+
+@main_bp.route('/question-set/<int:set_id>', methods=['PUT'])
+def update_question_set(set_id):
+    """Update a saved question set (name, questions, config)."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+    
+    qs = QuestionSet.query.filter_by(id=set_id, user_id=user['id']).first()
+    if not qs:
+        return jsonify({'error': 'Question set not found.'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided.'}), 400
+    
+    if 'name' in data:
+        qs.name = data['name'][:200]
+    if 'questions' in data and data['questions']:
+        qs.questions_json = data['questions']
+    if 'paper_config' in data:
+        qs.paper_config = data['paper_config']
+    
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Question set updated!'})
+
+
+@main_bp.route('/question-set/<int:set_id>/delete', methods=['POST'])
+def delete_question_set(set_id):
+    """Delete a saved question set."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+    
+    qs = QuestionSet.query.filter_by(id=set_id, user_id=user['id']).first()
+    if not qs:
+        return jsonify({'error': 'Question set not found.'}), 404
+    
+    db.session.delete(qs)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Question set deleted!'})

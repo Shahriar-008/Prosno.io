@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block title %}My Dashboard - Prosno.io{% endblock %}
+
+{% block content %}
+<section class="dashboard-section">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="dashboard-header">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h1><i class="bi bi-grid-1x2"></i> My Dashboard</h1>
+                            <p class="text-muted mb-0">Your saved question sets</p>
+                        </div>
+                        <a href="{{ url_for('main.generate') }}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-1"></i> Create New
+                        </a>
+                    </div>
+                </div>
+
+                {% if question_sets|length == 0 %}
+                <!-- Empty State -->
+                <div class="empty-state text-center py-5">
+                    <div class="empty-icon mb-3">
+                        <i class="bi bi-bookmark-star"
+                            style="font-size: 4rem; color: var(--primary-color, #6366f1); opacity: 0.5;"></i>
+                    </div>
+                    <h3>No saved question sets yet</h3>
+                    <p class="text-muted mb-4">Generate a question paper and click "Save to My Account" to see it here.
+                    </p>
+                    <a href="{{ url_for('main.generate') }}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-file-earmark-plus me-2"></i> Generate Your First Paper
+                    </a>
+                </div>
+                {% else %}
+                <!-- Stats Bar -->
+                <div class="stats-bar mb-4">
+                    <div class="stat-item">
+                        <i class="bi bi-bookmark-fill"></i>
+                        <span><strong>{{ question_sets|length }}</strong> saved set{{ 's' if question_sets|length != 1
+                            }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="bi bi-question-circle-fill"></i>
+                        <span><strong>{{ question_sets|sum(attribute='questions_json')|length if question_sets else 0
+                                }}</strong> total questions</span>
+                    </div>
+                </div>
+
+                <!-- Question Sets Grid -->
+                <div class="row g-4">
+                    {% for qs in question_sets %}
+                    <div class="col-md-6 col-lg-4" id="qs-card-{{ qs.id }}">
+                        <div class="qs-card">
+                            <div class="qs-card-header">
+                                <span class="qs-source badge {{ 'bg-primary' if qs.source == 'db' else 'bg-info' }}">
+                                    {{ 'Question Bank' if qs.source == 'db' else 'Custom' }}
+                                </span>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <a class="dropdown-item" href="#"
+                                                onclick="viewQuestionSet({{ qs.id }}); return false;">
+                                                <i class="bi bi-eye me-2"></i> View Questions
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#"
+                                                onclick="renameSet({{ qs.id }}, this); return false;">
+                                                <i class="bi bi-pencil me-2"></i> Rename
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <hr class="dropdown-divider">
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item text-danger" href="#"
+                                                onclick="deleteSet({{ qs.id }}); return false;">
+                                                <i class="bi bi-trash me-2"></i> Delete
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="qs-card-body">
+                                <h5 class="qs-name" id="qs-name-{{ qs.id }}">{{ qs.name }}</h5>
+                                <div class="qs-meta">
+                                    {% if qs.paper_config %}
+                                    {% if qs.paper_config.get('class_name') %}
+                                    <span class="qs-meta-item"><i class="bi bi-mortarboard"></i> {{
+                                        qs.paper_config['class_name'] }}</span>
+                                    {% endif %}
+                                    {% if qs.paper_config.get('subject_name') %}
+                                    <span class="qs-meta-item"><i class="bi bi-book"></i> {{
+                                        qs.paper_config['subject_name'] }}</span>
+                                    {% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="qs-card-footer">
+                                <div class="qs-stats">
+                                    <span><i class="bi bi-question-circle"></i> {{ qs.questions_json|length if
+                                        qs.questions_json else 0 }} questions</span>
+                                    <span><i class="bi bi-clock"></i> {{ qs.created_at.strftime('%b %d, %Y') if
+                                        qs.created_at else 'N/A' }}</span>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="regenerateFromSet({{ qs.id }})">
+                                    <i class="bi bi-arrow-repeat me-1"></i> Regenerate
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- View Questions Modal -->
+<div class="modal fade" id="viewQuestionsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-list-ol me-2"></i> <span id="modalSetName">Questions</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalQuestionsBody">
+                <div class="text-center p-4">
+                    <div class="spinner-border" role="status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast container -->
+<div id="dashToastContainer" style="position:fixed;top:24px;right:24px;z-index:9999;"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    function dashToast(message, type) {
+        type = type || 'success';
+        const colors = { success: '#10b981', warning: '#f59e0b', error: '#ef4444' };
+        const toast = document.createElement('div');
+        toast.style.cssText = 'background:' + (colors[type] || colors.success) + ';color:#fff;padding:12px 20px;border-radius:10px;margin-bottom:8px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,0.15);opacity:0;transform:translateX(40px);transition:all 0.3s ease;font-size:0.95rem;';
+        toast.innerHTML = '<span>' + message + '</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;">&times;</button>';
+        document.getElementById('dashToastContainer').appendChild(toast);
+        requestAnimationFrame(function () { toast.style.opacity = '1'; toast.style.transform = 'translateX(0)'; });
+        setTimeout(function () { toast.style.opacity = '0'; setTimeout(function () { toast.remove(); }, 400); }, 4000);
+    }
+
+    function viewQuestionSet(id) {
+        const modal = new bootstrap.Modal(document.getElementById('viewQuestionsModal'));
+        document.getElementById('modalQuestionsBody').innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div></div>';
+        modal.show();
+
+        fetch('/question-set/' + id, { headers: { 'X-CSRFToken': csrfToken } })
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) { document.getElementById('modalQuestionsBody').innerHTML = '<p class="text-danger">' + data.error + '</p>'; return; }
+                document.getElementById('modalSetName').textContent = data.name;
+                const bnPrefixes = ['ক)', 'খ)', 'গ)', 'ঘ)'];
+                let html = '<div class="questions-list">';
+                data.questions.forEach((q, i) => {
+                    html += '<div class="modal-question-item">';
+                    html += '<div class="modal-q-text"><strong>' + (i + 1) + '.</strong> ' + (q.question_text || '') + '</div>';
+                    if (q.answer_options && q.answer_options.length) {
+                        html += '<div class="modal-q-options">';
+                        q.answer_options.forEach((opt, j) => {
+                            const isCorrect = opt === q.correct_answer;
+                            html += '<span class="modal-q-opt' + (isCorrect ? ' correct' : '') + '">' + bnPrefixes[j] + ' ' + opt + '</span>';
+                        });
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+                document.getElementById('modalQuestionsBody').innerHTML = html;
+            })
+            .catch(err => {
+                document.getElementById('modalQuestionsBody').innerHTML = '<p class="text-danger">Failed to load questions.</p>';
+            });
+    }
+
+    function renameSet(id, el) {
+        const nameEl = document.getElementById('qs-name-' + id);
+        const currentName = nameEl.textContent.trim();
+        const newName = prompt('Enter new name:', currentName);
+        if (!newName || newName === currentName) return;
+
+        fetch('/question-set/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ name: newName })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { nameEl.textContent = newName; dashToast('✅ Renamed!', 'success'); }
+                else dashToast('❌ ' + (data.error || 'Rename failed'), 'error');
+            })
+            .catch(() => dashToast('❌ Rename failed', 'error'));
+    }
+
+    function deleteSet(id) {
+        if (!confirm('Are you sure you want to delete this question set?')) return;
+
+        fetch('/question-set/' + id + '/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const card = document.getElementById('qs-card-' + id);
+                    card.style.transition = 'opacity 0.3s, transform 0.3s';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.9)';
+                    setTimeout(() => { card.remove(); dashToast('🗑️ Question set deleted.', 'success'); }, 300);
+                    // If no more cards, reload to show empty state
+                    setTimeout(() => {
+                        if (document.querySelectorAll('[id^="qs-card-"]').length === 0) {
+                            location.reload();
+                        }
+                    }, 500);
+                } else {
+                    dashToast('❌ ' + (data.error || 'Delete failed'), 'error');
+                }
+            })
+            .catch(() => dashToast('❌ Delete failed', 'error'));
+    }
+
+    function regenerateFromSet(id) {
+        // Redirect to generate page with set_id parameter
+        // The generate page can load the saved questions from this set
+        window.location.href = '/generate?load_set=' + id;
+    }
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-section {
+        padding: 120px 0 60px;
+        min-height: 80vh;
+    }
+
+    .dashboard-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .dashboard-header h1 i {
+        color: #6366f1;
+        margin-right: 8px;
+    }
+
+    .stats-bar {
+        display: flex;
+        gap: 24px;
+        padding: 16px 24px;
+        background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #475569;
+        font-size: 0.95rem;
+    }
+
+    .stat-item i {
+        color: #6366f1;
+    }
+
+    /* Question Set Card */
+    .qs-card {
+        background: #fff;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .qs-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(99, 102, 241, 0.12);
+        border-color: #c7d2fe;
+    }
+
+    .qs-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px 8px;
+    }
+
+    .qs-card-body {
+        padding: 0 20px 16px;
+        flex: 1;
+    }
+
+    .qs-name {
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 8px;
+        line-height: 1.4;
+    }
+
+    .qs-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .qs-meta-item {
+        font-size: 0.82rem;
+        color: #64748b;
+    }
+
+    .qs-meta-item i {
+        margin-right: 4px;
+        color: #94a3b8;
+    }
+
+    .qs-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 20px;
+        background: #f8fafc;
+        border-top: 1px solid #f1f5f9;
+    }
+
+    .qs-stats {
+        display: flex;
+        gap: 16px;
+        font-size: 0.82rem;
+        color: #64748b;
+    }
+
+    .qs-stats i {
+        margin-right: 4px;
+    }
+
+    /* Modal Questions */
+    .modal-question-item {
+        padding: 12px 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .modal-question-item:last-child {
+        border-bottom: none;
+    }
+
+    .modal-q-text {
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .modal-q-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .modal-q-opt {
+        padding: 4px 10px;
+        background: #f1f5f9;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: #475569;
+    }
+
+    .modal-q-opt.correct {
+        background: #dcfce7;
+        color: #166534;
+        font-weight: 600;
+    }
+
+    /* Empty state */
+    .empty-state h3 {
+        color: #475569;
+        font-weight: 600;
+    }
+
+    /* Source badge styling */
+    .qs-source.bg-info {
+        background: linear-gradient(135deg, #06b6d4, #0891b2) !important;
+    }
+
+    .qs-source.bg-primary {
+        background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    }
+</style>
+{% endblock %}
