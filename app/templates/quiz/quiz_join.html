@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block title %}Join Quiz — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<style>
+    .quiz-join-wrapper {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+        padding-top: 100px;
+        background: linear-gradient(135deg, #0a0f1c 0%, #121a2e 50%, #0d1117 100%);
+    }
+
+    .quiz-join-card {
+        width: 100%;
+        max-width: 440px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        padding: 2.5rem 2rem;
+        backdrop-filter: blur(24px);
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .quiz-join-icon {
+        width: 64px;
+        height: 64px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.6rem;
+        color: #fff;
+        margin: 0 auto 1.25rem;
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+    }
+
+    .quiz-join-title {
+        text-align: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 0.25rem;
+    }
+
+    .quiz-join-subtitle {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.9rem;
+        margin-bottom: 2rem;
+    }
+
+    .quiz-code-inputs {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .quiz-code-input {
+        width: 60px;
+        height: 68px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 2px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        text-align: center;
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #fff;
+        outline: none;
+        transition: all 0.2s;
+        caret-color: #6366f1;
+    }
+
+    .quiz-code-input:focus {
+        border-color: #6366f1;
+        background: rgba(99, 102, 241, 0.08);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .quiz-name-label {
+        display: block;
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: 500;
+        font-size: 0.85rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .quiz-name-input {
+        width: 100%;
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 2px solid rgba(255, 255, 255, 0.12);
+        border-radius: 14px;
+        color: #fff;
+        font-size: 1rem;
+        outline: none;
+        transition: all 0.2s;
+        margin-bottom: 1.5rem;
+    }
+
+    .quiz-name-input::placeholder {
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .quiz-name-input:focus {
+        border-color: #6366f1;
+        background: rgba(99, 102, 241, 0.08);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .quiz-join-btn {
+        width: 100%;
+        padding: 15px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border: none;
+        border-radius: 14px;
+        color: #fff;
+        font-size: 1.05rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .quiz-join-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 24px rgba(99, 102, 241, 0.4);
+    }
+
+    .quiz-join-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .quiz-error {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #fca5a5;
+        padding: 12px 16px;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+        display: none;
+        text-align: center;
+    }
+
+    .quiz-error.show {
+        display: block;
+        animation: shakeX 0.4s ease;
+    }
+
+    @keyframes shakeX {
+
+        0%,
+        100% {
+            transform: translateX(0);
+        }
+
+        25% {
+            transform: translateX(-5px);
+        }
+
+        75% {
+            transform: translateX(5px);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="quiz-join-wrapper">
+    <div class="quiz-join-card">
+        <div class="quiz-join-icon"><i class="bi bi-controller"></i></div>
+        <h1 class="quiz-join-title">Join a Quiz</h1>
+        <p class="quiz-join-subtitle">Enter the code your teacher gave you</p>
+
+        <div class="quiz-error" id="joinError"></div>
+
+        <form id="joinForm" onsubmit="return handleJoin(event)">
+            <div class="quiz-code-inputs" id="codeInputs">
+                <input type="text" class="quiz-code-input" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                    data-idx="0" autofocus>
+                <input type="text" class="quiz-code-input" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                    data-idx="1">
+                <input type="text" class="quiz-code-input" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                    data-idx="2">
+                <input type="text" class="quiz-code-input" maxlength="1" inputmode="numeric" pattern="[0-9]"
+                    data-idx="3">
+            </div>
+
+            <label class="quiz-name-label">Your Name / তোমার নাম</label>
+            <input type="text" class="quiz-name-input" id="studentName" placeholder="Enter your name / তোমার নাম লেখো"
+                required minlength="1" maxlength="100">
+
+            <button type="submit" class="quiz-join-btn" id="joinBtn">
+                <i class="bi bi-lightning-charge-fill"></i> Join Quiz
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const inputs = document.querySelectorAll('.quiz-code-input');
+        const prefilledCode = '{{ code }}';
+
+        // Prefill code if provided in URL
+        if (prefilledCode) {
+            for (let i = 0; i < Math.min(prefilledCode.length, 4); i++) {
+                inputs[i].value = prefilledCode[i];
+            }
+            if (prefilledCode.length >= 4) {
+                document.getElementById('studentName').focus();
+            }
+        }
+
+        // Auto-advance on digit input
+        inputs.forEach((inp, idx) => {
+            inp.addEventListener('input', function () {
+                this.value = this.value.replace(/\D/g, '').slice(0, 1);
+                if (this.value && idx < 3) inputs[idx + 1].focus();
+            });
+            inp.addEventListener('keydown', function (e) {
+                if (e.key === 'Backspace' && !this.value && idx > 0) {
+                    inputs[idx - 1].focus();
+                }
+            });
+            // Handle paste
+            inp.addEventListener('paste', function (e) {
+                e.preventDefault();
+                const text = (e.clipboardData.getData('text') || '').replace(/\D/g, '');
+                for (let i = 0; i < Math.min(text.length, 4); i++) {
+                    inputs[i].value = text[i];
+                }
+                if (text.length >= 4) document.getElementById('studentName').focus();
+                else if (text.length > 0) inputs[Math.min(text.length, 3)].focus();
+            });
+        });
+    })();
+
+    function getCode() {
+        return Array.from(document.querySelectorAll('.quiz-code-input')).map(i => i.value).join('');
+    }
+
+    async function handleJoin(e) {
+        e.preventDefault();
+        const code = getCode();
+        const name = document.getElementById('studentName').value.trim();
+        const errEl = document.getElementById('joinError');
+        const btn = document.getElementById('joinBtn');
+
+        errEl.classList.remove('show');
+
+        if (code.length !== 4) {
+            errEl.textContent = 'Please enter the full 4-digit quiz code.';
+            errEl.classList.add('show');
+            return false;
+        }
+        if (!name) {
+            errEl.textContent = 'Please enter your name.';
+            errEl.classList.add('show');
+            return false;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Joining...';
+
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const res = await fetch(`/quiz/${code}/join`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ name }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                errEl.textContent = data.error || 'Failed to join quiz.';
+                errEl.classList.add('show');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-lightning-charge-fill"></i> Join Quiz';
+                return false;
+            }
+
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            } else {
+                // Quiz hasn't started yet — go to waiting room
+                window.location.href = `/quiz/${code}/waiting`;
+            }
+        } catch (err) {
+            errEl.textContent = 'Network error. Please try again.';
+            errEl.classList.add('show');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-lightning-charge-fill"></i> Join Quiz';
+        }
+        return false;
+    }
+</script>
+{% endblock %}

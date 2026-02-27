@@ -379,3 +379,131 @@ class ActivityLog(db.Model):
     
     def __repr__(self):
         return f'<ActivityLog {self.user_id} - {self.action} {self.entity_type}>'
+
+
+class Quiz(db.Model):
+    """A live quiz created by a teacher from a question set"""
+    __tablename__ = 'quizzes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    join_code = db.Column(db.String(6), unique=True, nullable=False, index=True)
+    title = db.Column(db.String(200), nullable=False)
+
+    # Link to source
+    question_set_id = db.Column(db.Integer, db.ForeignKey('question_sets.id'))
+    teacher_user_id = db.Column(db.String(100), nullable=False, index=True)  # Supabase UUID
+
+    # Snapshot of questions at quiz creation time (decoupled from source)
+    questions_json = db.Column(db.JSON, nullable=False)
+
+    # Quiz configuration
+    time_limit_minutes = db.Column(db.Integer, default=30)
+    shuffle_questions = db.Column(db.Boolean, default=True)
+    shuffle_options = db.Column(db.Boolean, default=True)
+    show_results_to_students = db.Column(db.Boolean, default=True)
+
+    # State: waiting → active → ended
+    status = db.Column(db.String(20), default='waiting')
+    started_at = db.Column(db.DateTime)
+    ended_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    question_set = db.relationship('QuestionSet', backref='quizzes')
+    sessions = db.relationship('QuizSession', backref='quiz', lazy='dynamic',
+                               cascade='all, delete-orphan')
+
+    @staticmethod
+    def generate_join_code():
+        """Generate a unique 4-digit numeric join code."""
+        import random
+        for _ in range(100):  # max attempts
+            code = str(random.randint(1000, 9999))
+            if not Quiz.query.filter_by(join_code=code).first():
+                return code
+        raise ValueError('Could not generate a unique join code after 100 attempts')
+
+    @property
+    def student_count(self):
+        return self.sessions.count()
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+    @property
+    def is_ended(self):
+        return self.status == 'ended'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'join_code': self.join_code,
+            'title': self.title,
+            'status': self.status,
+            'student_count': self.student_count,
+            'time_limit_minutes': self.time_limit_minutes,
+            'question_count': len(self.questions_json) if self.questions_json else 0,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f'<Quiz {self.join_code} - {self.title}>'
+
+
+class QuizSession(db.Model):
+    """A student's participation in a quiz"""
+    __tablename__ = 'quiz_sessions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    quiz_id = db.Column(db.Integer, db.ForeignKey('quizzes.id'), nullable=False)
+    student_name = db.Column(db.String(100), nullable=False)
+    session_token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+
+    # Results
+    score = db.Column(db.Integer, default=0)
+    total_questions = db.Column(db.Integer, default=0)
+    responses_json = db.Column(db.JSON)   # {"0": "selected_answer", "1": "selected_answer", ...}
+    time_taken_seconds = db.Column(db.Integer)
+
+    # State: joined → in_progress → submitted
+    status = db.Column(db.String(20), default='joined')
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime)
+
+    @property
+    def score_percentage(self):
+        if not self.total_questions:
+            return 0
+        return round((self.score / self.total_questions) * 100)
+
+    def grade(self, questions_json):
+        """Auto-grade responses against the answer key. Call before committing."""
+        if not self.responses_json or not questions_json:
+            return
+        correct = 0
+        for idx, q in enumerate(questions_json):
+            student_answer = self.responses_json.get(str(idx))
+            if student_answer and student_answer == q.get('correct_answer'):
+                correct += 1
+        self.score = correct
+        self.total_questions = len(questions_json)
+
+    def to_dict(self, include_responses=False):
+        data = {
+            'id': self.id,
+            'student_name': self.student_name,
+            'score': self.score,
+            'total_questions': self.total_questions,
+            'score_percentage': self.score_percentage,
+            'status': self.status,
+            'time_taken_seconds': self.time_taken_seconds,
+            'joined_at': self.joined_at.strftime('%H:%M') if self.joined_at else None,
+            'submitted_at': self.submitted_at.strftime('%H:%M') if self.submitted_at else None,
+        }
+        if include_responses:
+            data['responses'] = self.responses_json
+        return data
+
+    def __repr__(self):
+        return f'<QuizSession {self.student_name} - Quiz {self.quiz_id}>'

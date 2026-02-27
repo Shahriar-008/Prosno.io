@@ -54,6 +54,10 @@
                     href="{{ url_for('main.generate') }}">
                     <i class="bi bi-plus-square-fill nav-link-icon"></i> Create
                 </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('quiz.') %}active{% endif %}"
+                    href="{{ url_for('quiz.join_page') }}">
+                    <i class="bi bi-controller nav-link-icon"></i> Quiz
+                </a>
                 {% elif current_user.is_authenticated %}
                 {# ── Admin (Flask-Login) ── #}
                 <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}"
@@ -158,6 +162,9 @@
             </a>
             <a class="nav-mobile-link" href="{{ url_for('main.generate') }}">
                 <i class="bi bi-plus-square-fill"></i> Create
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('quiz.join_page') }}">
+                <i class="bi bi-controller"></i> Quiz
             </a>
             <div class="nav-mobile-divider"></div>
             <a class="nav-mobile-link" href="#">

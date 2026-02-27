@@ -100,11 +100,13 @@ def create_app(config_class=Config):
     from app.routes.admin import admin_bp
     from app.routes.api import api_bp
     from app.routes.auth import auth_bp
+    from app.routes.quiz import quiz_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(auth_bp)
+    app.register_blueprint(quiz_bp)
 
     # Ensure output folder exists
     import os

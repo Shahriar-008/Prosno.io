@@ -153,6 +153,10 @@
                                     <span><i class="bi bi-clock"></i> {{ qs.created_at.strftime('%b %d, %Y') if
                                         qs.created_at else 'N/A' }}</span>
                                 </div>
+                                <button class="btn btn-sm btn-outline-success me-1"
+                                    onclick="openQuizModal({{ qs.id }}, '{{ qs.name|e }}')" title="Start a live quiz">
+                                    <i class="bi bi-controller me-1"></i> Quiz
+                                </button>
                                 <button class="btn btn-sm btn-outline-primary" onclick="regenerateFromSet({{ qs.id }})">
                                     <i class="bi bi-arrow-repeat me-1"></i> Regenerate
                                 </button>
@@ -165,7 +169,61 @@
             </div>
         </div>
     </div>
+    <!-- ── My Quizzes Section ── -->
+    <div class="mt-5" id="myQuizzesSection">
+        <h4 style="font-weight: 700; color: #1e293b; margin-bottom: 1rem;">
+            <i class="bi bi-controller" style="color: #6366f1;"></i> My Quizzes
+        </h4>
+        <div id="quizzesList" style="display: flex; flex-direction: column; gap: 10px;">
+            <p class="text-muted" style="font-size: 0.9rem;">Loading quizzes...</p>
+        </div>
+    </div>
+    </div>
+    </div>
+    </div>
 </section>
+
+<!-- Quiz Creation Modal -->
+<div class="modal fade" id="createQuizModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-controller me-2" style="color:#6366f1;"></i> Create Live Quiz
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="quizSetId">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Quiz Title</label>
+                    <input type="text" class="form-control" id="quizTitle" placeholder="e.g. Biology Chapter 3 Test">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Time Limit (minutes)</label>
+                    <input type="number" class="form-control" id="quizTimeLimit" value="30" min="1" max="120">
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="quizShuffle" checked>
+                    <label class="form-check-label" for="quizShuffle">Shuffle questions</label>
+                </div>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="quizShuffleOpts" checked>
+                    <label class="form-check-label" for="quizShuffleOpts">Shuffle answer options</label>
+                </div>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="quizShowResults" checked>
+                    <label class="form-check-label" for="quizShowResults">Show results to students</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="quizCreateBtn" onclick="createQuiz()">
+                    <i class="bi bi-lightning-charge-fill me-1"></i> Create Quiz
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- View Questions Modal -->
 <div class="modal fade" id="viewQuestionsModal" tabindex="-1">
@@ -335,6 +393,83 @@
                 btn.innerHTML = origHtml;
             });
     }
+
+    // ── Quiz Functions ──
+    function openQuizModal(setId, setName) {
+        document.getElementById('quizSetId').value = setId;
+        document.getElementById('quizTitle').value = setName;
+        new bootstrap.Modal(document.getElementById('createQuizModal')).show();
+    }
+
+    async function createQuiz() {
+        const btn = document.getElementById('quizCreateBtn');
+        const origHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Creating...';
+
+        try {
+            const res = await fetch('/quiz/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({
+                    question_set_id: parseInt(document.getElementById('quizSetId').value),
+                    title: document.getElementById('quizTitle').value,
+                    time_limit: parseInt(document.getElementById('quizTimeLimit').value),
+                    shuffle_questions: document.getElementById('quizShuffle').checked,
+                    shuffle_options: document.getElementById('quizShuffleOpts').checked,
+                    show_results: document.getElementById('quizShowResults').checked,
+                }),
+            });
+            const data = await res.json();
+
+            if (data.success && data.lobby_url) {
+                window.location.href = data.lobby_url;
+            } else {
+                dashToast('❌ ' + (data.error || 'Failed to create quiz'), 'error');
+                btn.disabled = false;
+                btn.innerHTML = origHtml;
+            }
+        } catch (err) {
+            dashToast('❌ Failed to create quiz', 'error');
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    }
+
+    // ── Load My Quizzes ──
+    (async function loadMyQuizzes() {
+        try {
+            const res = await fetch('/quiz/my-quizzes');
+            const data = await res.json();
+            const list = document.getElementById('quizzesList');
+
+            if (!data.quizzes || data.quizzes.length === 0) {
+                list.innerHTML = '<p class="text-muted" style="font-size:0.9rem;">No quizzes created yet. Click the <strong>Quiz</strong> button on any question set to start!</p>';
+                return;
+            }
+
+            list.innerHTML = data.quizzes.map(q => {
+                const statusColors = { waiting: '#f59e0b', active: '#10b981', ended: '#64748b' };
+                const statusColor = statusColors[q.status] || '#64748b';
+                const link = q.status === 'ended'
+                    ? `/quiz/${q.join_code}/results`
+                    : `/quiz/${q.join_code}/lobby`;
+                return `<a href="${link}" class="qs-card" style="text-decoration:none; padding:14px 20px; flex-direction:row; align-items:center; gap:16px;">
+                    <div style="flex:1;">
+                        <div style="font-weight:600; color:#1e293b; font-size:0.95rem;">${q.title}</div>
+                        <div style="font-size:0.8rem; color:#64748b; margin-top:2px;">
+                            Code: <strong>${q.join_code}</strong> · ${q.question_count} questions · ${q.student_count} students
+                        </div>
+                    </div>
+                    <span style="padding:3px 10px; border-radius:20px; font-size:0.72rem; font-weight:600; background:${statusColor}20; color:${statusColor}; text-transform:uppercase;">
+                        ${q.status}
+                    </span>
+                </a>`;
+            }).join('');
+        } catch (e) {
+            document.getElementById('quizzesList').innerHTML = '';
+        }
+    })();
 </script>
 {% endblock %}
 

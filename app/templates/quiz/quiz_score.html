@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% block title %}Quiz Score — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<style>
+    .quiz-score-wrapper {
+        min-height: 100vh;
+        padding: 100px 1rem 3rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #0a0f1c 0%, #121a2e 50%, #0d1117 100%);
+    }
+
+    .quiz-score-card {
+        width: 100%;
+        max-width: 560px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        padding: 2.5rem 2rem;
+        backdrop-filter: blur(24px);
+        text-align: center;
+    }
+
+    .score-emoji {
+        font-size: 3.5rem;
+        margin-bottom: 0.75rem;
+        animation: popIn 0.5s ease;
+    }
+
+    @keyframes popIn {
+        from {
+            transform: scale(0);
+        }
+
+        to {
+            transform: scale(1);
+        }
+    }
+
+    .score-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 0.25rem;
+    }
+
+    .score-subtitle {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.9rem;
+        margin-bottom: 2rem;
+    }
+
+    /* ── Big Score ── */
+    .score-big {
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        border: 6px solid;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        animation: fadeUp 0.6s ease 0.2s both;
+    }
+
+    @keyframes fadeUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .score-big.excellent {
+        border-color: #10b981;
+        background: rgba(16, 185, 129, 0.08);
+    }
+
+    .score-big.good {
+        border-color: #6366f1;
+        background: rgba(99, 102, 241, 0.08);
+    }
+
+    .score-big.fair {
+        border-color: #f59e0b;
+        background: rgba(245, 158, 11, 0.08);
+    }
+
+    .score-big.poor {
+        border-color: #ef4444;
+        background: rgba(239, 68, 68, 0.08);
+    }
+
+    .score-number {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1;
+    }
+
+    .score-pct {
+        font-size: 1rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* ── Stats ── */
+    .score-stats {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .score-stat {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 12px 16px;
+        min-width: 100px;
+    }
+
+    .score-stat-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #fff;
+    }
+
+    .score-stat-label {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    /* ── Leaderboard ── */
+    .score-lb-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.7);
+        margin-bottom: 0.75rem;
+        text-align: left;
+    }
+
+    .score-lb {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 16px;
+        overflow: hidden;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .score-lb-row {
+        display: flex;
+        align-items: center;
+        padding: 10px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        transition: background 0.2s;
+    }
+
+    .score-lb-row:last-child {
+        border-bottom: none;
+    }
+
+    .score-lb-row.me {
+        background: rgba(99, 102, 241, 0.1);
+    }
+
+    .score-lb-rank {
+        width: 28px;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .score-lb-rank.gold {
+        color: #fbbf24;
+    }
+
+    .score-lb-rank.silver {
+        color: #94a3b8;
+    }
+
+    .score-lb-rank.bronze {
+        color: #d97706;
+    }
+
+    .score-lb-name {
+        flex: 1;
+        text-align: left;
+        color: #e2e8f0;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+
+    .score-lb-score {
+        font-weight: 700;
+        color: #a5b4fc;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="quiz-score-wrapper">
+    <div class="quiz-score-card">
+        {% if student %}
+        {% set pct = student.score_percentage %}
+        {% if pct >= 80 %}
+        <div class="score-emoji">🎉</div>
+        <h1 class="score-title">Excellent!</h1>
+        {% elif pct >= 60 %}
+        <div class="score-emoji">👏</div>
+        <h1 class="score-title">Great Job!</h1>
+        {% elif pct >= 40 %}
+        <div class="score-emoji">💪</div>
+        <h1 class="score-title">Good Effort!</h1>
+        {% else %}
+        <div class="score-emoji">📚</div>
+        <h1 class="score-title">Keep Practicing!</h1>
+        {% endif %}
+        <p class="score-subtitle">{{ quiz.title }}</p>
+
+        <div
+            class="score-big {% if pct >= 80 %}excellent{% elif pct >= 60 %}good{% elif pct >= 40 %}fair{% else %}poor{% endif %}">
+            <span class="score-number">{{ student.score }}/{{ student.total_questions }}</span>
+            <span class="score-pct">{{ pct }}%</span>
+        </div>
+
+        <div class="score-stats">
+            {% if student.time_taken_seconds %}
+            <div class="score-stat">
+                <div class="score-stat-value">{{ (student.time_taken_seconds // 60) }}m {{ student.time_taken_seconds %
+                    60 }}s</div>
+                <div class="score-stat-label">Time Taken</div>
+            </div>
+            {% endif %}
+            {% if rank %}
+            <div class="score-stat">
+                <div class="score-stat-value">#{{ rank }}</div>
+                <div class="score-stat-label">Rank</div>
+            </div>
+            {% endif %}
+            <div class="score-stat">
+                <div class="score-stat-value">{{ leaderboard|length }}</div>
+                <div class="score-stat-label">Students</div>
+            </div>
+        </div>
+        {% else %}
+        <div class="score-emoji">📊</div>
+        <h1 class="score-title">Quiz Results</h1>
+        <p class="score-subtitle">{{ quiz.title }}</p>
+        {% endif %}
+
+        {% if leaderboard %}
+        <div class="score-lb-title"><i class="bi bi-trophy"></i> Leaderboard</div>
+        <div class="score-lb" id="leaderboard">
+            {% for s in leaderboard %}
+            <div class="score-lb-row {% if student and s.id == student.id %}me{% endif %}">
+                <span
+                    class="score-lb-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
+                    {% if loop.index <= 3 %} {% if loop.index==1 %}🥇{% elif loop.index==2 %}🥈{% else %}🥉{% endif %}
+                        {% else %} {{ loop.index }} {% endif %} </span>
+                        <span class="score-lb-name">
+                            {{ s.student_name }}{% if student and s.id == student.id %} (You){% endif %}
+                        </span>
+                        <span class="score-lb-score">{{ s.score }}/{{ s.total_questions }} · {{ s.score_percentage
+                            }}%</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh leaderboard every 5s while quiz is still active
+    {% if quiz.status != 'ended' %}
+    (function () {
+        setInterval(async () => {
+            try {
+                const res = await fetch('/quiz/{{ quiz.join_code }}/leaderboard');
+                const data = await res.json();
+                if (data.leaderboard && data.leaderboard.length > 0) {
+                    const lb = document.getElementById('leaderboard');
+                    if (lb) {
+                        lb.innerHTML = data.leaderboard.map((s, i) => {
+                            const rankEmoji = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+                            const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+                            return `<div class="score-lb-row">
+                            <span class="score-lb-rank ${rankClass}">${rankEmoji}</span>
+                            <span class="score-lb-name">${s.name}</span>
+                            <span class="score-lb-score">${s.score}/${s.total} · ${s.percentage}%</span>
+                        </div>`;
+                        }).join('');
+                    }
+                }
+            } catch (e) { }
+        }, 5000);
+    })();
+    {% endif %}
+</script>
+{% endblock %}

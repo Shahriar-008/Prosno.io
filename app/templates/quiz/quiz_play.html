@@ -1,0 +1,537 @@
+{% extends "base.html" %}
+{% block title %}Quiz — {{ quiz.title }} — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: #0a0f1c;
+    }
+
+    .quiz-play-wrapper {
+        min-height: 100vh;
+        padding: 90px 1rem 2rem;
+        max-width: 720px;
+        margin: 0 auto;
+    }
+
+    /* ── Top Bar ── */
+    .quiz-topbar {
+        position: fixed;
+        top: 70px;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        background: rgba(10, 15, 28, 0.95);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 12px 1rem;
+    }
+
+    .quiz-topbar-inner {
+        max-width: 720px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .quiz-timer {
+        font-size: 1.1rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: #a5b4fc;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: color 0.3s;
+    }
+
+    .quiz-timer.urgent {
+        color: #f87171;
+        animation: timerPulse 1s infinite;
+    }
+
+    @keyframes timerPulse {
+        50% {
+            opacity: 0.6;
+        }
+    }
+
+    .quiz-progress-text {
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.5);
+        font-weight: 500;
+    }
+
+    /* ── Progress Bar ── */
+    .quiz-progress-bar {
+        position: fixed;
+        top: 114px;
+        left: 0;
+        right: 0;
+        z-index: 49;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .quiz-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        border-radius: 0 4px 4px 0;
+        transition: width 0.4s ease;
+    }
+
+    /* ── Question Card ── */
+    .quiz-question-area {
+        padding-top: 60px;
+    }
+
+    .quiz-q-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        padding: 2rem 1.5rem;
+        margin-bottom: 1.5rem;
+        animation: fadeUp 0.3s ease;
+    }
+
+    @keyframes fadeUp {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .quiz-q-number {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #6366f1;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.75rem;
+    }
+
+    .quiz-q-text {
+        font-size: 1.15rem;
+        font-weight: 500;
+        color: #fff;
+        line-height: 1.7;
+        margin-bottom: 1.5rem;
+    }
+
+    /* ── Options ── */
+    .quiz-options {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .quiz-option {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.04);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-radius: 14px;
+        padding: 14px 16px;
+        color: #e2e8f0;
+        font-size: 1rem;
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .quiz-option:hover {
+        background: rgba(99, 102, 241, 0.08);
+        border-color: rgba(99, 102, 241, 0.3);
+    }
+
+    .quiz-option.selected {
+        background: rgba(99, 102, 241, 0.15);
+        border-color: #6366f1;
+        color: #fff;
+    }
+
+    .quiz-option-letter {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.5);
+        transition: all 0.2s;
+    }
+
+    .quiz-option.selected .quiz-option-letter {
+        background: #6366f1;
+        color: #fff;
+    }
+
+    /* ── Navigation ── */
+    .quiz-nav {
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        margin-top: 1.5rem;
+    }
+
+    .quiz-nav-btn {
+        padding: 12px 24px;
+        border-radius: 12px;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .quiz-nav-btn:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+        color: #fff;
+    }
+
+    .quiz-nav-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .quiz-submit-btn {
+        padding: 14px 28px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        border: none;
+        border-radius: 14px;
+        color: #fff;
+        font-weight: 700;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .quiz-submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 24px rgba(16, 185, 129, 0.4);
+    }
+
+    /* ── Question indicators ── */
+    .quiz-indicators {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .quiz-indicator {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 2px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.4);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .quiz-indicator.answered {
+        background: rgba(99, 102, 241, 0.15);
+        border-color: #6366f1;
+        color: #a5b4fc;
+    }
+
+    .quiz-indicator.current {
+        border-color: #fff;
+        color: #fff;
+    }
+
+    /* ── Submit modal ── */
+    .quiz-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 1000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .quiz-modal-overlay.show {
+        display: flex;
+    }
+
+    .quiz-modal {
+        background: #1a1f2e;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 2rem;
+        max-width: 400px;
+        width: 100%;
+        text-align: center;
+    }
+
+    .quiz-modal h3 {
+        color: #fff;
+        font-size: 1.2rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .quiz-modal p {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.9rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .quiz-modal-actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+    }
+
+    .quiz-modal-cancel {
+        padding: 10px 24px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        color: rgba(255, 255, 255, 0.7);
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .quiz-modal-confirm {
+        padding: 10px 24px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        border: none;
+        border-radius: 12px;
+        color: #fff;
+        cursor: pointer;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Top Bar -->
+<div class="quiz-topbar">
+    <div class="quiz-topbar-inner">
+        <div class="quiz-timer" id="quizTimer">
+            <i class="bi bi-clock"></i> <span id="timerDisplay">--:--</span>
+        </div>
+        <div class="quiz-progress-text" id="progressText">Q 1/{{ questions|length }}</div>
+    </div>
+</div>
+<div class="quiz-progress-bar">
+    <div class="quiz-progress-fill" id="progressFill" style="width: 0%"></div>
+</div>
+
+<div class="quiz-play-wrapper">
+    <div class="quiz-question-area">
+        <!-- Question indicators -->
+        <div class="quiz-indicators" id="indicators"></div>
+
+        <!-- Question card (JS rendered) -->
+        <div id="questionCard"></div>
+
+        <!-- Navigation -->
+        <div class="quiz-nav">
+            <button class="quiz-nav-btn" id="prevBtn" onclick="navigate(-1)" disabled>
+                <i class="bi bi-chevron-left"></i> Previous
+            </button>
+            <button class="quiz-submit-btn" id="submitBtn" onclick="showSubmitModal()" style="display:none">
+                <i class="bi bi-check-circle-fill"></i> Submit Quiz
+            </button>
+            <button class="quiz-nav-btn" id="nextBtn" onclick="navigate(1)">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Submit confirmation modal -->
+<div class="quiz-modal-overlay" id="submitModal">
+    <div class="quiz-modal">
+        <h3><i class="bi bi-exclamation-triangle"></i> Submit Quiz?</h3>
+        <p id="submitModalText">You have answered X/Y questions. Are you sure you want to submit?</p>
+        <div class="quiz-modal-actions">
+            <button class="quiz-modal-cancel" onclick="hideSubmitModal()">Go Back</button>
+            <button class="quiz-modal-confirm" onclick="submitQuiz()">
+                <i class="bi bi-check"></i> Submit
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const questions = {{ questions | tojson
+    }};
+    const quizCode = '{{ quiz.join_code }}';
+    const timeLimitSec = {{ quiz.time_limit_minutes }} * 60;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+    let currentIdx = 0;
+    let answers = {};          // { "0": "answer text", ... }
+    let startTime = Date.now();
+    let timeLeft = timeLimitSec;
+    let timerInterval;
+    const LETTERS = ['ক', 'খ', 'গ', 'ঘ'];
+
+    // ── Timer ──
+    function updateTimer() {
+        timeLeft = Math.max(0, timeLimitSec - Math.floor((Date.now() - startTime) / 1000));
+        const min = Math.floor(timeLeft / 60);
+        const sec = timeLeft % 60;
+        document.getElementById('timerDisplay').textContent =
+            `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+
+        const timerEl = document.getElementById('quizTimer');
+        if (timeLeft <= 120) timerEl.classList.add('urgent');
+        else timerEl.classList.remove('urgent');
+
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            submitQuiz();
+        }
+    }
+    timerInterval = setInterval(updateTimer, 1000);
+    updateTimer();
+
+    // ── Render question ──
+    function renderQuestion() {
+        const q = questions[currentIdx];
+        const card = document.getElementById('questionCard');
+        const options = q.answer_options || [];
+
+        let optionsHtml = options.map((opt, i) => {
+            const sel = answers[currentIdx] === opt ? 'selected' : '';
+            return `<button class="quiz-option ${sel}" onclick="selectOption(${i}, this)">
+                <span class="quiz-option-letter">${LETTERS[i] || String.fromCharCode(65 + i)}</span>
+                <span>${opt}</span>
+            </button>`;
+        }).join('');
+
+        card.innerHTML = `<div class="quiz-q-card">
+            <div class="quiz-q-number">Question ${currentIdx + 1} of ${questions.length}</div>
+            <div class="quiz-q-text">${q.question_text}</div>
+            <div class="quiz-options">${optionsHtml}</div>
+        </div>`;
+
+        // Update progress
+        document.getElementById('progressText').textContent = `Q ${currentIdx + 1}/${questions.length}`;
+        const answeredCount = Object.keys(answers).length;
+        document.getElementById('progressFill').style.width = `${(answeredCount / questions.length) * 100}%`;
+
+        // Nav buttons
+        document.getElementById('prevBtn').disabled = currentIdx === 0;
+        const isLast = currentIdx === questions.length - 1;
+        document.getElementById('nextBtn').style.display = isLast ? 'none' : 'flex';
+        document.getElementById('submitBtn').style.display = isLast ? 'flex' : 'none';
+
+        // Indicators
+        renderIndicators();
+    }
+
+    function renderIndicators() {
+        const cont = document.getElementById('indicators');
+        cont.innerHTML = questions.map((_, i) => {
+            let cls = '';
+            if (answers[i] !== undefined) cls += ' answered';
+            if (i === currentIdx) cls += ' current';
+            return `<div class="quiz-indicator${cls}" onclick="goTo(${i})">${i + 1}</div>`;
+        }).join('');
+    }
+
+    // ── Interactions ──
+    window.selectOption = function (optIdx, el) {
+        answers[currentIdx] = questions[currentIdx].answer_options[optIdx];
+        renderQuestion();
+    };
+
+    window.navigate = function (dir) {
+        currentIdx = Math.max(0, Math.min(questions.length - 1, currentIdx + dir));
+        renderQuestion();
+    };
+
+    window.goTo = function (idx) {
+        currentIdx = idx;
+        renderQuestion();
+    };
+
+    window.showSubmitModal = function () {
+        const answered = Object.keys(answers).length;
+        document.getElementById('submitModalText').textContent =
+            `You have answered ${answered} out of ${questions.length} questions. Are you sure you want to submit?`;
+        document.getElementById('submitModal').classList.add('show');
+    };
+
+    window.hideSubmitModal = function () {
+        document.getElementById('submitModal').classList.remove('show');
+    };
+
+    window.submitQuiz = async function () {
+        clearInterval(timerInterval);
+        const timeTaken = Math.floor((Date.now() - startTime) / 1000);
+
+        // Convert answers: keys are string indices, values are selected option text
+        const responses = {};
+        for (const [idx, answer] of Object.entries(answers)) {
+            responses[idx] = answer;
+        }
+
+        try {
+            const res = await fetch(`/quiz/${quizCode}/submit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({
+                    responses: responses,
+                    time_taken_seconds: timeTaken,
+                }),
+            });
+            const data = await res.json();
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            } else if (data.error) {
+                alert(data.error);
+                if (data.redirect) window.location.href = data.redirect;
+            }
+        } catch (err) {
+            alert('Failed to submit. Please try again.');
+        }
+    };
+
+    // Initial render
+    renderQuestion();
+}) ();
+</script>
+{% endblock %}
