@@ -286,6 +286,32 @@
         line-height: 1.5;
     }
 
+    /* ── Complex Question Sub-Options ── */
+    .quiz-sub-options {
+        margin: 0 0 0.75rem 0.5rem;
+        padding: 0.75rem 1rem;
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 2px solid rgba(139, 92, 246, 0.2);
+        border-radius: 0 10px 10px 0;
+    }
+
+    .quiz-sub-option {
+        font-family: 'Noto Sans Bengali', 'Plus Jakarta Sans', sans-serif;
+        font-size: 0.98rem;
+        color: #e2e8f0;
+        line-height: 1.8;
+        padding: 2px 0;
+    }
+
+    .quiz-final-prompt {
+        font-family: 'Noto Sans Bengali', 'Plus Jakarta Sans', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #a78bfa;
+        margin-bottom: 1rem;
+        padding-left: 0.5rem;
+    }
+
     /* ── Floating Submit ── */
     .quiz-float-submit {
         position: fixed;
@@ -598,6 +624,15 @@
                 </button>`;
             }).join('');
 
+            // Build sub-options HTML for complex questions
+            let subOptionsHtml = '';
+            if (q.type === 'complex' && q.sub_options && q.sub_options.length > 0) {
+                const subItems = q.sub_options.map(s => `<div class="quiz-sub-option">${s}</div>`).join('');
+                subOptionsHtml = `<div class="quiz-sub-options">${subItems}</div>`;
+                const prompt = q.final_prompt || 'নিচের কোনটি সঠিক?';
+                subOptionsHtml += `<div class="quiz-final-prompt">${prompt}</div>`;
+            }
+
             const isAnswered = answers[idx] !== undefined;
 
             return `<div class="quiz-q-card ${isAnswered ? 'answered' : ''}"
@@ -608,6 +643,7 @@
                     <div class="quiz-q-check"><i class="bi bi-check-lg"></i></div>
                 </div>
                 <div class="quiz-q-text">${q.question_text}</div>
+                ${subOptionsHtml}
                 <div class="quiz-options">${optionsHtml}</div>
             </div>`;
         }).join('');
