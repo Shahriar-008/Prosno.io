@@ -616,6 +616,22 @@ def save_question_set():
     if not questions:
         return jsonify({'error': 'No questions to save.'}), 400
     
+    source = data.get('source', 'custom')
+    
+    # For DB-sourced sets, enrich with full question data from DB.
+    # The frontend preview endpoint strips answer_options/correct_answer
+    # (anti-scraping), so we must fetch the complete data server-side.
+    if source == 'db':
+        question_ids = [q.get('id') for q in questions if q.get('id')]
+        if question_ids:
+            db_questions = Question.query.filter(
+                Question.id.in_([int(qid) for qid in question_ids])
+            ).all()
+            if db_questions:
+                order_map = {str(qid): idx for idx, qid in enumerate(question_ids)}
+                db_questions = sorted(db_questions, key=lambda q: order_map.get(str(q.id), 0))
+                questions = [q.to_dict() for q in db_questions]
+    
     name = data.get('name', '').strip()
     if not name:
         name = f"Question Set - {len(questions)} questions"
@@ -625,7 +641,7 @@ def save_question_set():
         name=name[:200],
         questions_json=questions,
         paper_config=data.get('paper_config'),
-        source=data.get('source', 'custom'),
+        source=source,
         paper_id=data.get('paper_id'),
     )
     db.session.add(qs)
