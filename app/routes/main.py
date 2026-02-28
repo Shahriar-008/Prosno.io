@@ -824,3 +824,136 @@ def delete_question_set(set_id):
     db.session.delete(qs)
     db.session.commit()
     return jsonify({'success': True, 'message': 'Question set deleted!'})
+
+
+# ── Shareable Paper Links ─────────────────────────────────────
+
+
+@main_bp.route('/question-set/<int:set_id>/share', methods=['POST'])
+def toggle_share(set_id):
+    """Toggle sharing on/off for a question set. Generates share_token if needed."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    qs = QuestionSet.query.filter_by(id=set_id, user_id=user['id']).first()
+    if not qs:
+        return jsonify({'error': 'Question set not found.'}), 404
+
+    data = request.get_json() or {}
+    enable = data.get('enable', not (qs.is_shared or False))  # Toggle by default
+
+    if enable and not qs.share_token:
+        qs.share_token = QuestionSet.generate_share_token()
+
+    qs.is_shared = enable
+    db.session.commit()
+
+    share_url = None
+    if qs.share_token:
+        share_url = request.host_url.rstrip('/') + f'/paper/{qs.share_token}'
+
+    return jsonify({
+        'success': True,
+        'is_shared': qs.is_shared,
+        'share_token': qs.share_token,
+        'share_url': share_url,
+    })
+
+
+@main_bp.route('/paper/<share_token>')
+def public_paper_view(share_token):
+    """Public paper viewer — anyone with the link can view and practice."""
+    qs = QuestionSet.query.filter_by(share_token=share_token).first()
+
+    if not qs or not qs.is_shared:
+        return render_template('main/paper_unavailable.html'), 404
+
+    # Strip correct answers from questions for the initial view (anti-cheating)
+    safe_questions = []
+    for q in (qs.questions_json or []):
+        safe_q = {
+            'question_text': q.get('question_text', ''),
+            'answer_options': q.get('answer_options', []),
+            'type': q.get('type', 'simple'),
+        }
+        if q.get('type') == 'complex':
+            safe_q['sub_options'] = q.get('sub_options', [])
+            safe_q['final_prompt'] = q.get('final_prompt', '')
+        safe_questions.append(safe_q)
+
+    paper_config = qs.paper_config or {}
+    share_url = request.url
+
+    return render_template(
+        'main/paper_view.html',
+        question_set=qs,
+        questions=safe_questions,
+        paper_config=paper_config,
+        share_url=share_url,
+        share_token=share_token,
+    )
+
+
+@main_bp.route('/paper/<share_token>/submit', methods=['POST'])
+@csrf.exempt  # Public endpoint — no CSRF cookie for anonymous users
+@limiter.limit("30 per minute")
+def submit_practice(share_token):
+    """Student submits practice answers. Returns score and answer key."""
+    qs = QuestionSet.query.filter_by(share_token=share_token).first()
+
+    if not qs or not qs.is_shared:
+        return jsonify({'error': 'Paper not available.'}), 404
+
+    data = request.get_json()
+    if not data or 'responses' not in data:
+        return jsonify({'error': 'No answers provided.'}), 400
+
+    responses = data['responses']  # {"0": "selected_answer", "1": "..."}
+    questions = qs.questions_json or []
+
+    correct = 0
+    total = len(questions)
+    results = []
+
+    for idx, q in enumerate(questions):
+        student_answer = responses.get(str(idx))
+        correct_answer = q.get('correct_answer', '')
+        is_correct = (student_answer == correct_answer) if student_answer else False
+        if is_correct:
+            correct += 1
+
+        results.append({
+            'question_index': idx,
+            'student_answer': student_answer,
+            'correct_answer': correct_answer,
+            'is_correct': is_correct,
+        })
+
+    percentage = round((correct / total) * 100) if total > 0 else 0
+
+    return jsonify({
+        'score': correct,
+        'total': total,
+        'percentage': percentage,
+        'results': results,
+    })
+
+
+@main_bp.route('/paper/<share_token>/api')
+def paper_api(share_token):
+    """JSON API for shared paper metadata (Open Graph, embeds, etc.)."""
+    qs = QuestionSet.query.filter_by(share_token=share_token).first()
+
+    if not qs or not qs.is_shared:
+        return jsonify({'error': 'Paper not available.'}), 404
+
+    paper_config = qs.paper_config or {}
+    return jsonify({
+        'title': paper_config.get('title', qs.name),
+        'class_name': paper_config.get('class_name', ''),
+        'subject_name': paper_config.get('subject_name', ''),
+        'question_count': len(qs.questions_json) if qs.questions_json else 0,
+        'marks': paper_config.get('marks', 0),
+        'time': paper_config.get('time', 0),
+    })

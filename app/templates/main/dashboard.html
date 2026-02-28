@@ -153,6 +153,10 @@
                                     <span><i class="bi bi-clock"></i> {{ qs.created_at.strftime('%b %d, %Y') if
                                         qs.created_at else 'N/A' }}</span>
                                 </div>
+                                <button class="btn btn-sm btn-outline-secondary me-1" onclick="shareSet({{ qs.id }})"
+                                    title="Share paper link">
+                                    <i class="bi bi-share me-1"></i> Share
+                                </button>
                                 <button class="btn btn-sm btn-outline-success me-1"
                                     onclick="openQuizModal({{ qs.id }}, '{{ qs.name|e }}')" title="Start a live quiz">
                                     <i class="bi bi-controller me-1"></i> Quiz
@@ -244,6 +248,45 @@
 
 <!-- Toast container -->
 <div id="dashToastContainer" style="position:fixed;top:24px;right:24px;z-index:9999;"></div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-share me-2" style="color:#10b981;"></i>Share Paper</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Shareable Link</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="shareLinkInput" readonly
+                            style="background:#f8fafc; font-size:0.88rem;">
+                        <button class="btn btn-outline-primary" type="button" onclick="copyShareLink()">
+                            <i class="bi bi-clipboard" id="copyIcon"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">Anyone with this link can view the paper and practice online.</small>
+                </div>
+
+                <div class="d-flex gap-2 mb-3">
+                    <a class="btn btn-success flex-fill" id="shareWhatsApp" href="#" target="_blank" rel="noopener">
+                        <i class="bi bi-whatsapp me-1"></i> WhatsApp
+                    </a>
+                    <a class="btn btn-primary flex-fill" id="shareMessenger" href="#" target="_blank" rel="noopener">
+                        <i class="bi bi-messenger me-1"></i> Share
+                    </a>
+                </div>
+
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="shareToggle" onchange="toggleShare()">
+                    <label class="form-check-label" for="shareToggle" id="shareToggleLabel">Sharing enabled</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- PDF Loading Overlay -->
 <div id="pdfLoadingOverlay" style="display:none;">
@@ -506,6 +549,73 @@
                 overlay.style.display = 'none';
                 dashToast('❌ ' + err.message, 'error');
             });
+    }
+
+    // ── Share Functions ──
+    let _shareSetId = null;
+    let _shareModalInstance = null;
+
+    async function shareSet(id) {
+        _shareSetId = id;
+        if (!_shareModalInstance) {
+            _shareModalInstance = new bootstrap.Modal(document.getElementById('shareModal'));
+        }
+
+        // Enable sharing if not already
+        try {
+            const res = await fetch('/question-set/' + id + '/share', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ enable: true }),
+            });
+            const data = await res.json();
+
+            if (data.success && data.share_url) {
+                document.getElementById('shareLinkInput').value = data.share_url;
+                document.getElementById('shareToggle').checked = data.is_shared;
+                document.getElementById('shareToggleLabel').textContent = data.is_shared ? 'Sharing enabled' : 'Sharing disabled';
+
+                const msg = encodeURIComponent('📝 Practice this paper online: ' + data.share_url);
+                document.getElementById('shareWhatsApp').href = 'https://wa.me/?text=' + msg;
+                document.getElementById('shareMessenger').href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(data.share_url);
+
+                _shareModalInstance.show();
+            } else {
+                dashToast('❌ ' + (data.error || 'Failed to create share link'), 'error');
+            }
+        } catch (err) {
+            dashToast('❌ Failed to create share link', 'error');
+        }
+    }
+
+    async function toggleShare() {
+        if (!_shareSetId) return;
+        const enabled = document.getElementById('shareToggle').checked;
+
+        try {
+            const res = await fetch('/question-set/' + _shareSetId + '/share', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ enable: enabled }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('shareToggleLabel').textContent = data.is_shared ? 'Sharing enabled' : 'Sharing disabled';
+                dashToast(data.is_shared ? '✅ Sharing enabled' : '🔒 Sharing disabled', 'success');
+            }
+        } catch (err) {
+            dashToast('❌ Failed to toggle sharing', 'error');
+        }
+    }
+
+    function copyShareLink() {
+        const input = document.getElementById('shareLinkInput');
+        navigator.clipboard.writeText(input.value).then(() => {
+            const icon = document.getElementById('copyIcon');
+            icon.className = 'bi bi-check-lg';
+            dashToast('📋 Link copied!', 'success');
+            setTimeout(() => { icon.className = 'bi bi-clipboard'; }, 2000);
+        });
     }
 </script>
 {% endblock %}

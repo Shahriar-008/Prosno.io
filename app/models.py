@@ -218,7 +218,21 @@ class QuestionSet(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Sharing
+    share_token = db.Column(db.String(16), unique=True, index=True)  # URL-safe random token
+    is_shared = db.Column(db.Boolean, default=False)  # Whether the share link is active
+    
     paper = db.relationship('GeneratedPaper', backref='question_sets')
+    
+    @staticmethod
+    def generate_share_token():
+        """Generate a unique URL-safe share token."""
+        import secrets
+        for _ in range(100):
+            token = secrets.token_urlsafe(12)[:16]  # 16-char URL-safe token
+            if not QuestionSet.query.filter_by(share_token=token).first():
+                return token
+        raise ValueError('Could not generate a unique share token')
     
     def to_dict(self):
         return {
@@ -227,6 +241,8 @@ class QuestionSet(db.Model):
             'question_count': len(self.questions_json) if self.questions_json else 0,
             'source': self.source,
             'paper_config': self.paper_config,
+            'share_token': self.share_token,
+            'is_shared': self.is_shared or False,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else None,
             'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M') if self.updated_at else None,
         }
