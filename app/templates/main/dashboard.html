@@ -153,17 +153,21 @@
                                     <span><i class="bi bi-clock"></i> {{ qs.created_at.strftime('%b %d, %Y') if
                                         qs.created_at else 'N/A' }}</span>
                                 </div>
-                                <button class="btn btn-sm btn-outline-secondary me-1" onclick="shareSet({{ qs.id }})"
-                                    title="Share paper link">
-                                    <i class="bi bi-share me-1"></i> Share
-                                </button>
-                                <button class="btn btn-sm btn-outline-success me-1"
-                                    onclick="openQuizModal({{ qs.id }}, '{{ qs.name|e }}')" title="Start a live quiz">
-                                    <i class="bi bi-controller me-1"></i> Quiz
-                                </button>
-                                <button class="btn btn-sm btn-outline-primary" onclick="regenerateFromSet({{ qs.id }})">
-                                    <i class="bi bi-arrow-repeat me-1"></i> Regenerate
-                                </button>
+                                <div class="qs-card-actions">
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="shareSet({{ qs.id }})"
+                                        title="Share paper link">
+                                        <i class="bi bi-share me-1"></i> Share
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-success"
+                                        onclick="openQuizModal({{ qs.id }}, '{{ qs.name|e }}')"
+                                        title="Start a live quiz">
+                                        <i class="bi bi-controller me-1"></i> Quiz
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-primary"
+                                        onclick="regenerateFromSet({{ qs.id }})">
+                                        <i class="bi bi-arrow-repeat me-1"></i> Regenerate
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -716,11 +720,17 @@
 
     .qs-card-footer {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
+        flex-direction: column;
+        gap: 10px;
         padding: 12px 20px;
         background: #f8fafc;
         border-top: 1px solid #f1f5f9;
+    }
+
+    .qs-card-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
     }
 
     .qs-stats {
