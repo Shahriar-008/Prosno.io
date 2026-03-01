@@ -225,40 +225,58 @@ def generate_paper():
     sq_question_ids = []
     if sq_include:
         import random as _rand
-        sq_subject_id = data.get('sq_subject_id')
-        sq_chapter_id = data.get('sq_chapter_id')
-        sq_m = data.get('sq_include_count', 0)
-        sq_n = data.get('sq_answer_count', 0)
-        sq_marks = data.get('sq_marks', 2)
+        sq_custom_questions = data.get('sq_custom_questions', [])
 
-        if sq_m and sq_n:
-            sq_query = ShortQuestion.query.filter(
-                ShortQuestion.is_active == True
-            )
-            if sq_subject_id:
-                sq_query = sq_query.filter_by(subject_id=sq_subject_id)
-            if sq_chapter_id:
-                sq_query = sq_query.filter_by(chapter_id=sq_chapter_id)
-
-            available_sq = sq_query.count()
-            if sq_m > available_sq:
-                return jsonify({
-                    'error': f'সংক্ষিপ্ত প্রশ্ন: {sq_m}টি চাওয়া হয়েছে কিন্তু মাত্র {available_sq}টি উপলব্ধ।'
-                }), 400
-            if sq_n > sq_m:
-                return jsonify({
-                    'error': 'সংক্ষিপ্ত প্রশ্ন: উত্তর সংখ্যা (N) মোট প্রশ্ন (M) এর চেয়ে বেশি হতে পারে না।'
-                }), 400
-
-            sq_questions = sq_query.order_by(
-                db.func.random()
-            ).limit(sq_m).all()
-            sq_question_ids = [q.id for q in sq_questions]
+        if sq_custom_questions and isinstance(sq_custom_questions, list) and len(sq_custom_questions) > 0:
+            # User provided custom SQ questions (DB mode custom toggle)
+            sq_m = data.get('sq_include_count', len(sq_custom_questions))
+            sq_n = data.get('sq_answer_count', sq_m)
+            sq_marks = data.get('sq_marks', 2)
+            sq_m = min(sq_m, len(sq_custom_questions))
+            sq_n = min(sq_n, sq_m)
+            for i, q in enumerate(sq_custom_questions):
+                if not q.get('question_text'):
+                    return jsonify({'error': f'Short question {i+1} is missing question_text'}), 400
             sq_config = {
-                'questions': [q.to_dict() for q in sq_questions],
+                'questions': sq_custom_questions[:sq_m],
                 'answer_count': sq_n,
                 'marks_per_question': sq_marks,
             }
+        else:
+            sq_subject_id = data.get('sq_subject_id')
+            sq_chapter_id = data.get('sq_chapter_id')
+            sq_m = data.get('sq_include_count', 0)
+            sq_n = data.get('sq_answer_count', 0)
+            sq_marks = data.get('sq_marks', 2)
+
+            if sq_m and sq_n:
+                sq_query = ShortQuestion.query.filter(
+                    ShortQuestion.is_active == True
+                )
+                if sq_subject_id:
+                    sq_query = sq_query.filter_by(subject_id=sq_subject_id)
+                if sq_chapter_id:
+                    sq_query = sq_query.filter_by(chapter_id=sq_chapter_id)
+
+                available_sq = sq_query.count()
+                if sq_m > available_sq:
+                    return jsonify({
+                        'error': f'সংক্ষিপ্ত প্রশ্ন: {sq_m}টি চাওয়া হয়েছে কিন্তু মাত্র {available_sq}টি উপলব্ধ।'
+                    }), 400
+                if sq_n > sq_m:
+                    return jsonify({
+                        'error': 'সংক্ষিপ্ত প্রশ্ন: উত্তর সংখ্যা (N) মোট প্রশ্ন (M) এর চেয়ে বেশি হতে পারে না।'
+                    }), 400
+
+                sq_questions = sq_query.order_by(
+                    db.func.random()
+                ).limit(sq_m).all()
+                sq_question_ids = [q.id for q in sq_questions]
+                sq_config = {
+                    'questions': [q.to_dict() for q in sq_questions],
+                    'answer_count': sq_n,
+                    'marks_per_question': sq_marks,
+                }
 
     # --- Creative Question section ---
     cq_config = None
@@ -266,38 +284,59 @@ def generate_paper():
     cq_question_ids = []
     if cq_include:
         import random as _rand
-        cq_subject_id = data.get('cq_subject_id')
-        cq_chapter_id = data.get('cq_chapter_id')
-        cq_m = data.get('cq_include_count', 0)
-        cq_n = data.get('cq_answer_count', 0)
+        cq_custom_questions = data.get('cq_custom_questions', [])
 
-        if cq_m and cq_n:
-            cq_query = CQQuestion.query.filter(
-                CQQuestion.is_active == True
-            )
-            if cq_subject_id:
-                cq_query = cq_query.filter_by(subject_id=cq_subject_id)
-            if cq_chapter_id:
-                cq_query = cq_query.filter_by(chapter_id=cq_chapter_id)
-
-            available_cq = cq_query.count()
-            if cq_m > available_cq:
-                return jsonify({
-                    'error': f'সৃজনশীল প্রশ্ন: {cq_m}টি চাওয়া হয়েছে কিন্তু মাত্র {available_cq}টি উপলব্ধ।'
-                }), 400
-            if cq_n > cq_m:
-                return jsonify({
-                    'error': 'সৃজনশীল প্রশ্ন: উত্তর সংখ্যা (N) মোট প্রশ্ন (M) এর চেয়ে বেশি হতে পারে না।'
-                }), 400
-
-            cq_questions = cq_query.order_by(
-                db.func.random()
-            ).limit(cq_m).all()
-            cq_question_ids = [q.id for q in cq_questions]
+        if cq_custom_questions and isinstance(cq_custom_questions, list) and len(cq_custom_questions) > 0:
+            # User provided custom CQ questions (DB mode custom toggle)
+            cq_m = data.get('cq_include_count', len(cq_custom_questions))
+            cq_n = data.get('cq_answer_count', cq_m)
+            cq_m = min(cq_m, len(cq_custom_questions))
+            cq_n = min(cq_n, cq_m)
+            for i, q in enumerate(cq_custom_questions):
+                if not q.get('stem'):
+                    return jsonify({'error': f'Creative question {i+1} is missing stem'}), 400
+                if 'total_marks' not in q:
+                    q['total_marks'] = (
+                        int(q.get('marks_ka', 0)) + int(q.get('marks_kha', 0))
+                        + int(q.get('marks_ga', 0)) + int(q.get('marks_gha', 0))
+                    )
             cq_config = {
-                'questions': [q.to_dict() for q in cq_questions],
+                'questions': cq_custom_questions[:cq_m],
                 'answer_count': cq_n,
             }
+        else:
+            cq_subject_id = data.get('cq_subject_id')
+            cq_chapter_id = data.get('cq_chapter_id')
+            cq_m = data.get('cq_include_count', 0)
+            cq_n = data.get('cq_answer_count', 0)
+
+            if cq_m and cq_n:
+                cq_query = CQQuestion.query.filter(
+                    CQQuestion.is_active == True
+                )
+                if cq_subject_id:
+                    cq_query = cq_query.filter_by(subject_id=cq_subject_id)
+                if cq_chapter_id:
+                    cq_query = cq_query.filter_by(chapter_id=cq_chapter_id)
+
+                available_cq = cq_query.count()
+                if cq_m > available_cq:
+                    return jsonify({
+                        'error': f'সৃজনশীল প্রশ্ন: {cq_m}টি চাওয়া হয়েছে কিন্তু মাত্র {available_cq}টি উপলব্ধ।'
+                    }), 400
+                if cq_n > cq_m:
+                    return jsonify({
+                        'error': 'সৃজনশীল প্রশ্ন: উত্তর সংখ্যা (N) মোট প্রশ্ন (M) এর চেয়ে বেশি হতে পারে না।'
+                    }), 400
+
+                cq_questions = cq_query.order_by(
+                    db.func.random()
+                ).limit(cq_m).all()
+                cq_question_ids = [q.id for q in cq_questions]
+                cq_config = {
+                    'questions': [q.to_dict() for q in cq_questions],
+                    'answer_count': cq_n,
+                }
 
     # Prepare paper configuration
     total_marks = len(questions)  # MCQ marks
@@ -394,36 +433,96 @@ def generate_custom_paper():
             return jsonify({'error': 'No data provided'}), 400
 
         questions = data.get('questions', [])
-        if not questions or not isinstance(questions, list):
+        sq_questions_raw = data.get('sq_questions', [])
+        cq_questions_raw = data.get('cq_questions', [])
+
+        # Require at least one question of any type
+        if not questions and not sq_questions_raw and not cq_questions_raw:
             return jsonify({'error': 'Please provide at least one question'}), 400
 
-        if len(questions) > 200:
-            return jsonify({'error': 'Maximum 200 questions allowed'}), 400
+        if not isinstance(questions, list):
+            questions = []
 
-        # Validate each question has required fields
+        if len(questions) > 200:
+            return jsonify({'error': 'Maximum 200 MCQ questions allowed'}), 400
+
+        # Validate each MCQ question
         for i, q in enumerate(questions):
             if not q.get('question_text'):
                 return jsonify({'error': f'Question {i+1} is missing question_text'}), 400
             if not q.get('answer_options') or len(q.get('answer_options', [])) < 2:
                 return jsonify({'error': f'Question {i+1} needs at least 2 answer options'}), 400
 
+        # Build sq_config from custom SQ questions if provided
+        sq_config = None
+        if sq_questions_raw and isinstance(sq_questions_raw, list) and len(sq_questions_raw) > 0:
+            sq_cfg_raw = data.get('sq_config') or {}
+            sq_m = min(int(sq_cfg_raw.get('include_count', len(sq_questions_raw))), len(sq_questions_raw))
+            sq_n = min(int(sq_cfg_raw.get('answer_count', sq_m)), sq_m)
+            sq_marks = int(sq_cfg_raw.get('marks', 2))
+            # Validate SQ questions
+            for i, q in enumerate(sq_questions_raw):
+                if not q.get('question_text'):
+                    return jsonify({'error': f'Short question {i+1} is missing question_text'}), 400
+            sq_config = {
+                'questions': sq_questions_raw[:sq_m],
+                'answer_count': sq_n,
+                'marks_per_question': sq_marks,
+            }
+
+        # Build cq_config from custom CQ questions if provided
+        cq_config = None
+        if cq_questions_raw and isinstance(cq_questions_raw, list) and len(cq_questions_raw) > 0:
+            cq_cfg_raw = data.get('cq_config') or {}
+            cq_m = min(int(cq_cfg_raw.get('include_count', len(cq_questions_raw))), len(cq_questions_raw))
+            cq_n = min(int(cq_cfg_raw.get('answer_count', cq_m)), cq_m)
+            # Validate CQ questions and compute total_marks if missing
+            for i, q in enumerate(cq_questions_raw):
+                if not q.get('stem'):
+                    return jsonify({'error': f'Creative question {i+1} is missing stem'}), 400
+                if 'total_marks' not in q:
+                    q['total_marks'] = (
+                        int(q.get('marks_ka', 0)) + int(q.get('marks_kha', 0))
+                        + int(q.get('marks_ga', 0)) + int(q.get('marks_gha', 0))
+                    )
+            cq_config = {
+                'questions': cq_questions_raw[:cq_m],
+                'answer_count': cq_n,
+            }
+
         paper_config = data.get('paper_config', {})
         omr_style = data.get('omr_style', True)
         paper_config.setdefault('title', 'Home Test')
-        paper_config.setdefault('marks', len(questions))
-        paper_config.setdefault('time', len(questions))
+        # Compute total marks across all question types
+        total_marks = len(questions)
+        if sq_config:
+            total_marks += len(sq_config['questions']) * sq_config['marks_per_question']
+        if cq_config:
+            total_marks += sum(q.get('total_marks', 0) for q in cq_config['questions'])
+        paper_config.setdefault('marks', total_marks or len(questions))
+        paper_config.setdefault('time', max(len(questions), 30))
 
         # Generate papers to disk
         import uuid
         output_folder = current_app.config.get('OUTPUT_FOLDER', 'output')
         student_path, teacher_path = generate_paper_from_db(
-            questions, paper_config, output_folder, omr_style=omr_style
+            questions, paper_config, output_folder,
+            omr_style=omr_style,
+            sq_config=sq_config,
+            cq_config=cq_config,
         )
+
+        # Compute effective question count for the paper record
+        total_question_count = len(questions)
+        if sq_config:
+            total_question_count += len(sq_config['questions'])
+        if cq_config:
+            total_question_count += len(cq_config['questions'])
 
         # Save to DB for download tracking (no class/subject IDs for custom papers)
         paper = GeneratedPaper(
             title=paper_config.get('title', 'Custom Paper'),
-            question_count=len(questions),
+            question_count=total_question_count,
             time_minutes=paper_config.get('time', 30),
             file_path=student_path,
             file_path_answers=teacher_path,

@@ -849,9 +849,10 @@ def add_short_question():
 
         if not subject_id or not question_text:
             flash('বিষয় এবং প্রশ্ন আবশ্যক।', 'error')
-            subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+            classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
             return render_template(
-                'admin/short_question_form.html', question=None, subjects=subjects
+                'admin/short_question_form.html', question=None, classes=classes,
+                selected_class_id=None
             )
 
         sq = ShortQuestion(
@@ -872,9 +873,10 @@ def add_short_question():
         flash('সংক্ষিপ্ত প্রশ্ন সফলভাবে যোগ করা হয়েছে!', 'success')
         return redirect(url_for('admin.short_questions'))
 
-    subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+    classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
     return render_template(
-        'admin/short_question_form.html', question=None, subjects=subjects
+        'admin/short_question_form.html', question=None, classes=classes,
+        selected_class_id=None
     )
 
 
@@ -899,9 +901,11 @@ def edit_short_question(id):
         flash('সংক্ষিপ্ত প্রশ্ন আপডেট করা হয়েছে!', 'success')
         return redirect(url_for('admin.short_questions'))
 
-    subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+    classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
+    selected_class_id = sq.subject.class_id if sq.subject else None
     return render_template(
-        'admin/short_question_form.html', question=sq, subjects=subjects
+        'admin/short_question_form.html', question=sq, classes=classes,
+        selected_class_id=selected_class_id
     )
 
 
@@ -966,9 +970,10 @@ def add_cq_question():
 
         if not subject_id or not stem:
             flash('বিষয় এবং উদ্দীপক আবশ্যক।', 'error')
-            subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+            classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
             return render_template(
-                'admin/cq_question_form.html', question=None, subjects=subjects
+                'admin/cq_question_form.html', question=None, classes=classes,
+                selected_class_id=None
             )
 
         cq = CQQuestion(
@@ -996,9 +1001,10 @@ def add_cq_question():
         flash('সৃজনশীল প্রশ্ন সফলভাবে যোগ করা হয়েছে!', 'success')
         return redirect(url_for('admin.cq_questions'))
 
-    subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+    classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
     return render_template(
-        'admin/cq_question_form.html', question=None, subjects=subjects
+        'admin/cq_question_form.html', question=None, classes=classes,
+        selected_class_id=None
     )
 
 
@@ -1030,9 +1036,11 @@ def edit_cq_question(id):
         flash('সৃজনশীল প্রশ্ন আপডেট করা হয়েছে!', 'success')
         return redirect(url_for('admin.cq_questions'))
 
-    subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+    classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
+    selected_class_id = cq.subject.class_id if cq.subject else None
     return render_template(
-        'admin/cq_question_form.html', question=cq, subjects=subjects
+        'admin/cq_question_form.html', question=cq, classes=classes,
+        selected_class_id=selected_class_id
     )
 
 
