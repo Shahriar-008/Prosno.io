@@ -988,6 +988,8 @@ def add_cq_question():
             marks_kha=request.form.get('marks_kha', 2, type=int),
             marks_ga=request.form.get('marks_ga', 3, type=int),
             marks_gha=request.form.get('marks_gha', 4, type=int),
+            board=request.form.get('board', '').strip() or None,
+            year=request.form.get('year', type=int) or None,
             created_by=current_user.id,
         )
         db.session.add(cq)
@@ -1026,6 +1028,8 @@ def edit_cq_question(id):
         cq.marks_kha = request.form.get('marks_kha', 2, type=int)
         cq.marks_ga = request.form.get('marks_ga', 3, type=int)
         cq.marks_gha = request.form.get('marks_gha', 4, type=int)
+        cq.board = request.form.get('board', '').strip() or None
+        cq.year = request.form.get('year', type=int) or None
 
         log_activity(
             'edit', 'cq_question',

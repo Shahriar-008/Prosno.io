@@ -235,6 +235,8 @@ class CQQuestion(db.Model):
     marks_kha = db.Column(db.Integer, default=2)
     marks_ga = db.Column(db.Integer, default=3)
     marks_gha = db.Column(db.Integer, default=4)
+    board = db.Column(db.String(100), nullable=True)   # Board name (e.g. ঢাকা বোর্ড)
+    year = db.Column(db.Integer, nullable=True)         # Exam year
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
@@ -271,6 +273,8 @@ class CQQuestion(db.Model):
             'marks_ga': self.marks_ga,
             'marks_gha': self.marks_gha,
             'total_marks': self.total_marks,
+            'board': self.board,
+            'year': self.year,
             'type': 'creative',
         }
 

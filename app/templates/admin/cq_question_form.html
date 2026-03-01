@@ -120,6 +120,27 @@
                         </span>
                     </div>
                 </div>
+
+                <!-- Board & Year (optional) -->
+                <div class="col-12 mt-2">
+                    <h6 class="mb-2 text-muted">বোর্ড তথ্য (ঐচ্ছিক)</h6>
+                </div>
+                <div class="col-md-6">
+                    <label for="board" class="form-label">বোর্ড</label>
+                    <select class="form-select" id="board" name="board">
+                        <option value="">-- বোর্ড নির্বাচন করুন --</option>
+                        {% set boards = ['ঢাকা বোর্ড', 'রাজশাহী বোর্ড', 'চট্টগ্রাম বোর্ড', 'কুমিল্লা বোর্ড', 'যশোর বোর্ড', 'বরিশাল বোর্ড', 'সিলেট বোর্ড', 'দিনাজপুর বোর্ড', 'ময়মনসিংহ বোর্ড'] %}
+                        {% for b in boards %}
+                        <option value="{{ b }}" {{ 'selected' if question and question.board == b else '' }}>{{ b }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="year" class="form-label">পরীক্ষার বছর</label>
+                    <input type="number" class="form-control" id="year" name="year"
+                           value="{{ question.year if question and question.year else '' }}"
+                           min="2000" max="2100" placeholder="যেমন: 2024">
+                </div>
             </div>
 
             <div class="mt-4 d-flex gap-2">

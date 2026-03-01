@@ -295,6 +295,9 @@ def _apply_schema_migrations(db):
             # QuestionSet sharing migrations
             ('question_sets', 'share_token', "VARCHAR(16)"),
             ('question_sets', 'is_shared', "BOOLEAN DEFAULT FALSE"),
+            # CQ board/year migrations
+            ('cq_questions', 'board', "VARCHAR(100)"),
+            ('cq_questions', 'year', "INTEGER"),
         ]
         
         for table_name, column_name, column_def in migrations:

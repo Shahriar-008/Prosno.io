@@ -221,6 +221,16 @@
                                                                 <!-- DB mode fields -->
                                                                 <div id="sqDbContent">
                                                                     <div class="row g-3">
+                                                                        <div class="col-12">
+                                                                            <label class="form-label">শ্রেণি</label>
+                                                                            <select class="form-select" id="sqClassId"
+                                                                                    onchange="loadSqSubjectsForClass(this.value)">
+                                                                                <option value="">-- শ্রেণি নির্বাচন করুন --</option>
+                                                                                {% for c in classes %}
+                                                                                <option value="{{ c.id }}">{{ c.name_bn or c.name }}</option>
+                                                                                {% endfor %}
+                                                                            </select>
+                                                                        </div>
                                                                         <div class="col-md-6">
                                                                             <label class="form-label">বিষয়</label>
                                                                             <select class="form-select" id="sqSubjectId"
@@ -342,6 +352,16 @@
                                                                 <!-- DB mode fields -->
                                                                 <div id="cqDbContent">
                                                                     <div class="row g-3">
+                                                                        <div class="col-12">
+                                                                            <label class="form-label">শ্রেণি</label>
+                                                                            <select class="form-select" id="cqClassId"
+                                                                                    onchange="loadCqSubjectsForClass(this.value)">
+                                                                                <option value="">-- শ্রেণি নির্বাচন করুন --</option>
+                                                                                {% for c in classes %}
+                                                                                <option value="{{ c.id }}">{{ c.name_bn or c.name }}</option>
+                                                                                {% endfor %}
+                                                                            </select>
+                                                                        </div>
                                                                         <div class="col-md-6">
                                                                             <label class="form-label">বিষয়</label>
                                                                             <select class="form-select" id="cqSubjectId"
@@ -355,6 +375,27 @@
                                                                                     onchange="fetchCqCount()">
                                                                                 <option value="">-- সব অধ্যায় --</option>
                                                                             </select>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <label class="form-label">বোর্ড (ঐচ্ছিক)</label>
+                                                                            <select class="form-select" id="cqBoard" onchange="fetchCqCount()">
+                                                                                <option value="">-- সব বোর্ড --</option>
+                                                                                <option value="ঢাকা বোর্ড">ঢাকা বোর্ড</option>
+                                                                                <option value="রাজশাহী বোর্ড">রাজশাহী বোর্ড</option>
+                                                                                <option value="চট্টগ্রাম বোর্ড">চট্টগ্রাম বোর্ড</option>
+                                                                                <option value="কুমিল্লা বোর্ড">কুমিল্লা বোর্ড</option>
+                                                                                <option value="যশোর বোর্ড">যশোর বোর্ড</option>
+                                                                                <option value="বরিশাল বোর্ড">বরিশাল বোর্ড</option>
+                                                                                <option value="সিলেট বোর্ড">সিলেট বোর্ড</option>
+                                                                                <option value="দিনাজপুর বোর্ড">দিনাজপুর বোর্ড</option>
+                                                                                <option value="ময়মনসিংহ বোর্ড">ময়মনসিংহ বোর্ড</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <label class="form-label">বছর (ঐচ্ছিক)</label>
+                                                                            <input type="number" class="form-control" id="cqYear"
+                                                                                   min="2000" max="2100" placeholder="যেমন: 2024"
+                                                                                   onchange="fetchCqCount()">
                                                                         </div>
                                                                         <div class="col-md-6">
                                                                             <label class="form-label">মোট প্রশ্ন সংখ্যা (M)</label>
@@ -1142,7 +1183,11 @@ Answer: b</code></pre>
                     });
                     subjectSelect.disabled = false;
 
-                    // Also populate SQ/CQ subject dropdowns
+                    // Also populate SQ/CQ subject dropdowns and sync class selectors
+                    const sqClassSel = document.getElementById('sqClassId');
+                    const cqClassSel = document.getElementById('cqClassId');
+                    if (sqClassSel) sqClassSel.value = classId;
+                    if (cqClassSel) cqClassSel.value = classId;
                     const sqSel = document.getElementById('sqSubjectId');
                     const cqSel = document.getElementById('cqSubjectId');
                     if (sqSel) {
@@ -1321,6 +1366,8 @@ Answer: b</code></pre>
                 cq_include: document.getElementById('cqInclude')?.checked || false,
                 cq_subject_id: cqMode === 'db' ? (parseInt(document.getElementById('cqSubjectId')?.value) || null) : null,
                 cq_chapter_id: cqMode === 'db' ? (parseInt(document.getElementById('cqChapterId')?.value) || null) : null,
+                cq_board: cqMode === 'db' ? (document.getElementById('cqBoard')?.value || null) : null,
+                cq_year: cqMode === 'db' ? (parseInt(document.getElementById('cqYear')?.value) || null) : null,
                 cq_include_count: cqMode === 'db' ? (parseInt(document.getElementById('cqIncludeCount')?.value) || 0) : (parseInt(document.getElementById('dbCustomCqIncludeCount')?.value) || dbCustomCqQuestions.length),
                 cq_answer_count: cqMode === 'db' ? (parseInt(document.getElementById('cqAnswerCount')?.value) || 0) : (parseInt(document.getElementById('dbCustomCqAnswerCount')?.value) || dbCustomCqQuestions.length),
                 cq_custom_questions: cqMode === 'custom' ? dbCustomCqQuestions : [],
@@ -1629,6 +1676,36 @@ Answer: b</code></pre>
         if (panel) panel.style.display = document.getElementById('cqInclude').checked ? 'block' : 'none';
     }
 
+    function loadSqSubjectsForClass(classId) {
+        const sqSel = document.getElementById('sqSubjectId');
+        const chaptSel = document.getElementById('sqChapterId');
+        sqSel.innerHTML = '<option value="">-- বিষয় নির্বাচন করুন --</option>';
+        if (chaptSel) chaptSel.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
+        if (!classId) return;
+        fetch(`/api/subjects/${classId}`)
+            .then(r => r.json())
+            .then(subjects => {
+                subjects.forEach(s => {
+                    sqSel.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
+                });
+            });
+    }
+
+    function loadCqSubjectsForClass(classId) {
+        const cqSel = document.getElementById('cqSubjectId');
+        const chaptSel = document.getElementById('cqChapterId');
+        cqSel.innerHTML = '<option value="">-- বিষয় নির্বাচন করুন --</option>';
+        if (chaptSel) chaptSel.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
+        if (!classId) return;
+        fetch(`/api/subjects/${classId}`)
+            .then(r => r.json())
+            .then(subjects => {
+                subjects.forEach(s => {
+                    cqSel.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
+                });
+            });
+    }
+
     function loadSqChapters(subjectId) {
         const sel = document.getElementById('sqChapterId');
         sel.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
@@ -1670,8 +1747,12 @@ Answer: b</code></pre>
         const subjectId = document.getElementById('cqSubjectId')?.value;
         if (!subjectId) { _cqAvailable = 0; document.getElementById('cqAvailableText').textContent = 'Available: —'; return; }
         const chapterId = document.getElementById('cqChapterId')?.value;
+        const board = document.getElementById('cqBoard')?.value;
+        const year = document.getElementById('cqYear')?.value;
         let url = `/api/cq-questions/count?subject_id=${subjectId}`;
         if (chapterId) url += `&chapter_id=${chapterId}`;
+        if (board) url += `&board=${encodeURIComponent(board)}`;
+        if (year) url += `&year=${year}`;
         fetch(url).then(r => r.json()).then(d => {
             _cqAvailable = d.count;
             document.getElementById('cqAvailableText').textContent = `Available: ${d.count}`;

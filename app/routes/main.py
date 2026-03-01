@@ -307,6 +307,8 @@ def generate_paper():
         else:
             cq_subject_id = data.get('cq_subject_id')
             cq_chapter_id = data.get('cq_chapter_id')
+            cq_board = data.get('cq_board')
+            cq_year = data.get('cq_year')
             cq_m = data.get('cq_include_count', 0)
             cq_n = data.get('cq_answer_count', 0)
 
@@ -318,6 +320,10 @@ def generate_paper():
                     cq_query = cq_query.filter_by(subject_id=cq_subject_id)
                 if cq_chapter_id:
                     cq_query = cq_query.filter_by(chapter_id=cq_chapter_id)
+                if cq_board:
+                    cq_query = cq_query.filter_by(board=cq_board)
+                if cq_year:
+                    cq_query = cq_query.filter_by(year=cq_year)
 
                 available_cq = cq_query.count()
                 if cq_m > available_cq:
