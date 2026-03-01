@@ -63,9 +63,25 @@
                     </li>
                     
                     <li class="nav-item">
-                        <a href="{{ url_for('admin.questions') }}" class="nav-link {% if 'question' in request.endpoint %}active{% endif %}">
+                        <a href="{{ url_for('admin.questions') }}" class="nav-link {% if request.endpoint == 'admin.questions' or request.endpoint == 'admin.add_question' or request.endpoint == 'admin.edit_question' %}active{% endif %}">
                             <i class="bi bi-question-circle"></i>
                             <span>Questions</span>
+                        </a>
+                    </li>
+                    
+                    <li class="nav-header">প্রশ্ন ব্যবস্থাপনা</li>
+                    
+                    <li class="nav-item">
+                        <a href="{{ url_for('admin.short_questions') }}" class="nav-link {% if 'short_question' in request.endpoint %}active{% endif %}">
+                            <i class="bi bi-card-text"></i>
+                            <span>সংক্ষিপ্ত প্রশ্ন</span>
+                        </a>
+                    </li>
+                    
+                    <li class="nav-item">
+                        <a href="{{ url_for('admin.cq_questions') }}" class="nav-link {% if 'cq_question' in request.endpoint %}active{% endif %}">
+                            <i class="bi bi-journal-text"></i>
+                            <span>সৃজনশীল প্রশ্ন</span>
                         </a>
                     </li>
                     

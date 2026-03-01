@@ -1,0 +1,99 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ 'সম্পাদনা' if question else 'নতুন' }} সংক্ষিপ্ত প্রশ্ন - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ 'সংক্ষিপ্ত প্রশ্ন সম্পাদনা' if question else 'নতুন সংক্ষিপ্ত প্রশ্ন' }}</h1>
+    <p>{{ 'প্রশ্নের তথ্য আপডেট করুন' if question else 'একটি নতুন সংক্ষিপ্ত প্রশ্ন তৈরি করুন' }}</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="row g-3">
+                <!-- Subject Selection -->
+                <div class="col-md-6">
+                    <label for="subject_id" class="form-label">বিষয় <span class="text-danger">*</span></label>
+                    <select class="form-select" id="subject_id" name="subject_id" required onchange="loadChapters(this.value)">
+                        <option value="">-- বিষয় নির্বাচন করুন --</option>
+                        {% for s in subjects %}
+                        <option value="{{ s.id }}" {{ 'selected' if question and question.subject_id == s.id else '' }}>
+                            {{ s.class_ref.name }} - {{ s.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Chapter Selection (cascading) -->
+                <div class="col-md-6">
+                    <label for="chapter_id" class="form-label">অধ্যায়</label>
+                    <select class="form-select" id="chapter_id" name="chapter_id">
+                        <option value="">-- সব অধ্যায় --</option>
+                        {% if question and question.chapter %}
+                        <option value="{{ question.chapter.id }}" selected>
+                            {{ question.chapter.name }}
+                        </option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- Question Text -->
+                <div class="col-12">
+                    <label for="question_text" class="form-label">প্রশ্ন <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="question_text" name="question_text" rows="4" required
+                              placeholder="এখানে সংক্ষিপ্ত প্রশ্নটি লিখুন...">{{ question.question_text if question else '' }}</textarea>
+                </div>
+
+                <!-- Marks -->
+                <div class="col-md-3">
+                    <label for="marks" class="form-label">নম্বর</label>
+                    <input type="number" class="form-control" id="marks" name="marks"
+                           value="{{ question.marks if question else 2 }}" min="1" max="20">
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i> সংরক্ষণ করুন
+                </button>
+                <a href="{{ url_for('admin.short_questions') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg me-1"></i> বাতিল
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function loadChapters(subjectId) {
+        const chapterSelect = document.getElementById('chapter_id');
+        chapterSelect.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
+
+        if (!subjectId) return;
+
+        fetch(`/api/chapters/${subjectId}`)
+            .then(r => r.json())
+            .then(chapters => {
+                chapters.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.name_bn || c.name;
+                    chapterSelect.appendChild(opt);
+                });
+                {% if question and question.chapter_id %}
+                chapterSelect.value = '{{ question.chapter_id }}';
+                {% endif %}
+            });
+    }
+
+    // Load chapters on page load if editing
+    {% if question and question.subject_id %}
+    document.addEventListener('DOMContentLoaded', () => loadChapters('{{ question.subject_id }}'));
+    {% endif %}
+</script>
+{% endblock %}

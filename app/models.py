@@ -177,6 +177,107 @@ class Question(db.Model):
         return f'<Question {self.id}>'
 
 
+class ShortQuestion(db.Model):
+    """Short answer question model (সংক্ষিপ্ত প্রশ্ন)"""
+    __tablename__ = 'short_questions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    subject_id = db.Column(
+        db.Integer, db.ForeignKey('subjects.id'), nullable=False
+    )
+    chapter_id = db.Column(
+        db.Integer, db.ForeignKey('chapters.id'), nullable=True
+    )
+    question_text = db.Column(db.Text, nullable=False)
+    marks = db.Column(db.Integer, default=2)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    subject = db.relationship(
+        'Subject', backref=db.backref('short_questions', lazy='dynamic')
+    )
+    chapter = db.relationship(
+        'Chapter', backref=db.backref('short_questions', lazy='dynamic')
+    )
+    creator = db.relationship('User', foreign_keys=[created_by])
+
+    def to_dict(self):
+        """Convert short question to dictionary."""
+        return {
+            'id': self.id,
+            'question_text': self.question_text,
+            'marks': self.marks,
+            'type': 'short',
+        }
+
+    def __repr__(self):
+        return f'<ShortQuestion {self.id}>'
+
+
+class CQQuestion(db.Model):
+    """Creative question model (সৃজনশীল প্রশ্ন)"""
+    __tablename__ = 'cq_questions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    subject_id = db.Column(
+        db.Integer, db.ForeignKey('subjects.id'), nullable=False
+    )
+    chapter_id = db.Column(
+        db.Integer, db.ForeignKey('chapters.id'), nullable=True
+    )
+    stem = db.Column(db.Text, nullable=False)  # উদ্দীপক
+    part_ka = db.Column(db.Text)   # ক sub-question
+    part_kha = db.Column(db.Text)  # খ sub-question
+    part_ga = db.Column(db.Text)   # গ sub-question
+    part_gha = db.Column(db.Text)  # ঘ sub-question
+    marks_ka = db.Column(db.Integer, default=1)
+    marks_kha = db.Column(db.Integer, default=2)
+    marks_ga = db.Column(db.Integer, default=3)
+    marks_gha = db.Column(db.Integer, default=4)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    subject = db.relationship(
+        'Subject', backref=db.backref('cq_questions', lazy='dynamic')
+    )
+    chapter = db.relationship(
+        'Chapter', backref=db.backref('cq_questions', lazy='dynamic')
+    )
+    creator = db.relationship('User', foreign_keys=[created_by])
+
+    @property
+    def total_marks(self):
+        """Compute sum of all part marks."""
+        return (
+            (self.marks_ka or 0)
+            + (self.marks_kha or 0)
+            + (self.marks_ga or 0)
+            + (self.marks_gha or 0)
+        )
+
+    def to_dict(self):
+        """Convert creative question to dictionary."""
+        return {
+            'id': self.id,
+            'stem': self.stem,
+            'part_ka': self.part_ka,
+            'part_kha': self.part_kha,
+            'part_ga': self.part_ga,
+            'part_gha': self.part_gha,
+            'marks_ka': self.marks_ka,
+            'marks_kha': self.marks_kha,
+            'marks_ga': self.marks_ga,
+            'marks_gha': self.marks_gha,
+            'total_marks': self.total_marks,
+            'type': 'creative',
+        }
+
+    def __repr__(self):
+        return f'<CQQuestion {self.id}>'
+
+
 class GeneratedPaper(db.Model):
     """Track generated papers"""
     __tablename__ = 'generated_papers'

@@ -6,7 +6,10 @@ from flask import Blueprint, render_template, request, jsonify, send_file, curre
 import os
 
 from app import db, csrf, limiter
-from app.models import Class, Subject, Chapter, Question, GeneratedPaper, QuestionSet, GenerationLog
+from app.models import (
+    Class, Subject, Chapter, Question, GeneratedPaper,
+    QuestionSet, GenerationLog, ShortQuestion, CQQuestion,
+)
 from app.utils.document_generator import generate_paper_from_db, generate_paper_to_memory
 from app.utils.pdf_generator import generate_paper_to_memory_pdf
 
@@ -215,41 +218,137 @@ def generate_paper():
     
     if not questions:
         return jsonify({'error': 'No questions found for selected criteria'}), 404
-    
+
+    # --- Short Question section ---
+    sq_config = None
+    sq_include = data.get('sq_include', False)
+    sq_question_ids = []
+    if sq_include:
+        import random as _rand
+        sq_subject_id = data.get('sq_subject_id')
+        sq_chapter_id = data.get('sq_chapter_id')
+        sq_m = data.get('sq_include_count', 0)
+        sq_n = data.get('sq_answer_count', 0)
+        sq_marks = data.get('sq_marks', 2)
+
+        if sq_m and sq_n:
+            sq_query = ShortQuestion.query.filter(
+                ShortQuestion.is_active == True
+            )
+            if sq_subject_id:
+                sq_query = sq_query.filter_by(subject_id=sq_subject_id)
+            if sq_chapter_id:
+                sq_query = sq_query.filter_by(chapter_id=sq_chapter_id)
+
+            available_sq = sq_query.count()
+            if sq_m > available_sq:
+                return jsonify({
+                    'error': f'সংক্ষিপ্ত প্রশ্ন: {sq_m}টি চাওয়া হয়েছে কিন্তু মাত্র {available_sq}টি উপলব্ধ।'
+                }), 400
+            if sq_n > sq_m:
+                return jsonify({
+                    'error': 'সংক্ষিপ্ত প্রশ্ন: উত্তর সংখ্যা (N) মোট প্রশ্ন (M) এর চেয়ে বেশি হতে পারে না।'
+                }), 400
+
+            sq_questions = sq_query.order_by(
+                db.func.random()
+            ).limit(sq_m).all()
+            sq_question_ids = [q.id for q in sq_questions]
+            sq_config = {
+                'questions': [q.to_dict() for q in sq_questions],
+                'answer_count': sq_n,
+                'marks_per_question': sq_marks,
+            }
+
+    # --- Creative Question section ---
+    cq_config = None
+    cq_include = data.get('cq_include', False)
+    cq_question_ids = []
+    if cq_include:
+        import random as _rand
+        cq_subject_id = data.get('cq_subject_id')
+        cq_chapter_id = data.get('cq_chapter_id')
+        cq_m = data.get('cq_include_count', 0)
+        cq_n = data.get('cq_answer_count', 0)
+
+        if cq_m and cq_n:
+            cq_query = CQQuestion.query.filter(
+                CQQuestion.is_active == True
+            )
+            if cq_subject_id:
+                cq_query = cq_query.filter_by(subject_id=cq_subject_id)
+            if cq_chapter_id:
+                cq_query = cq_query.filter_by(chapter_id=cq_chapter_id)
+
+            available_cq = cq_query.count()
+            if cq_m > available_cq:
+                return jsonify({
+                    'error': f'সৃজনশীল প্রশ্ন: {cq_m}টি চাওয়া হয়েছে কিন্তু মাত্র {available_cq}টি উপলব্ধ।'
+                }), 400
+            if cq_n > cq_m:
+                return jsonify({
+                    'error': 'সৃজনশীল প্রশ্ন: উত্তর সংখ্যা (N) মোট প্রশ্ন (M) এর চেয়ে বেশি হতে পারে না।'
+                }), 400
+
+            cq_questions = cq_query.order_by(
+                db.func.random()
+            ).limit(cq_m).all()
+            cq_question_ids = [q.id for q in cq_questions]
+            cq_config = {
+                'questions': [q.to_dict() for q in cq_questions],
+                'answer_count': cq_n,
+            }
+
     # Prepare paper configuration
+    total_marks = len(questions)  # MCQ marks
+    if sq_config:
+        total_marks += len(sq_config['questions']) * sq_config['marks_per_question']
+    if cq_config:
+        total_marks += sum(q['total_marks'] for q in cq_config['questions'])
+
     paper_config = {
         'title': paper_title,
         'class_name': class_obj.name_bn or class_obj.name,
         'subject_name': subject_obj.name_bn or subject_obj.name,
         'time': time_minutes,
-        'marks': len(questions)
+        'marks': total_marks,
     }
-    
+
     # Generate the papers
     output_folder = current_app.config.get('OUTPUT_FOLDER', 'output')
     student_path, teacher_path = generate_paper_from_db(
-        questions, paper_config, output_folder, omr_style=omr_style
+        questions, paper_config, output_folder,
+        omr_style=omr_style,
+        sq_config=sq_config,
+        cq_config=cq_config,
     )
-    
+
     # Save to database for tracking (including question IDs for regeneration)
+    custom_cfg = {}
+    if sq_question_ids:
+        custom_cfg['sq_question_ids'] = sq_question_ids
+    if cq_question_ids:
+        custom_cfg['cq_question_ids'] = cq_question_ids
+
     paper = GeneratedPaper(
         title=paper_title,
         class_id=class_id,
         subject_id=subject_id,
         chapter_ids=chapter_ids,
-        question_ids=[q.id for q in questions],  # Store exact questions used
+        question_ids=[q.id for q in questions],
         question_count=len(questions),
         time_minutes=time_minutes,
         file_path=student_path,
         file_path_answers=teacher_path,
-        omr_style=omr_style
+        omr_style=omr_style,
+        custom_paper_config=custom_cfg if custom_cfg else None,
     )
     db.session.add(paper)
     # Log generation for credit system
     if user:
         _log_generation(user['id'], gen_type='db')
     db.session.commit()
-    
+
     return jsonify({
         'success': True,
         'paper_id': paper.id,

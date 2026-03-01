@@ -175,6 +175,121 @@
                                         </div>
                                     </div>
 
+                                    <!-- Additional Question Sections (SQ / CQ) -->
+                                    <div class="col-12 mt-2">
+                                        <div class="accordion" id="extraSectionsAccordion">
+                                            <div class="accordion-item">
+                                                <h2 class="accordion-header">
+                                                    <button class="accordion-button collapsed" type="button"
+                                                        data-bs-toggle="collapse" data-bs-target="#extraSectionsBody">
+                                                        <i class="bi bi-plus-square me-2"></i> অতিরিক্ত প্রশ্ন বিভাগ (সংক্ষিপ্ত / সৃজনশীল)
+                                                    </button>
+                                                </h2>
+                                                <div id="extraSectionsBody" class="accordion-collapse collapse"
+                                                     data-bs-parent="#extraSectionsAccordion">
+                                                    <div class="accordion-body">
+
+                                                        <!-- Short Questions Panel -->
+                                                        <div class="card mb-3">
+                                                            <div class="card-header d-flex align-items-center">
+                                                                <div class="form-check form-switch me-3">
+                                                                    <input class="form-check-input" type="checkbox"
+                                                                           id="sqInclude" onchange="toggleSqPanel()">
+                                                                    <label class="form-check-label fw-bold" for="sqInclude">
+                                                                        সংক্ষিপ্ত প্রশ্ন যোগ করুন
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="card-body" id="sqPanel" style="display:none;">
+                                                                <div class="row g-3">
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">বিষয়</label>
+                                                                        <select class="form-select" id="sqSubjectId"
+                                                                                onchange="loadSqChapters(this.value); fetchSqCount()">
+                                                                            <option value="">-- বিষয় নির্বাচন করুন --</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">অধ্যায় (ঐচ্ছিক)</label>
+                                                                        <select class="form-select" id="sqChapterId"
+                                                                                onchange="fetchSqCount()">
+                                                                            <option value="">-- সব অধ্যায় --</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-md-4">
+                                                                        <label class="form-label">মোট প্রশ্ন সংখ্যা (M)</label>
+                                                                        <input type="number" class="form-control" id="sqIncludeCount"
+                                                                               min="1" value="3" onchange="validateSq()">
+                                                                        <div class="form-text" id="sqAvailableText">Available: —</div>
+                                                                    </div>
+                                                                    <div class="col-md-4">
+                                                                        <label class="form-label">উত্তর দিতে হবে (N)</label>
+                                                                        <input type="number" class="form-control" id="sqAnswerCount"
+                                                                               min="1" value="2" onchange="validateSq()">
+                                                                    </div>
+                                                                    <div class="col-md-4">
+                                                                        <label class="form-label">প্রতিটির নম্বর</label>
+                                                                        <input type="number" class="form-control" id="sqMarks"
+                                                                               min="1" value="2">
+                                                                    </div>
+                                                                    <div class="col-12">
+                                                                        <div class="text-danger small" id="sqError" style="display:none;"></div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Creative Questions Panel -->
+                                                        <div class="card">
+                                                            <div class="card-header d-flex align-items-center">
+                                                                <div class="form-check form-switch me-3">
+                                                                    <input class="form-check-input" type="checkbox"
+                                                                           id="cqInclude" onchange="toggleCqPanel()">
+                                                                    <label class="form-check-label fw-bold" for="cqInclude">
+                                                                        সৃজনশীল প্রশ্ন যোগ করুন
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="card-body" id="cqPanel" style="display:none;">
+                                                                <div class="row g-3">
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">বিষয়</label>
+                                                                        <select class="form-select" id="cqSubjectId"
+                                                                                onchange="loadCqChapters(this.value); fetchCqCount()">
+                                                                            <option value="">-- বিষয় নির্বাচন করুন --</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">অধ্যায় (ঐচ্ছিক)</label>
+                                                                        <select class="form-select" id="cqChapterId"
+                                                                                onchange="fetchCqCount()">
+                                                                            <option value="">-- সব অধ্যায় --</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">মোট প্রশ্ন সংখ্যা (M)</label>
+                                                                        <input type="number" class="form-control" id="cqIncludeCount"
+                                                                               min="1" value="3" onchange="validateCq()">
+                                                                        <div class="form-text" id="cqAvailableText">Available: —</div>
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                        <label class="form-label">উত্তর দিতে হবে (N)</label>
+                                                                        <input type="number" class="form-control" id="cqAnswerCount"
+                                                                               min="1" value="2" onchange="validateCq()">
+                                                                    </div>
+                                                                    <div class="col-12">
+                                                                        <div class="text-danger small" id="cqError" style="display:none;"></div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <!-- Generate Button -->
                                     <div class="col-12 text-center mt-4">
                                         <button type="submit" class="btn btn-primary btn-lg" id="generateBtn">
@@ -686,6 +801,22 @@ Answer: b</code></pre>
                         subjectSelect.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
                     });
                     subjectSelect.disabled = false;
+
+                    // Also populate SQ/CQ subject dropdowns
+                    const sqSel = document.getElementById('sqSubjectId');
+                    const cqSel = document.getElementById('cqSubjectId');
+                    if (sqSel) {
+                        sqSel.innerHTML = '<option value="">-- বিষয় নির্বাচন করুন --</option>';
+                        subjects.forEach(s => {
+                            sqSel.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
+                        });
+                    }
+                    if (cqSel) {
+                        cqSel.innerHTML = '<option value="">-- বিষয় নির্বাচন করুন --</option>';
+                        subjects.forEach(s => {
+                            cqSel.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
+                        });
+                    }
                 })
                 .catch(err => {
                     console.error('Error loading subjects:', err);
@@ -837,7 +968,20 @@ Answer: b</code></pre>
                 time_minutes: parseInt(document.getElementById('timeMinutes').value),
                 title: document.getElementById('paperTitle').value,
                 randomize: document.getElementById('randomizeOrder')?.checked || false,
-                omr_style: document.getElementById('omrStyleToggle').checked
+                omr_style: document.getElementById('omrStyleToggle').checked,
+                // Short Questions
+                sq_include: document.getElementById('sqInclude')?.checked || false,
+                sq_subject_id: parseInt(document.getElementById('sqSubjectId')?.value) || null,
+                sq_chapter_id: parseInt(document.getElementById('sqChapterId')?.value) || null,
+                sq_include_count: parseInt(document.getElementById('sqIncludeCount')?.value) || 0,
+                sq_answer_count: parseInt(document.getElementById('sqAnswerCount')?.value) || 0,
+                sq_marks: parseInt(document.getElementById('sqMarks')?.value) || 2,
+                // Creative Questions
+                cq_include: document.getElementById('cqInclude')?.checked || false,
+                cq_subject_id: parseInt(document.getElementById('cqSubjectId')?.value) || null,
+                cq_chapter_id: parseInt(document.getElementById('cqChapterId')?.value) || null,
+                cq_include_count: parseInt(document.getElementById('cqIncludeCount')?.value) || 0,
+                cq_answer_count: parseInt(document.getElementById('cqAnswerCount')?.value) || 0,
             };
 
             // Show loading state
@@ -1120,6 +1264,102 @@ Answer: b</code></pre>
         document.getElementById('questionsInfo').style.display = 'none';
         document.getElementById('questionsList').innerHTML = '';
         window.allQuestions = [];
+
+        // Reset SQ/CQ panels
+        const sqCb = document.getElementById('sqInclude');
+        const cqCb = document.getElementById('cqInclude');
+        if (sqCb) { sqCb.checked = false; toggleSqPanel(); }
+        if (cqCb) { cqCb.checked = false; toggleCqPanel(); }
+    }
+
+    // ==========================================
+    // SHORT QUESTION & CREATIVE QUESTION HELPERS
+    // ==========================================
+    let _sqAvailable = 0;
+    let _cqAvailable = 0;
+
+    function toggleSqPanel() {
+        const panel = document.getElementById('sqPanel');
+        if (panel) panel.style.display = document.getElementById('sqInclude').checked ? 'block' : 'none';
+    }
+    function toggleCqPanel() {
+        const panel = document.getElementById('cqPanel');
+        if (panel) panel.style.display = document.getElementById('cqInclude').checked ? 'block' : 'none';
+    }
+
+    function loadSqChapters(subjectId) {
+        const sel = document.getElementById('sqChapterId');
+        sel.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
+        if (!subjectId) return;
+        fetch(`/get-chapters/${subjectId}`)
+            .then(r => r.json())
+            .then(chapters => {
+                chapters.forEach(c => {
+                    sel.innerHTML += `<option value="${c.id}">${c.name_bn || c.name}</option>`;
+                });
+            });
+    }
+    function loadCqChapters(subjectId) {
+        const sel = document.getElementById('cqChapterId');
+        sel.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
+        if (!subjectId) return;
+        fetch(`/get-chapters/${subjectId}`)
+            .then(r => r.json())
+            .then(chapters => {
+                chapters.forEach(c => {
+                    sel.innerHTML += `<option value="${c.id}">${c.name_bn || c.name}</option>`;
+                });
+            });
+    }
+
+    function fetchSqCount() {
+        const subjectId = document.getElementById('sqSubjectId')?.value;
+        if (!subjectId) { _sqAvailable = 0; document.getElementById('sqAvailableText').textContent = 'Available: —'; return; }
+        const chapterId = document.getElementById('sqChapterId')?.value;
+        let url = `/api/short-questions/count?subject_id=${subjectId}`;
+        if (chapterId) url += `&chapter_id=${chapterId}`;
+        fetch(url).then(r => r.json()).then(d => {
+            _sqAvailable = d.count;
+            document.getElementById('sqAvailableText').textContent = `Available: ${d.count}`;
+            validateSq();
+        });
+    }
+    function fetchCqCount() {
+        const subjectId = document.getElementById('cqSubjectId')?.value;
+        if (!subjectId) { _cqAvailable = 0; document.getElementById('cqAvailableText').textContent = 'Available: —'; return; }
+        const chapterId = document.getElementById('cqChapterId')?.value;
+        let url = `/api/cq-questions/count?subject_id=${subjectId}`;
+        if (chapterId) url += `&chapter_id=${chapterId}`;
+        fetch(url).then(r => r.json()).then(d => {
+            _cqAvailable = d.count;
+            document.getElementById('cqAvailableText').textContent = `Available: ${d.count}`;
+            validateCq();
+        });
+    }
+
+    function validateSq() {
+        const el = document.getElementById('sqError');
+        const m = parseInt(document.getElementById('sqIncludeCount')?.value) || 0;
+        const n = parseInt(document.getElementById('sqAnswerCount')?.value) || 0;
+        let msg = '';
+        if (n < 1) msg = 'উত্তর সংখ্যা (N) কমপক্ষে ১ হতে হবে।';
+        else if (n > m) msg = 'উত্তর সংখ্যা (N) মোট প্রশ্ন সংখ্যা (M) এর চেয়ে বেশি হতে পারবে না।';
+        else if (m > _sqAvailable && _sqAvailable > 0) msg = `মোট প্রশ্ন সংখ্যা (M) উপলব্ধ প্রশ্নের (${_sqAvailable}) চেয়ে বেশি।`;
+        el.textContent = msg;
+        el.style.display = msg ? 'block' : 'none';
+        return !msg;
+    }
+    function validateCq() {
+        const el = document.getElementById('cqError');
+        const m = parseInt(document.getElementById('cqIncludeCount')?.value) || 0;
+        const n = parseInt(document.getElementById('cqAnswerCount')?.value) || 0;
+        let msg = '';
+        if (n < 1) msg = 'উত্তর সংখ্যা (N) কমপক্ষে ১ হতে হবে।';
+        else if (n > m) msg = 'উত্তর সংখ্যা (N) মোট প্রশ্ন সংখ্যা (M) এর চেয়ে বেশি হতে পারবে না।';
+        else if (m > _cqAvailable && _cqAvailable > 0) msg = `মোট প্রশ্ন সংখ্যা (M) উপলব্ধ প্রশ্নের (${_cqAvailable}) চেয়ে বেশি।`;
+        el.textContent = msg;
+        el.style.display = msg ? 'block' : 'none';
+        return !msg;
     }
 
     // ==========================================

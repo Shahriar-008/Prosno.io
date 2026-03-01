@@ -20,7 +20,12 @@ def is_safe_url(target: str) -> bool:
     ref_url = urlparse(request.host_url)
     test_url = urlparse(urljoin(request.host_url, target))
     return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
-from app.models import User, Class, Subject, Chapter, Question, GeneratedPaper, AIGeneratorConfig, AIGeneratorLog, ActivityLog, ROLE_ADMIN, ROLE_EDITOR, admin_required
+from app.models import (
+    User, Class, Subject, Chapter, Question, GeneratedPaper,
+    AIGeneratorConfig, AIGeneratorLog, ActivityLog,
+    ShortQuestion, CQQuestion,
+    ROLE_ADMIN, ROLE_EDITOR, admin_required,
+)
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -797,3 +802,252 @@ def activity_log():
     users = User.query.all()
     return render_template('admin/activity_log.html', logs=logs, users=users, 
                          current_user_filter=user_filter, current_action_filter=action_filter)
+
+
+# ========== Short Question Management ==========
+@admin_bp.route('/short-questions')
+@login_required
+def short_questions():
+    """List all short questions"""
+    page = request.args.get('page', 1, type=int)
+    subject_filter = request.args.get('subject', type=int)
+    chapter_filter = request.args.get('chapter', type=int)
+
+    query = ShortQuestion.query.filter_by(is_active=True)
+
+    if subject_filter:
+        query = query.filter_by(subject_id=subject_filter)
+    if chapter_filter:
+        query = query.filter_by(chapter_id=chapter_filter)
+
+    questions = query.order_by(
+        ShortQuestion.created_at.desc()
+    ).paginate(page=page, per_page=20)
+
+    subjects = Subject.query.filter_by(
+        is_active=True
+    ).order_by(Subject.order).all()
+
+    return render_template(
+        'admin/short_questions.html',
+        questions=questions,
+        subjects=subjects,
+        current_subject=subject_filter,
+        current_chapter=chapter_filter,
+    )
+
+
+@admin_bp.route('/short-questions/new', methods=['GET', 'POST'])
+@login_required
+def add_short_question():
+    """Add new short question"""
+    if request.method == 'POST':
+        subject_id = request.form.get('subject_id', type=int)
+        chapter_id = request.form.get('chapter_id', type=int) or None
+        question_text = request.form.get('question_text', '').strip()
+        marks = request.form.get('marks', 2, type=int)
+
+        if not subject_id or not question_text:
+            flash('বিষয় এবং প্রশ্ন আবশ্যক।', 'error')
+            subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+            return render_template(
+                'admin/short_question_form.html', question=None, subjects=subjects
+            )
+
+        sq = ShortQuestion(
+            subject_id=subject_id,
+            chapter_id=chapter_id,
+            question_text=question_text,
+            marks=marks,
+            created_by=current_user.id,
+        )
+        db.session.add(sq)
+        db.session.flush()
+        log_activity(
+            'create', 'short_question',
+            entity_id=sq.id,
+            entity_name=question_text[:50],
+        )
+        db.session.commit()
+        flash('সংক্ষিপ্ত প্রশ্ন সফলভাবে যোগ করা হয়েছে!', 'success')
+        return redirect(url_for('admin.short_questions'))
+
+    subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+    return render_template(
+        'admin/short_question_form.html', question=None, subjects=subjects
+    )
+
+
+@admin_bp.route('/short-questions/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_short_question(id):
+    """Edit short question"""
+    sq = ShortQuestion.query.get_or_404(id)
+
+    if request.method == 'POST':
+        sq.subject_id = request.form.get('subject_id', type=int)
+        sq.chapter_id = request.form.get('chapter_id', type=int) or None
+        sq.question_text = request.form.get('question_text', '').strip()
+        sq.marks = request.form.get('marks', 2, type=int)
+
+        log_activity(
+            'edit', 'short_question',
+            entity_id=sq.id,
+            entity_name=sq.question_text[:50],
+        )
+        db.session.commit()
+        flash('সংক্ষিপ্ত প্রশ্ন আপডেট করা হয়েছে!', 'success')
+        return redirect(url_for('admin.short_questions'))
+
+    subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+    return render_template(
+        'admin/short_question_form.html', question=sq, subjects=subjects
+    )
+
+
+@admin_bp.route('/short-questions/<int:id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_short_question(id):
+    """Soft-delete short question — admin only"""
+    sq = ShortQuestion.query.get_or_404(id)
+    sq.is_active = False
+    log_activity(
+        'delete', 'short_question',
+        entity_id=sq.id,
+        entity_name=sq.question_text[:50],
+    )
+    db.session.commit()
+    flash('সংক্ষিপ্ত প্রশ্ন মুছে ফেলা হয়েছে!', 'success')
+    return redirect(url_for('admin.short_questions'))
+
+
+# ========== Creative Question Management ==========
+@admin_bp.route('/cq-questions')
+@login_required
+def cq_questions():
+    """List all creative questions"""
+    page = request.args.get('page', 1, type=int)
+    subject_filter = request.args.get('subject', type=int)
+    chapter_filter = request.args.get('chapter', type=int)
+
+    query = CQQuestion.query.filter_by(is_active=True)
+
+    if subject_filter:
+        query = query.filter_by(subject_id=subject_filter)
+    if chapter_filter:
+        query = query.filter_by(chapter_id=chapter_filter)
+
+    questions = query.order_by(
+        CQQuestion.created_at.desc()
+    ).paginate(page=page, per_page=20)
+
+    subjects = Subject.query.filter_by(
+        is_active=True
+    ).order_by(Subject.order).all()
+
+    return render_template(
+        'admin/cq_questions.html',
+        questions=questions,
+        subjects=subjects,
+        current_subject=subject_filter,
+        current_chapter=chapter_filter,
+    )
+
+
+@admin_bp.route('/cq-questions/new', methods=['GET', 'POST'])
+@login_required
+def add_cq_question():
+    """Add new creative question"""
+    if request.method == 'POST':
+        subject_id = request.form.get('subject_id', type=int)
+        chapter_id = request.form.get('chapter_id', type=int) or None
+        stem = request.form.get('stem', '').strip()
+
+        if not subject_id or not stem:
+            flash('বিষয় এবং উদ্দীপক আবশ্যক।', 'error')
+            subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+            return render_template(
+                'admin/cq_question_form.html', question=None, subjects=subjects
+            )
+
+        cq = CQQuestion(
+            subject_id=subject_id,
+            chapter_id=chapter_id,
+            stem=stem,
+            part_ka=request.form.get('part_ka', '').strip() or None,
+            part_kha=request.form.get('part_kha', '').strip() or None,
+            part_ga=request.form.get('part_ga', '').strip() or None,
+            part_gha=request.form.get('part_gha', '').strip() or None,
+            marks_ka=request.form.get('marks_ka', 1, type=int),
+            marks_kha=request.form.get('marks_kha', 2, type=int),
+            marks_ga=request.form.get('marks_ga', 3, type=int),
+            marks_gha=request.form.get('marks_gha', 4, type=int),
+            created_by=current_user.id,
+        )
+        db.session.add(cq)
+        db.session.flush()
+        log_activity(
+            'create', 'cq_question',
+            entity_id=cq.id,
+            entity_name=stem[:50],
+        )
+        db.session.commit()
+        flash('সৃজনশীল প্রশ্ন সফলভাবে যোগ করা হয়েছে!', 'success')
+        return redirect(url_for('admin.cq_questions'))
+
+    subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+    return render_template(
+        'admin/cq_question_form.html', question=None, subjects=subjects
+    )
+
+
+@admin_bp.route('/cq-questions/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_cq_question(id):
+    """Edit creative question"""
+    cq = CQQuestion.query.get_or_404(id)
+
+    if request.method == 'POST':
+        cq.subject_id = request.form.get('subject_id', type=int)
+        cq.chapter_id = request.form.get('chapter_id', type=int) or None
+        cq.stem = request.form.get('stem', '').strip()
+        cq.part_ka = request.form.get('part_ka', '').strip() or None
+        cq.part_kha = request.form.get('part_kha', '').strip() or None
+        cq.part_ga = request.form.get('part_ga', '').strip() or None
+        cq.part_gha = request.form.get('part_gha', '').strip() or None
+        cq.marks_ka = request.form.get('marks_ka', 1, type=int)
+        cq.marks_kha = request.form.get('marks_kha', 2, type=int)
+        cq.marks_ga = request.form.get('marks_ga', 3, type=int)
+        cq.marks_gha = request.form.get('marks_gha', 4, type=int)
+
+        log_activity(
+            'edit', 'cq_question',
+            entity_id=cq.id,
+            entity_name=cq.stem[:50],
+        )
+        db.session.commit()
+        flash('সৃজনশীল প্রশ্ন আপডেট করা হয়েছে!', 'success')
+        return redirect(url_for('admin.cq_questions'))
+
+    subjects = Subject.query.filter_by(is_active=True).order_by(Subject.order).all()
+    return render_template(
+        'admin/cq_question_form.html', question=cq, subjects=subjects
+    )
+
+
+@admin_bp.route('/cq-questions/<int:id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_cq_question(id):
+    """Soft-delete creative question — admin only"""
+    cq = CQQuestion.query.get_or_404(id)
+    cq.is_active = False
+    log_activity(
+        'delete', 'cq_question',
+        entity_id=cq.id,
+        entity_name=cq.stem[:50],
+    )
+    db.session.commit()
+    flash('সৃজনশীল প্রশ্ন মুছে ফেলা হয়েছে!', 'success')
+    return redirect(url_for('admin.cq_questions'))
