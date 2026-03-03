@@ -2,6 +2,8 @@
 Prosno.io - Question Paper Generator
 Flask Application Factory
 """
+import os
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -24,9 +26,11 @@ def create_app(config_class=Config):
     """Application factory pattern"""
     app = Flask(__name__)
     app.config.from_object(config_class)
+    skip_startup_tasks = app.config.get(
+        'SKIP_STARTUP_TASKS', app.config.get('TESTING', False)
+    )
 
     # Warn if SECRET_KEY not set from environment in production
-    import os
     import warnings
     if not app.debug and not os.environ.get('SECRET_KEY'):
         warnings.warn(
@@ -108,40 +112,41 @@ def create_app(config_class=Config):
     app.register_blueprint(auth_bp)
     app.register_blueprint(quiz_bp)
 
-    # Ensure output folder exists
-    import os
-    output_folder = app.config.get('OUTPUT_FOLDER', 'output')
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-        print(f"Created output folder: {output_folder}")
+    # Ensure output folder exists (skip during tests)
+    if not skip_startup_tasks:
+        output_folder = app.config.get('OUTPUT_FOLDER', 'output')
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+            print(f"Created output folder: {output_folder}")
 
     # Create database tables and apply migrations for new columns
-    with app.app_context():
-        db.create_all()
-        
-        # Add missing columns to existing tables (migration for existing databases)
-        _apply_schema_migrations(db)
-        
-        # Auto-seed if no classes exist
-        from app.models import Class, User, ROLE_ADMIN
-        if Class.query.count() == 0:
-            print("No classes found. Auto-seeding NCTB curriculum...")
-            _seed_nctb_data()
-        # Auto-create admin user if none exists
-        if User.query.filter_by(is_admin=True).count() == 0:
-            print("No admin user found. Creating default admin...")
-            _create_admin_user()
-        
-        # Auto-upgrade existing admin users to have 'admin' role (migration fix)
-        try:
-            admin_users = User.query.filter_by(is_admin=True).all()
-            for user in admin_users:
-                if user.role != ROLE_ADMIN:
-                    user.role = ROLE_ADMIN
-                    print(f"Upgraded user '{user.username}' to admin role")
-            db.session.commit()
-        except Exception as e:
-            print(f"Admin role upgrade skipped: {e}")
+    if not skip_startup_tasks:
+        with app.app_context():
+            db.create_all()
+
+            # Add missing columns to existing tables (migration for existing databases)
+            _apply_schema_migrations(db)
+
+            # Auto-seed if no classes exist
+            from app.models import Class, User, ROLE_ADMIN
+            if Class.query.count() == 0:
+                print("No classes found. Auto-seeding NCTB curriculum...")
+                _seed_nctb_data()
+            # Auto-create admin user if none exists
+            if User.query.filter_by(is_admin=True).count() == 0:
+                print("No admin user found. Creating default admin...")
+                _create_admin_user()
+
+            # Auto-upgrade existing admin users to have 'admin' role (migration fix)
+            try:
+                admin_users = User.query.filter_by(is_admin=True).all()
+                for user in admin_users:
+                    if user.role != ROLE_ADMIN:
+                        user.role = ROLE_ADMIN
+                        print(f"Upgraded user '{user.username}' to admin role")
+                db.session.commit()
+            except Exception as e:
+                print(f"Admin role upgrade skipped: {e}")
 
     return app
 
@@ -324,4 +329,7 @@ def _apply_schema_migrations(db):
 
 
 # Create app instance for gunicorn (allows `gunicorn app:app`)
-app = create_app()
+if os.environ.get('PROSNO_SKIP_GLOBAL_APP') == '1':
+    app = None
+else:
+    app = create_app()

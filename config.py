@@ -88,6 +88,9 @@ class TestingConfig(Config):
     """Testing configuration"""
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    WTF_CSRF_ENABLED = False
+    RATELIMIT_ENABLED = False
+    SKIP_STARTUP_TASKS = True
 
 
 config = {
