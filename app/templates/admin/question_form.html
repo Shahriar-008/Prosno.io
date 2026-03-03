@@ -5,7 +5,7 @@
 {% block content %}
 <div class="page-header">
     <h1>{{ 'Edit' if question else 'Add New' }} Question</h1>
-    <p>{{ 'Update question details' if question else 'Create a new MCQ question' }}</p>
+    <p>{{ 'Update question details' if question else 'Create a new question' }}</p>
 </div>
 
 <div class="card">
@@ -32,10 +32,16 @@
                     <label for="question_type" class="form-label">Question Type</label>
                     <select class="form-select" id="question_type" name="question_type">
                         <option value="simple" {{ 'selected' if not question or question.question_type == 'simple' else '' }}>
-                            Simple
+                            Simple (MCQ)
                         </option>
                         <option value="complex" {{ 'selected' if question and question.question_type == 'complex' else '' }}>
-                            Complex
+                            Complex (MCQ)
+                        </option>
+                        <option value="cq" {{ 'selected' if question and question.question_type == 'cq' else '' }}>
+                            CQ (সৃজনশীল)
+                        </option>
+                        <option value="sq" {{ 'selected' if question and question.question_type == 'sq' else '' }}>
+                            SQ (সংক্ষিপ্ত)
                         </option>
                     </select>
                 </div>
@@ -50,13 +56,13 @@
                     </select>
                 </div>
                 
-                <!-- Question Text -->
+                <!-- Question Text (label changes per type) -->
                 <div class="col-12">
-                    <label for="question_text" class="form-label">Question Text</label>
+                    <label for="question_text" class="form-label" id="question_text_label">Question Text</label>
                     <textarea class="form-control" id="question_text" name="question_text" rows="3" required>{{ question.question_text if question else '' }}</textarea>
                 </div>
                 
-                <!-- Complex Question Fields -->
+                <!-- ── Complex Question Fields ──────────────────────────────── -->
                 <div class="col-12 complex-fields" style="display: {{ 'block' if question and question.question_type == 'complex' else 'none' }};">
                     <div class="card bg-light">
                         <div class="card-body">
@@ -95,49 +101,111 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Answer Options -->
-                <div class="col-12">
-                    <label class="form-label">Answer Options</label>
+
+                <!-- ── CQ (Creative Question / সৃজনশীল প্রশ্ন) Fields ─────── -->
+                <div class="col-12 cq-fields" style="display: {{ 'block' if question and question.question_type == 'cq' else 'none' }};">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6>CQ Sub-Questions (সৃজনশীল উপ-প্রশ্ন)</h6>
+                            <small class="text-muted d-block mb-2">Add sub-questions with marks (ক=১, খ=২, গ=৩, ঘ=৪)</small>
+                            <div id="cqQuestionsContainer">
+                                {% if question and question.cq_questions %}
+                                    {% for sub in question.cq_questions %}
+                                    <div class="row g-2 mb-2 cq-sub-row">
+                                        <div class="col-9">
+                                            <input type="text" class="form-control" name="cq_sub_text"
+                                                   value="{{ sub.text if sub is mapping else sub }}"
+                                                   placeholder="Sub-question text">
+                                        </div>
+                                        <div class="col-2">
+                                            <input type="number" class="form-control" name="cq_sub_marks"
+                                                   value="{{ sub.marks if sub is mapping else '' }}"
+                                                   placeholder="Marks" min="1" max="10">
+                                        </div>
+                                        <div class="col-1">
+                                            <button type="button" class="btn btn-outline-danger"
+                                                    onclick="this.closest('.cq-sub-row').remove()">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="row g-2 mb-2 cq-sub-row">
+                                        <div class="col-9"><input type="text" class="form-control" name="cq_sub_text" placeholder="ক) Knowledge question"></div>
+                                        <div class="col-2"><input type="number" class="form-control" name="cq_sub_marks" value="1" placeholder="Marks" min="1" max="10"></div>
+                                        <div class="col-1"><button type="button" class="btn btn-outline-danger" onclick="this.closest('.cq-sub-row').remove()"><i class="bi bi-x"></i></button></div>
+                                    </div>
+                                    <div class="row g-2 mb-2 cq-sub-row">
+                                        <div class="col-9"><input type="text" class="form-control" name="cq_sub_text" placeholder="খ) Comprehension question"></div>
+                                        <div class="col-2"><input type="number" class="form-control" name="cq_sub_marks" value="2" placeholder="Marks" min="1" max="10"></div>
+                                        <div class="col-1"><button type="button" class="btn btn-outline-danger" onclick="this.closest('.cq-sub-row').remove()"><i class="bi bi-x"></i></button></div>
+                                    </div>
+                                    <div class="row g-2 mb-2 cq-sub-row">
+                                        <div class="col-9"><input type="text" class="form-control" name="cq_sub_text" placeholder="গ) Application question"></div>
+                                        <div class="col-2"><input type="number" class="form-control" name="cq_sub_marks" value="3" placeholder="Marks" min="1" max="10"></div>
+                                        <div class="col-1"><button type="button" class="btn btn-outline-danger" onclick="this.closest('.cq-sub-row').remove()"><i class="bi bi-x"></i></button></div>
+                                    </div>
+                                    <div class="row g-2 mb-2 cq-sub-row">
+                                        <div class="col-9"><input type="text" class="form-control" name="cq_sub_text" placeholder="ঘ) Higher order question"></div>
+                                        <div class="col-2"><input type="number" class="form-control" name="cq_sub_marks" value="4" placeholder="Marks" min="1" max="10"></div>
+                                        <div class="col-1"><button type="button" class="btn btn-outline-danger" onclick="this.closest('.cq-sub-row').remove()"><i class="bi bi-x"></i></button></div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addCQSubQuestion()">
+                                <i class="bi bi-plus"></i> Add Sub-Question
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Answer Options (MCQ / SQ) ──────────────────────────── -->
+                <div class="col-12 mcq-fields" style="display: {{ 'none' if question and question.question_type == 'cq' else 'block' }};">
+                    <label class="form-label" id="options_label">Answer Options</label>
                     <div class="row g-2">
                         <div class="col-md-6">
                             <div class="input-group">
                                 <span class="input-group-text">ক)</span>
-                                <input type="text" class="form-control" name="option_1" required
+                                <input type="text" class="form-control option-input" name="option_1"
+                                       aria-label="Option ক"
                                        value="{{ question.answer_options[0] if question and question.answer_options|length > 0 else '' }}">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="input-group">
                                 <span class="input-group-text">খ)</span>
-                                <input type="text" class="form-control" name="option_2" required
+                                <input type="text" class="form-control option-input" name="option_2"
+                                       aria-label="Option খ"
                                        value="{{ question.answer_options[1] if question and question.answer_options|length > 1 else '' }}">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="input-group">
                                 <span class="input-group-text">গ)</span>
-                                <input type="text" class="form-control" name="option_3" required
+                                <input type="text" class="form-control option-input" name="option_3"
+                                       aria-label="Option গ"
                                        value="{{ question.answer_options[2] if question and question.answer_options|length > 2 else '' }}">
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="input-group">
                                 <span class="input-group-text">ঘ)</span>
-                                <input type="text" class="form-control" name="option_4" required
+                                <input type="text" class="form-control option-input" name="option_4"
+                                       aria-label="Option ঘ"
                                        value="{{ question.answer_options[3] if question and question.answer_options|length > 3 else '' }}">
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Correct Answer -->
+                <!-- Correct Answer / Model Answer -->
                 <div class="col-md-6">
-                    <label for="correct_answer" class="form-label">Correct Answer</label>
-                    <input type="text" class="form-control" id="correct_answer" name="correct_answer" required
+                    <label for="correct_answer" class="form-label" id="correct_answer_label">Correct Answer</label>
+                    <input type="text" class="form-control" id="correct_answer" name="correct_answer"
                            value="{{ question.correct_answer if question else '' }}"
                            placeholder="Enter the exact correct answer text">
-                    <small class="text-muted">Must match exactly one of the options above</small>
+                    <small class="text-muted" id="correct_answer_hint">Must match exactly one of the options above</small>
                 </div>
                 
                 {% if question %}
@@ -166,13 +234,49 @@
 
 {% block extra_js %}
 <script>
-// Toggle complex fields
-document.getElementById('question_type').addEventListener('change', function() {
-    const complexFields = document.querySelector('.complex-fields');
-    complexFields.style.display = this.value === 'complex' ? 'block' : 'none';
-});
+const typeSelect = document.getElementById('question_type');
 
-// Add sub-option input
+function applyTypeUI(type) {
+    document.querySelector('.complex-fields').style.display = (type === 'complex') ? 'block' : 'none';
+    document.querySelector('.cq-fields').style.display = (type === 'cq') ? 'block' : 'none';
+    // Hide MCQ option inputs for CQ type (not needed); show for all others
+    document.querySelector('.mcq-fields').style.display = (type === 'cq') ? 'none' : 'block';
+
+    // Remove required from option inputs for CQ/SQ
+    const optionInputs = document.querySelectorAll('.option-input');
+    const isMCQ = (type === 'simple' || type === 'complex');
+    optionInputs.forEach(inp => {
+        if (isMCQ) { inp.setAttribute('required', ''); }
+        else { inp.removeAttribute('required'); }
+    });
+
+    // Update labels & hints
+    const qLabel = document.getElementById('question_text_label');
+    const ansLabel = document.getElementById('correct_answer_label');
+    const ansHint = document.getElementById('correct_answer_hint');
+    if (type === 'cq') {
+        qLabel.textContent = 'Stimulus (উদ্দীপক)';
+        ansLabel.textContent = 'Notes (optional)';
+        ansHint.textContent = 'Optional notes for teacher copy';
+        document.getElementById('correct_answer').removeAttribute('required');
+    } else if (type === 'sq') {
+        qLabel.textContent = 'Question Text';
+        ansLabel.textContent = 'Model Answer (উত্তর)';
+        ansHint.textContent = 'Short model answer shown on teacher copy';
+        document.getElementById('correct_answer').removeAttribute('required');
+    } else {
+        qLabel.textContent = 'Question Text';
+        ansLabel.textContent = 'Correct Answer';
+        ansHint.textContent = 'Must match exactly one of the options above';
+        document.getElementById('correct_answer').setAttribute('required', '');
+    }
+}
+
+typeSelect.addEventListener('change', function() { applyTypeUI(this.value); });
+// Apply on page load (handles edit mode)
+applyTypeUI(typeSelect.value);
+
+// Add sub-option input (Complex MCQ)
 function addSubOption() {
     const container = document.getElementById('subOptionsContainer');
     const div = document.createElement('div');
@@ -182,6 +286,19 @@ function addSubOption() {
         <button type="button" class="btn btn-outline-danger" onclick="this.parentElement.remove()">
             <i class="bi bi-x"></i>
         </button>
+    `;
+    container.appendChild(div);
+}
+
+// Add CQ sub-question row
+function addCQSubQuestion() {
+    const container = document.getElementById('cqQuestionsContainer');
+    const div = document.createElement('div');
+    div.className = 'row g-2 mb-2 cq-sub-row';
+    div.innerHTML = `
+        <div class="col-9"><input type="text" class="form-control" name="cq_sub_text" placeholder="Sub-question text"></div>
+        <div class="col-2"><input type="number" class="form-control" name="cq_sub_marks" placeholder="Marks" min="1" max="10"></div>
+        <div class="col-1"><button type="button" class="btn btn-outline-danger" onclick="this.closest('.cq-sub-row').remove()"><i class="bi bi-x"></i></button></div>
     `;
     container.appendChild(div);
 }

@@ -38,6 +38,25 @@ def log_activity(action, entity_type, entity_id=None, entity_name=None, details=
     db.session.add(log)
 
 
+def _parse_cq_sub_questions(form) -> list:
+    """Parse CQ sub-question fields from a form into a list of dicts.
+
+    Returns:
+        List of {'text': str, 'marks': int} for non-empty sub-questions.
+    """
+    sub_texts = form.getlist('cq_sub_text')
+    sub_marks = form.getlist('cq_sub_marks')
+    result = []
+    for txt, mks in zip(sub_texts, sub_marks):
+        if txt.strip():
+            try:
+                marks_val = int(mks) if mks else 0
+            except ValueError:
+                marks_val = 0
+            result.append({'text': txt.strip(), 'marks': marks_val})
+    return result
+
+
 @admin_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit("3 per minute", methods=["POST"])
 def login():
@@ -356,23 +375,34 @@ def add_question():
         question_type = request.form.get('question_type', 'simple')
         chapter_id = request.form.get('chapter_id')
         difficulty = request.form.get('difficulty', 'medium')
-        
-        # Get answer options
+
+        # Get answer options (MCQ types)
         options = [
-            request.form.get('option_1'),
-            request.form.get('option_2'),
-            request.form.get('option_3'),
-            request.form.get('option_4')
+            request.form.get('option_1', ''),
+            request.form.get('option_2', ''),
+            request.form.get('option_3', ''),
+            request.form.get('option_4', '')
         ]
-        correct_answer = request.form.get('correct_answer')
-        
+        correct_answer = request.form.get('correct_answer', '')
+
         # Handle complex questions
         sub_options = None
         final_prompt = None
         if question_type == 'complex':
             sub_options = request.form.getlist('sub_options')
             final_prompt = request.form.get('final_prompt')
-        
+
+        # Handle CQ (Creative Question)
+        cq_questions = None
+        if question_type == 'cq':
+            cq_questions = _parse_cq_sub_questions(request.form)
+            # CQ questions don't use MCQ options
+            options = []
+
+        # SQ uses correct_answer as model answer; no MCQ options needed
+        if question_type == 'sq':
+            options = []
+
         new_question = Question(
             question_text=question_text,
             question_type=question_type,
@@ -381,6 +411,7 @@ def add_question():
             correct_answer=correct_answer,
             sub_options=sub_options,
             final_prompt=final_prompt,
+            cq_questions=cq_questions,
             difficulty=difficulty,
             created_by=current_user.id
         )
@@ -406,17 +437,7 @@ def edit_question(id):
         question.question_type = request.form.get('question_type', 'simple')
         question.chapter_id = int(request.form.get('chapter_id'))
         question.difficulty = request.form.get('difficulty', 'medium')
-        
-        # Get answer options
-        options = [
-            request.form.get('option_1'),
-            request.form.get('option_2'),
-            request.form.get('option_3'),
-            request.form.get('option_4')
-        ]
-        question.answer_options = options
-        question.correct_answer = request.form.get('correct_answer')
-        
+
         # Handle complex questions
         if question.question_type == 'complex':
             question.sub_options = request.form.getlist('sub_options')
@@ -424,7 +445,26 @@ def edit_question(id):
         else:
             question.sub_options = None
             question.final_prompt = None
-        
+
+        # Handle CQ (Creative Question)
+        if question.question_type == 'cq':
+            question.cq_questions = _parse_cq_sub_questions(request.form)
+            question.answer_options = []
+        else:
+            question.cq_questions = None
+
+        # Get answer options (MCQ types) / empty list for CQ/SQ
+        if question.question_type in ('simple', 'complex'):
+            question.answer_options = [
+                request.form.get('option_1', ''),
+                request.form.get('option_2', ''),
+                request.form.get('option_3', ''),
+                request.form.get('option_4', '')
+            ]
+        elif question.question_type == 'sq':
+            question.answer_options = []
+
+        question.correct_answer = request.form.get('correct_answer', '')
         question.is_active = request.form.get('is_active') == 'on'
         
         db.session.commit()

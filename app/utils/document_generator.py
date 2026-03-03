@@ -214,11 +214,80 @@ def add_question_to_document(document, q, show_answer=False):
     FILLED_CIRCLE = '●'
     # Bengali prefixes for answer options
     bengali_prefixes = ['ক)', 'খ)', 'গ)', 'ঘ)']
+    # Bengali prefixes for CQ sub-questions
+    cq_prefixes = ['ক)', 'খ)', 'গ)', 'ঘ)', 'ঙ)']
 
-    # A. Add Question Text (with math support)
-    p = document.add_paragraph()
+    q_type = q.get("type", "simple")
     question_text = q.get("question_text", "")
     q_id = str(q.get("id", ""))
+
+    # ── CQ (Creative Question / সৃজনশীল প্রশ্ন) ──────────────────────────────
+    if q_type == "cq":
+        # Stimulus label (উদ্দীপক)
+        p_label = document.add_paragraph()
+        run_label = p_label.add_run(f'{q_id}. উদ্দীপক:')
+        run_label.bold = True
+        run_label.font.size = Pt(8)
+        run_label.font.name = 'Nirmala UI'
+
+        # Stimulus text
+        p_stim = document.add_paragraph()
+        if _has_math_expression(question_text):
+            _add_math_text_to_paragraph(p_stim, question_text, font_size=Pt(8), font_name='Nirmala UI')
+        else:
+            run_stim = p_stim.add_run(question_text)
+            run_stim.font.size = Pt(8)
+            run_stim.font.name = 'Nirmala UI'
+
+        # Sub-questions
+        cq_subs = q.get("cq_questions") or []
+        for i, sub in enumerate(cq_subs):
+            prefix = cq_prefixes[i] if i < len(cq_prefixes) else f'{i + 1})'
+            sub_text = sub.get("text", "") if isinstance(sub, dict) else str(sub)
+            marks = sub.get("marks", "") if isinstance(sub, dict) else ""
+            marks_str = f"  [{to_bengali_numeral(marks)}]" if marks else ""
+
+            p_sub = document.add_paragraph()
+            if _has_math_expression(sub_text):
+                run_pfx = p_sub.add_run(f'{prefix} ')
+                run_pfx.bold = True
+                run_pfx.font.size = Pt(8)
+                run_pfx.font.name = 'Nirmala UI'
+                _add_math_text_to_paragraph(p_sub, sub_text + marks_str, font_size=Pt(8), font_name='Nirmala UI')
+            else:
+                run_sub = p_sub.add_run(f'{prefix} {sub_text}{marks_str}')
+                run_sub.font.size = Pt(8)
+                run_sub.font.name = 'Nirmala UI'
+        return
+
+    # ── SQ (Short Question / সংক্ষিপ্ত প্রশ্ন) ──────────────────────────────
+    if q_type == "sq":
+        p = document.add_paragraph()
+        if _has_math_expression(question_text):
+            run = p.add_run(f'{q_id}. ')
+            run.bold = True
+            run.font.size = Pt(8)
+            run.font.name = 'Nirmala UI'
+            _add_math_text_to_paragraph(p, question_text, font_size=Pt(8), font_name='Nirmala UI', bold=True)
+        else:
+            run = p.add_run(f'{q_id}. {question_text}')
+            run.bold = True
+            run.font.size = Pt(8)
+            run.font.name = 'Nirmala UI'
+
+        # On teacher copy, show the model answer
+        if show_answer:
+            model_answer = str(q.get("correct_answer", "")).strip()
+            if model_answer:
+                p_ans = document.add_paragraph()
+                run_ans = p_ans.add_run(f'উত্তর: {model_answer}')
+                run_ans.italic = True
+                run_ans.font.size = Pt(8)
+                run_ans.font.name = 'Nirmala UI'
+        return
+
+    # ── A. Add Question Text (with math support) ──────────────────────────────
+    p = document.add_paragraph()
     
     if _has_math_expression(question_text):
         # Use OMML for math expressions
@@ -234,7 +303,7 @@ def add_question_to_document(document, q, show_answer=False):
         run.font.name = 'Nirmala UI'
 
     # B. Handle 'complex' questions
-    if q.get("type") == "complex":
+    if q_type == "complex":
         for sub_opt in q.get("sub_options", []):
             p_sub = document.add_paragraph()
             p_sub.style = 'List Bullet'

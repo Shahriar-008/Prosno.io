@@ -138,13 +138,19 @@ class Question(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     question_text = db.Column(db.Text, nullable=False)
-    question_type = db.Column(db.String(20), default='simple')  # 'simple' or 'complex'
-    
-    # For complex questions
-    sub_options = db.Column(db.JSON)  # List of sub-options
+    question_type = db.Column(db.String(20), default='simple')  # 'simple', 'complex', 'cq', 'sq'
+
+    # For complex questions (MCQ variant with sub-statements)
+    sub_options = db.Column(db.JSON)  # List of sub-options (i, ii, iii …)
     final_prompt = db.Column(db.Text)  # Final question for complex type
-    
-    # Answer options and correct answer
+
+    # For CQ (Creative Question / সৃজনশীল প্রশ্ন)
+    # question_text holds the stimulus (উদ্দীপক)
+    # cq_questions holds sub-questions: [{"text": "...", "marks": 1}, ...]
+    cq_questions = db.Column(db.JSON)  # List of sub-questions with marks
+
+    # Answer options and correct answer (MCQ / SQ)
+    # For SQ, answer_options is [] and correct_answer holds the model answer
     answer_options = db.Column(db.JSON, nullable=False)  # List of 4 options
     correct_answer = db.Column(db.String(500), nullable=False)
     
@@ -160,17 +166,19 @@ class Question(db.Model):
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     
     def to_dict(self):
-        """Convert question to dictionary for JSON export"""
+        """Convert question to dictionary for JSON export."""
         data = {
             'id': str(self.id),
             'question_text': self.question_text,
             'type': self.question_type,
             'answer_options': self.answer_options,
-            'correct_answer': self.correct_answer
+            'correct_answer': self.correct_answer,
         }
         if self.question_type == 'complex':
             data['sub_options'] = self.sub_options or []
             data['final_prompt'] = self.final_prompt or ''
+        elif self.question_type == 'cq':
+            data['cq_questions'] = self.cq_questions or []
         return data
     
     def __repr__(self):

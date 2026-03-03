@@ -289,6 +289,8 @@ def _apply_schema_migrations(db):
             ('generated_papers', 'question_ids', "JSON"),
             ('generated_papers', 'custom_questions_json', "JSON"),
             ('generated_papers', 'custom_paper_config', "JSON"),
+            # Question migrations
+            ('questions', 'cq_questions', "JSON"),
         ]
         
         for table_name, column_name, column_def in migrations:

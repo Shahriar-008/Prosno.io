@@ -638,6 +638,11 @@ def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
     .opts td {{ vertical-align:top; padding:2px 6px 2px 0; }}
     .circle {{ display:inline-block; width:12px; height:12px; border-radius:50%; border:1px solid #000; margin-right:6px; vertical-align:middle; }}
     .circle.filled {{ background:#000; }}
+    /* CQ stimulus block */
+    .stimulus {{ border-left: 2px solid #555; padding-left: 6px; margin-bottom: 4px; font-style: italic; }}
+    .cq-sub {{ margin-bottom: 2px; }}
+    /* SQ answer (teacher copy) */
+    .sq-answer {{ margin-top: 2px; padding-left: 8px; color: #555; }}
     /* Stacked fraction styles */
     .frac {{
         display: inline-flex;
@@ -670,13 +675,45 @@ def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
     """
 
     # Build questions HTML
+    cq_prefixes_html = ['ক)', 'খ)', 'গ)', 'ঘ)', 'ঙ)']
     q_html = []
     for idx, q in enumerate(questions, 1):
         qid = esc(q.get('id', idx))
         qtext = format_math(q.get('question_text', ''))
+        q_type = q.get('type', 'simple')
+
+        # CQ (Creative Question / সৃজনশীল প্রশ্ন)
+        if q_type == 'cq':
+            q_block = [
+                f"<div class='question'>"
+                f"<div class='qtext'>{qid}. <strong>উদ্দীপক:</strong></div>"
+                f"<div class='stimulus'>{qtext}</div>"
+            ]
+            for i, sub in enumerate(q.get('cq_questions') or []):
+                prefix = cq_prefixes_html[i] if i < len(cq_prefixes_html) else f'{i + 1})'
+                sub_text = format_math(sub.get('text', '') if isinstance(sub, dict) else str(sub))
+                marks = sub.get('marks', '') if isinstance(sub, dict) else ''
+                marks_str = f'&nbsp;&nbsp;[{to_bengali_numeral(marks)}]' if marks else ''
+                q_block.append(f"<div class='cq-sub'><strong>{esc(prefix)}</strong> {sub_text}{marks_str}</div>")
+            q_block.append('</div>')
+            q_html.append(''.join(q_block))
+            continue
+
+        # SQ (Short Question / সংক্ষিপ্ত প্রশ্ন)
+        if q_type == 'sq':
+            q_block = [f"<div class='question'><div class='qtext'>{qid}. {qtext}</div>"]
+            if show_answer:
+                model_answer = str(q.get('correct_answer', '')).strip()
+                if model_answer:
+                    q_block.append(f"<div class='sq-answer'><em>উত্তর: {format_math(model_answer)}</em></div>")
+            q_block.append('</div>')
+            q_html.append(''.join(q_block))
+            continue
+
+        # Simple / Complex MCQ
         q_block = [f"<div class='question'><div class='qtext'>{qid}. {qtext}</div>"]
         # complex sub-options
-        if q.get('type') == 'complex':
+        if q_type == 'complex':
             for sub in q.get('sub_options', []):
                 q_block.append(f"<div class='sub'>{format_math(sub)}</div>")
             q_block.append(f"<div class='prompt'><strong>{esc(q.get('final_prompt','নিচের কোনটি সঠিক?'))}</strong></div>")
@@ -970,7 +1007,8 @@ def _build_question_flowable(text: str, style: ParagraphStyle, prefix: str = '')
 
 def _build_question_cell(q: dict, show_answer: bool, styles: dict) -> list:
     """Build flowables for one question (for use in a table cell).
-    
+
+    Handles simple/complex MCQ questions plus CQ and SQ question types.
     Uses inline math formatting to keep fractions and superscripts within
     continuous text flow without breaking lines.
     """
@@ -978,13 +1016,51 @@ def _build_question_cell(q: dict, show_answer: bool, styles: dict) -> list:
 
     q_text = q.get('question_text', '')
     q_id = _escape(str(q.get('id', '')))
+    q_type = q.get('type', 'simple')
 
+    # CQ (Creative Question / সৃজনশীল প্রশ্ন) ─────────────────────────────────
+    if q_type == 'cq':
+        # Stimulus label
+        flowables.append(Paragraph(
+            f'{q_id}. <b>উদ্দীপক:</b>',
+            styles['question'],
+        ))
+        # Stimulus text
+        flowables.append(_build_question_flowable(q_text, styles['sub_option']))
+        # Sub-questions
+        cq_prefixes = ['ক)', 'খ)', 'গ)', 'ঘ)', 'ঙ)']
+        for i, sub in enumerate(q.get('cq_questions') or []):
+            prefix = cq_prefixes[i] if i < len(cq_prefixes) else f'{i + 1})'
+            sub_text = sub.get('text', '') if isinstance(sub, dict) else str(sub)
+            marks = sub.get('marks', '') if isinstance(sub, dict) else ''
+            marks_str = f'  [{to_bengali_numeral(marks)}]' if marks else ''
+            formatted = _escape_and_format_math(sub_text)
+            flowables.append(Paragraph(
+                f'<b>{_escape(prefix)}</b> {formatted}{_escape(marks_str)}',
+                styles['sub_option'],
+            ))
+        return flowables
+
+    # SQ (Short Question / সংক্ষিপ্ত প্রশ্ন) ────────────────────────────────
+    if q_type == 'sq':
+        formatted_text = _escape_and_format_math(q_text)
+        flowables.append(Paragraph(f'{q_id}. {formatted_text}', styles['question']))
+        if show_answer:
+            model_answer = str(q.get('correct_answer', '')).strip()
+            if model_answer:
+                flowables.append(Paragraph(
+                    f'<i>উত্তর: {_escape(model_answer)}</i>',
+                    styles['sub_option'],
+                ))
+        return flowables
+
+    # Simple / Complex MCQ ───────────────────────────────────────────────────
     # Question text - use inline math formatting for proper text flow
     formatted_text = _escape_and_format_math(q_text)
     flowables.append(Paragraph(f'{q_id}. {formatted_text}', styles['question']))
 
     # Complex question sub-options
-    if q.get('type') == 'complex':
+    if q_type == 'complex':
         for sub_opt in q.get('sub_options', []):
             flowables.append(_build_question_flowable(sub_opt, styles['sub_option'], prefix='. '))
         prompt = q.get('final_prompt', 'নিচের কোনটি সঠিক?')
