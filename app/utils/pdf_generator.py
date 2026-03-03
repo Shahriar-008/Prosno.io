@@ -615,7 +615,11 @@ def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
     bengali_time = to_bengali_numeral(paper_config.get('time', len(questions)))
     bengali_marks = to_bengali_numeral(paper_config.get('marks', len(questions)))
 
-    # CSS: two columns, fractions, and simple table for options
+    # Use single-column layout for CQ/SQ papers; two-column for MCQ
+    has_extended_types = any(q.get('type') in _EXTENDED_QUESTION_TYPES for q in questions)
+    col_count = 1 if has_extended_types else 2
+
+    # CSS: two columns (MCQ) or single column (CQ/SQ), fractions, and simple table for options
     css = f"""
     @font-face {{
         font-family: 'NotoSansBengaliLocal';
@@ -631,13 +635,14 @@ def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
     .container {{ width: 100%; max-width: 800px; margin: 0 auto; }}
     .header {{ text-align:center; }}
     .meta {{ display:flex; justify-content:space-between; margin-bottom:8px; }}
-    .questions {{ column-count: 2; column-gap: 24px; }}
+    .questions {{ column-count: {col_count}; column-gap: 24px; }}
     .question {{ break-inside: avoid; margin-bottom:6px; }}
     .qtext {{ font-weight:700; margin-bottom:4px; }}
     .opts {{ width:100%; border-collapse:collapse; }}
     .opts td {{ vertical-align:top; padding:2px 6px 2px 0; }}
     .circle {{ display:inline-block; width:12px; height:12px; border-radius:50%; border:1px solid #000; margin-right:6px; vertical-align:middle; }}
     .circle.filled {{ background:#000; }}
+    .cq-sub {{ margin-left:12px; margin-bottom:2px; }}
     /* Stacked fraction styles */
     .frac {{
         display: inline-flex;
@@ -673,10 +678,38 @@ def _build_html(questions: list, paper_config: dict, show_answer: bool) -> str:
     q_html = []
     for idx, q in enumerate(questions, 1):
         qid = esc(q.get('id', idx))
+        q_type = q.get('type', 'simple')
         qtext = format_math(q.get('question_text', ''))
-        q_block = [f"<div class='question'><div class='qtext'>{qid}. {qtext}</div>"]
-        # complex sub-options
-        if q.get('type') == 'complex':
+
+        # For SQ, show marks in brackets after the question text
+        marks_suffix = ''
+        if q_type == 'sq' and q.get('marks'):
+            marks_suffix = f' [{to_bengali_numeral(q["marks"])}]'
+
+        q_block = [f"<div class='question'><div class='qtext'>{qid}. {qtext}{marks_suffix}</div>"]
+
+        # CQ (Creative Question / সৃজনশীল প্রশ্ন) — sub-questions with marks
+        if q_type == 'cq':
+            for sub_q in q.get('sub_questions', []):
+                label = esc(sub_q.get('label', ''))
+                sub_text = format_math(sub_q.get('text', ''))
+                sub_marks = sub_q.get('marks', '')
+                sub_marks_str = f' [{to_bengali_numeral(sub_marks)}]' if sub_marks else ''
+                q_block.append(
+                    f"<div class='cq-sub'>{label}) {sub_text}{sub_marks_str}</div>"
+                )
+            q_block.append('</div>')
+            q_html.append(''.join(q_block))
+            continue  # CQ has no OMR answer options
+
+        # SQ (Short Question / সংক্ষিপ্ত প্রশ্ন) — no answer options
+        if q_type == 'sq':
+            q_block.append('</div>')
+            q_html.append(''.join(q_block))
+            continue
+
+        # complex sub-options (MCQ)
+        if q_type == 'complex':
             for sub in q.get('sub_options', []):
                 q_block.append(f"<div class='sub'>{format_math(sub)}</div>")
             q_block.append(f"<div class='prompt'><strong>{esc(q.get('final_prompt','নিচের কোনটি সঠিক?'))}</strong></div>")
@@ -879,6 +912,14 @@ def _build_styles() -> dict:
             fontSize=_Q_FONT_SIZE,
             leading=_LEADING,
         ),
+        'cq_sub_question': ParagraphStyle(
+            'CQSubQuestion',
+            fontName=FONT_REGULAR,
+            fontSize=_Q_FONT_SIZE,
+            leading=_LEADING,
+            leftIndent=6,
+            spaceAfter=1,
+        ),
     }
     return _CACHED_STYLES
 
@@ -889,6 +930,9 @@ def _build_styles() -> dict:
 OMR_CIRCLE = '\u25CB'     # ◯
 FILLED_CIRCLE = '\u25CF'  # ●
 BENGALI_PREFIXES = ['ক)', 'খ)', 'গ)', 'ঘ)']
+
+# Question types that require single-column layout and no OMR answer options
+_EXTENDED_QUESTION_TYPES = frozenset(('cq', 'sq'))
 
 # Cached TableStyle objects (avoid recreating for every question)
 _OPT_TABLE_STYLE = TableStyle([
@@ -970,27 +1014,49 @@ def _build_question_flowable(text: str, style: ParagraphStyle, prefix: str = '')
 
 def _build_question_cell(q: dict, show_answer: bool, styles: dict) -> list:
     """Build flowables for one question (for use in a table cell).
-    
-    Uses inline math formatting to keep fractions and superscripts within
-    continuous text flow without breaking lines.
+
+    Supports 'simple', 'complex' (MCQ), 'cq' (Creative Question), and
+    'sq' (Short Question) types.
     """
     flowables = []
 
     q_text = q.get('question_text', '')
     q_id = _escape(str(q.get('id', '')))
+    q_type = q.get('type', 'simple')
 
-    # Question text - use inline math formatting for proper text flow
+    # For SQ, show marks in brackets after the question text
+    marks_suffix = ''
+    if q_type == 'sq' and q.get('marks'):
+        marks_suffix = f' [{to_bengali_numeral(q["marks"])}]'
+
+    # Question text
     formatted_text = _escape_and_format_math(q_text)
-    flowables.append(Paragraph(f'{q_id}. {formatted_text}', styles['question']))
+    flowables.append(Paragraph(f'{q_id}. {formatted_text}{marks_suffix}', styles['question']))
 
-    # Complex question sub-options
-    if q.get('type') == 'complex':
+    # Complex question sub-options (MCQ)
+    if q_type == 'complex':
         for sub_opt in q.get('sub_options', []):
             flowables.append(_build_question_flowable(sub_opt, styles['sub_option'], prefix='. '))
         prompt = q.get('final_prompt', 'নিচের কোনটি সঠিক?')
         flowables.append(_build_question_flowable(prompt, styles['prompt']))
 
-    # Answer options (2x2 table)
+    # CQ (Creative Question / সৃজনশীল প্রশ্ন) sub-questions
+    if q_type == 'cq':
+        for sub_q in q.get('sub_questions', []):
+            label = _escape(sub_q.get('label', ''))
+            sub_text = _escape_and_format_math(sub_q.get('text', ''))
+            sub_marks = sub_q.get('marks', '')
+            sub_marks_str = f' [{to_bengali_numeral(sub_marks)}]' if sub_marks else ''
+            flowables.append(
+                Paragraph(f'{label}) {sub_text}{sub_marks_str}', styles['cq_sub_question'])
+            )
+        return flowables  # CQ has no OMR answer options
+
+    # SQ (Short Question / সংক্ষিপ্ত প্রশ্ন) — no answer options
+    if q_type == 'sq':
+        return flowables
+
+    # Answer options (2x2 table) — MCQ types only
     options = q.get('answer_options', [])
     correct_ans = str(q.get('correct_answer', '')).strip()
 
@@ -1209,45 +1275,50 @@ def create_question_paper_pdf(
     story.append(header_table)
     story.append(Spacer(1, 8))
 
-    # --- Two-column questions table ---
-    # Split questions into left and right columns
-    n = len(questions)
-    mid = (n + 1) // 2  # Left column gets the extra if odd
-    left_questions = questions[:mid]
-    right_questions = questions[mid:]
+    # --- Questions section: two-column for MCQ, single-column for CQ/SQ ---
+    has_extended_types = any(q.get('type') in _EXTENDED_QUESTION_TYPES for q in questions)
 
-    # Build cell content for each column
-    left_cell_content = []
-    for q in left_questions:
-        left_cell_content.extend(_build_question_cell(q, show_answer, styles))
+    if has_extended_types:
+        # Single-column layout for CQ/SQ papers
+        for q in questions:
+            for flowable in _build_question_cell(q, show_answer, styles):
+                story.append(flowable)
+    else:
+        # Two-column questions table for MCQ papers
+        n = len(questions)
+        mid = (n + 1) // 2  # Left column gets the extra if odd
+        left_questions = questions[:mid]
+        right_questions = questions[mid:]
 
-    right_cell_content = []
-    for q in right_questions:
-        right_cell_content.extend(_build_question_cell(q, show_answer, styles))
+        # Build cell content for each column
+        left_cell_content = []
+        for q in left_questions:
+            left_cell_content.extend(_build_question_cell(q, show_answer, styles))
 
-    # Create two-column table
-    # Each cell contains a nested table with the questions
-    def wrap_in_table(flowables):
-        """Wrap flowables in a single-cell table for proper rendering."""
-        if not flowables:
-            return Paragraph('', styles['option_normal'])
-        rows = [[f] for f in flowables]
-        t = Table(rows, colWidths=[_COL_WIDTH])
-        t.setStyle(_CELL_TABLE_STYLE)
-        return t
+        right_cell_content = []
+        for q in right_questions:
+            right_cell_content.extend(_build_question_cell(q, show_answer, styles))
 
-    left_table = wrap_in_table(left_cell_content)
-    right_table = wrap_in_table(right_cell_content)
+        # Each cell contains a nested table with the questions
+        def wrap_in_table(flowables):
+            """Wrap flowables in a single-cell table for proper rendering."""
+            if not flowables:
+                return Paragraph('', styles['option_normal'])
+            rows = [[f] for f in flowables]
+            t = Table(rows, colWidths=[_COL_WIDTH])
+            t.setStyle(_CELL_TABLE_STYLE)
+            return t
 
-    # Main two-column table
-    main_table = Table(
-        [[left_table, right_table]],
-        colWidths=[_COL_WIDTH, _COL_WIDTH],
-        hAlign='LEFT',
-    )
-    main_table.setStyle(_MAIN_TABLE_STYLE)
+        left_table = wrap_in_table(left_cell_content)
+        right_table = wrap_in_table(right_cell_content)
 
-    story.append(main_table)
+        main_table = Table(
+            [[left_table, right_table]],
+            colWidths=[_COL_WIDTH, _COL_WIDTH],
+            hAlign='LEFT',
+        )
+        main_table.setStyle(_MAIN_TABLE_STYLE)
+        story.append(main_table)
 
     # Build PDF
     doc.build(story)

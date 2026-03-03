@@ -207,34 +207,54 @@ def to_bengali_numeral(num_str):
     return bengali_str
 
 
+# Question types that require single-column layout and have no OMR answer options
+_EXTENDED_QUESTION_TYPES = frozenset(('cq', 'sq'))
+
+
 def add_question_to_document(document, q, show_answer=False):
-    """Adds a single formatted question to the document object with math expression support."""
+    """Adds a single formatted question to the document object with math expression support.
     
+    Supports three question types:
+    - 'simple'/'complex': MCQ with answer options
+    - 'cq': Creative Question (সৃজনশীল প্রশ্ন) with sub-questions ক, খ, গ, ঘ
+    - 'sq': Short Question (সংক্ষিপ্ত প্রশ্ন) with optional marks
+    """
     OMR_CIRCLE = '◯'
     FILLED_CIRCLE = '●'
     # Bengali prefixes for answer options
     bengali_prefixes = ['ক)', 'খ)', 'গ)', 'ঘ)']
 
-    # A. Add Question Text (with math support)
-    p = document.add_paragraph()
     question_text = q.get("question_text", "")
     q_id = str(q.get("id", ""))
-    
+    q_type = q.get("type", "simple")
+
+    # For SQ, show marks in brackets after the question text
+    marks_suffix = ""
+    if q_type == "sq" and q.get("marks"):
+        marks_suffix = f' [{to_bengali_numeral(q["marks"])}]'
+
+    # A. Add Question Text (with math support)
+    p = document.add_paragraph()
     if _has_math_expression(question_text):
-        # Use OMML for math expressions
+        # Use OMML for math expressions; add marks suffix as plain text run
         run = p.add_run(f'{q_id}. ')
         run.bold = True
         run.font.size = Pt(8)
         run.font.name = 'Nirmala UI'
         _add_math_text_to_paragraph(p, question_text, font_size=Pt(8), font_name='Nirmala UI', bold=True)
+        if marks_suffix:
+            run_marks = p.add_run(marks_suffix)
+            run_marks.bold = True
+            run_marks.font.size = Pt(8)
+            run_marks.font.name = 'Nirmala UI'
     else:
-        run = p.add_run(f'{q_id}. {question_text}')
+        run = p.add_run(f'{q_id}. {question_text}{marks_suffix}')
         run.bold = True
         run.font.size = Pt(8)
         run.font.name = 'Nirmala UI'
 
-    # B. Handle 'complex' questions
-    if q.get("type") == "complex":
+    # B. Handle 'complex' questions (MCQ sub-options)
+    if q_type == "complex":
         for sub_opt in q.get("sub_options", []):
             p_sub = document.add_paragraph()
             p_sub.style = 'List Bullet'
@@ -255,7 +275,36 @@ def add_question_to_document(document, q, show_answer=False):
             run_prompt.font.size = Pt(8)
             run_prompt.font.name = 'Nirmala UI'
 
-    # C. Add Answer Options (in a 2x2 table) with math support
+    # B2. Handle 'cq' (Creative Question / সৃজনশীল প্রশ্ন) — sub-questions with marks
+    if q_type == "cq":
+        for sub_q in q.get("sub_questions", []):
+            label = sub_q.get("label", "")
+            sub_text = sub_q.get("text", "")
+            sub_marks = sub_q.get("marks", "")
+            sub_marks_str = f' [{to_bengali_numeral(sub_marks)}]' if sub_marks else ""
+            p_sub = document.add_paragraph()
+            if _has_math_expression(sub_text):
+                run = p_sub.add_run(f'{label}) ')
+                run.font.size = Pt(8)
+                run.font.name = 'Nirmala UI'
+                _add_math_text_to_paragraph(
+                    p_sub, sub_text, font_size=Pt(8), font_name='Nirmala UI'
+                )
+                if sub_marks_str:
+                    run_marks = p_sub.add_run(sub_marks_str)
+                    run_marks.font.size = Pt(8)
+                    run_marks.font.name = 'Nirmala UI'
+            else:
+                run = p_sub.add_run(f'{label}) {sub_text}{sub_marks_str}')
+                run.font.size = Pt(8)
+                run.font.name = 'Nirmala UI'
+        return  # CQ has no OMR answer options
+
+    # B3. Handle 'sq' (Short Question / সংক্ষিপ্ত প্রশ্ন) — no answer options
+    if q_type == "sq":
+        return  # Marks already shown in question text above; no options needed
+
+    # C. Add Answer Options (in a 2x2 table) with math support — MCQ types only
     options = q.get("answer_options", [])
     correct_ans = str(q.get("correct_answer", "")).strip()
 
@@ -388,19 +437,21 @@ def create_question_paper(questions, output_path, paper_config, show_answer=Fals
     header_p.add_run('\t')
     header_p.add_run(f'পূর্ণমান— {bengali_marks}')
     
-    # Add NEW Section and set 2-Column Layout
-    new_section = document.add_section(WD_SECTION.CONTINUOUS)
-    sectPr = new_section._sectPr
-    
-    cols = sectPr.find(qn('w:cols'))
-    if cols is None:
-        cols = OxmlElement('w:cols')
-        sectPr.insert_element_before(cols, 'w:docGrid')
-    
-    cols.set(qn('w:num'), '2')
-    cols.set(qn('w:space'), '720')
+    # Use 2-column layout for pure MCQ papers; single-column for CQ/SQ papers
+    has_extended_types = any(q.get('type') in _EXTENDED_QUESTION_TYPES for q in questions)
+    if not has_extended_types:
+        new_section = document.add_section(WD_SECTION.CONTINUOUS)
+        sectPr = new_section._sectPr
 
-    # Populate Questions (into the new 2-column section)
+        cols = sectPr.find(qn('w:cols'))
+        if cols is None:
+            cols = OxmlElement('w:cols')
+            sectPr.insert_element_before(cols, 'w:docGrid')
+
+        cols.set(qn('w:num'), '2')
+        cols.set(qn('w:space'), '720')
+
+    # Populate Questions
     for q in questions:
         add_question_to_document(document, q, show_answer=show_answer)
         
