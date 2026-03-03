@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+{% block title %}Quiz Results — {{ quiz.title }} — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<style>
+    .quiz-results-wrapper {
+        min-height: 100vh;
+        padding: 100px 1rem 3rem;
+        background: linear-gradient(135deg, #0a0f1c 0%, #121a2e 50%, #0d1117 100%);
+    }
+
+    .quiz-results-inner {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .qr-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 2rem;
+    }
+
+    .qr-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #fff;
+    }
+
+    .qr-subtitle {
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 0.85rem;
+    }
+
+    .qr-export-btn {
+        padding: 10px 18px;
+        border-radius: 12px;
+        background: rgba(99, 102, 241, 0.15);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: #a5b4fc;
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+    }
+
+    .qr-export-btn:hover {
+        background: rgba(99, 102, 241, 0.25);
+        color: #c7d2fe;
+    }
+
+    /* ── Summary Cards ── */
+    .qr-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        margin-bottom: 2rem;
+    }
+
+    .qr-stat-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 1.25rem;
+        text-align: center;
+    }
+
+    .qr-stat-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #fff;
+        line-height: 1;
+        margin-bottom: 0.25rem;
+    }
+
+    .qr-stat-label {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.4);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .qr-stat-card.accent .qr-stat-value {
+        color: #a5b4fc;
+    }
+
+    .qr-stat-card.green .qr-stat-value {
+        color: #34d399;
+    }
+
+    .qr-stat-card.amber .qr-stat-value {
+        color: #fbbf24;
+    }
+
+    /* ── Leaderboard Table ── */
+    .qr-section {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .qr-section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .qr-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .qr-table th {
+        text-align: left;
+        padding: 8px 12px;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.3);
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .qr-table td {
+        padding: 10px 12px;
+        font-size: 0.9rem;
+        color: #e2e8f0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .qr-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .qr-rank {
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .qr-rank.gold {
+        color: #fbbf24;
+    }
+
+    .qr-rank.silver {
+        color: #94a3b8;
+    }
+
+    .qr-rank.bronze {
+        color: #d97706;
+    }
+
+    .qr-name {
+        font-weight: 600;
+    }
+
+    .qr-pct-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+
+    .qr-pct-badge.high {
+        background: rgba(16, 185, 129, 0.15);
+        color: #34d399;
+    }
+
+    .qr-pct-badge.mid {
+        background: rgba(99, 102, 241, 0.15);
+        color: #a5b4fc;
+    }
+
+    .qr-pct-badge.low {
+        background: rgba(245, 158, 11, 0.15);
+        color: #fbbf24;
+    }
+
+    .qr-pct-badge.fail {
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+    }
+
+    /* ── Question Analysis Bars ── */
+    .qr-q-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .qr-q-row:last-child {
+        border-bottom: none;
+    }
+
+    .qr-q-num {
+        min-width: 32px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .qr-q-bar-bg {
+        flex: 1;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .qr-q-bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.6s ease;
+    }
+
+    .qr-q-bar-fill.high {
+        background: linear-gradient(90deg, #10b981, #34d399);
+    }
+
+    .qr-q-bar-fill.mid {
+        background: linear-gradient(90deg, #6366f1, #818cf8);
+    }
+
+    .qr-q-bar-fill.low {
+        background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    }
+
+    .qr-q-bar-fill.fail {
+        background: linear-gradient(90deg, #ef4444, #f87171);
+    }
+
+    .qr-q-pct {
+        min-width: 42px;
+        text-align: right;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .qr-q-weak {
+        font-size: 0.7rem;
+        color: #f87171;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="quiz-results-wrapper">
+    <div class="quiz-results-inner">
+        <!-- Header -->
+        <div class="qr-header">
+            <div>
+                <h1 class="qr-title">📊 {{ quiz.title }}</h1>
+                <p class="qr-subtitle">Quiz Code: {{ quiz.join_code }} · {{ quiz.created_at.strftime('%d %b %Y') }}</p>
+            </div>
+            {% if is_teacher %}
+            <a href="/quiz/{{ quiz.join_code }}/export" class="qr-export-btn">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
+            </a>
+            {% endif %}
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="qr-stats">
+            <div class="qr-stat-card accent">
+                <div class="qr-stat-value">{{ stats.average }}{% if stats.total_questions > 0 %}/{{
+                    stats.total_questions }}{% endif %}</div>
+                <div class="qr-stat-label">Average Score</div>
+            </div>
+            <div class="qr-stat-card green">
+                <div class="qr-stat-value">{{ stats.pass_rate }}%</div>
+                <div class="qr-stat-label">Pass Rate (≥40%)</div>
+            </div>
+            <div class="qr-stat-card">
+                <div class="qr-stat-value">{{ stats.highest }}</div>
+                <div class="qr-stat-label">Highest Score</div>
+            </div>
+            <div class="qr-stat-card amber">
+                <div class="qr-stat-value">{{ stats.submitted }}</div>
+                <div class="qr-stat-label">Submitted</div>
+            </div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="qr-section">
+            <div class="qr-section-title"><i class="bi bi-trophy-fill" style="color:#fbbf24;"></i> Leaderboard</div>
+            {% if sessions %}
+            <table class="qr-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Student</th>
+                        <th>Score</th>
+                        <th>%</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in sessions %}
+                    <tr>
+                        <td>
+                            <span
+                                class="qr-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
+                                {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{%
+                                else %}{{ loop.index }}{% endif %}
+                            </span>
+                        </td>
+                        <td class="qr-name">{{ s.student_name }}</td>
+                        <td>{{ s.score }}/{{ s.total_questions }}</td>
+                        <td>
+                            {% set p = s.score_percentage %}
+                            <span
+                                class="qr-pct-badge {% if p >= 80 %}high{% elif p >= 60 %}mid{% elif p >= 40 %}low{% else %}fail{% endif %}">
+                                {{ p }}%
+                            </span>
+                        </td>
+                        <td style="color: rgba(255,255,255,0.4); font-size: 0.85rem;">
+                            {% if s.time_taken_seconds %}
+                            {{ (s.time_taken_seconds // 60) }}:{{ '%02d' % (s.time_taken_seconds % 60) }}
+                            {% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color: rgba(255,255,255,0.3); text-align: center; padding: 2rem;">
+                No submissions yet.
+            </p>
+            {% endif %}
+        </div>
+
+        <!-- Question Analysis -->
+        {% if question_stats %}
+        <div class="qr-section">
+            <div class="qr-section-title"><i class="bi bi-bar-chart-fill" style="color:#6366f1;"></i> Question Analysis
+            </div>
+            {% for q in question_stats %}
+            <div class="qr-q-row">
+                <span class="qr-q-num">Q{{ q.index }}</span>
+                <div class="qr-q-bar-bg">
+                    <div class="qr-q-bar-fill {% if q.percentage >= 80 %}high{% elif q.percentage >= 60 %}mid{% elif q.percentage >= 40 %}low{% else %}fail{% endif %}"
+                        style="width: {{ q.percentage }}%"></div>
+                </div>
+                <span class="qr-q-pct">{{ q.percentage }}%</span>
+                {% if q.percentage < 40 %} <span class="qr-q-weak">⚠ Weak</span>
+                    {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Back to Dashboard -->
+        <div style="text-align: center; margin-top: 2rem;">
+            <a href="{{ url_for('main.dashboard') }}"
+                style="color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.85rem;">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

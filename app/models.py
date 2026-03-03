@@ -177,6 +177,111 @@ class Question(db.Model):
         return f'<Question {self.id}>'
 
 
+class ShortQuestion(db.Model):
+    """Short answer question model (সংক্ষিপ্ত প্রশ্ন)"""
+    __tablename__ = 'short_questions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    subject_id = db.Column(
+        db.Integer, db.ForeignKey('subjects.id'), nullable=False
+    )
+    chapter_id = db.Column(
+        db.Integer, db.ForeignKey('chapters.id'), nullable=True
+    )
+    question_text = db.Column(db.Text, nullable=False)
+    marks = db.Column(db.Integer, default=2)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    subject = db.relationship(
+        'Subject', backref=db.backref('short_questions', lazy='dynamic')
+    )
+    chapter = db.relationship(
+        'Chapter', backref=db.backref('short_questions', lazy='dynamic')
+    )
+    creator = db.relationship('User', foreign_keys=[created_by])
+
+    def to_dict(self):
+        """Convert short question to dictionary."""
+        return {
+            'id': self.id,
+            'question_text': self.question_text,
+            'marks': self.marks,
+            'type': 'short',
+        }
+
+    def __repr__(self):
+        return f'<ShortQuestion {self.id}>'
+
+
+class CQQuestion(db.Model):
+    """Creative question model (সৃজনশীল প্রশ্ন)"""
+    __tablename__ = 'cq_questions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    subject_id = db.Column(
+        db.Integer, db.ForeignKey('subjects.id'), nullable=False
+    )
+    chapter_id = db.Column(
+        db.Integer, db.ForeignKey('chapters.id'), nullable=True
+    )
+    stem = db.Column(db.Text, nullable=False)  # উদ্দীপক
+    part_ka = db.Column(db.Text)   # ক sub-question
+    part_kha = db.Column(db.Text)  # খ sub-question
+    part_ga = db.Column(db.Text)   # গ sub-question
+    part_gha = db.Column(db.Text)  # ঘ sub-question
+    marks_ka = db.Column(db.Integer, default=1)
+    marks_kha = db.Column(db.Integer, default=2)
+    marks_ga = db.Column(db.Integer, default=3)
+    marks_gha = db.Column(db.Integer, default=4)
+    board = db.Column(db.String(100), nullable=True)   # Board name (e.g. ঢাকা বোর্ড)
+    year = db.Column(db.Integer, nullable=True)         # Exam year
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    subject = db.relationship(
+        'Subject', backref=db.backref('cq_questions', lazy='dynamic')
+    )
+    chapter = db.relationship(
+        'Chapter', backref=db.backref('cq_questions', lazy='dynamic')
+    )
+    creator = db.relationship('User', foreign_keys=[created_by])
+
+    @property
+    def total_marks(self):
+        """Compute sum of all part marks."""
+        return (
+            (self.marks_ka or 0)
+            + (self.marks_kha or 0)
+            + (self.marks_ga or 0)
+            + (self.marks_gha or 0)
+        )
+
+    def to_dict(self):
+        """Convert creative question to dictionary."""
+        return {
+            'id': self.id,
+            'stem': self.stem,
+            'part_ka': self.part_ka,
+            'part_kha': self.part_kha,
+            'part_ga': self.part_ga,
+            'part_gha': self.part_gha,
+            'marks_ka': self.marks_ka,
+            'marks_kha': self.marks_kha,
+            'marks_ga': self.marks_ga,
+            'marks_gha': self.marks_gha,
+            'total_marks': self.total_marks,
+            'board': self.board,
+            'year': self.year,
+            'type': 'creative',
+        }
+
+    def __repr__(self):
+        return f'<CQQuestion {self.id}>'
+
+
 class GeneratedPaper(db.Model):
     """Track generated papers"""
     __tablename__ = 'generated_papers'
@@ -193,6 +298,7 @@ class GeneratedPaper(db.Model):
     file_path_answers = db.Column(db.String(500))
     custom_questions_json = db.Column(db.JSON)  # Stores custom questions for regeneration
     custom_paper_config = db.Column(db.JSON)    # Stores paper config for custom papers
+    omr_style = db.Column(db.Boolean, default=True)  # Show OMR circles on options
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     download_count = db.Column(db.Integer, default=0)
     
@@ -201,6 +307,66 @@ class GeneratedPaper(db.Model):
     
     def __repr__(self):
         return f'<GeneratedPaper {self.id}>'
+
+
+class QuestionSet(db.Model):
+    """Saved question sets for public users (SaaS dashboard)"""
+    __tablename__ = 'question_sets'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(100), nullable=False, index=True)  # Supabase UUID
+    name = db.Column(db.String(200), nullable=False)
+    questions_json = db.Column(db.JSON, nullable=False)  # Full question data
+    paper_config = db.Column(db.JSON)  # Title, class, subject, time, marks, omr_style
+    source = db.Column(db.String(20), default='custom')  # 'db' or 'custom'
+    paper_id = db.Column(db.Integer, db.ForeignKey('generated_papers.id'))  # Optional link
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Sharing
+    share_token = db.Column(db.String(16), unique=True, index=True)  # URL-safe random token
+    is_shared = db.Column(db.Boolean, default=False)  # Whether the share link is active
+    
+    paper = db.relationship('GeneratedPaper', backref='question_sets')
+    
+    @staticmethod
+    def generate_share_token():
+        """Generate a unique URL-safe share token."""
+        import secrets
+        for _ in range(100):
+            token = secrets.token_urlsafe(12)[:16]  # 16-char URL-safe token
+            if not QuestionSet.query.filter_by(share_token=token).first():
+                return token
+        raise ValueError('Could not generate a unique share token')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'question_count': len(self.questions_json) if self.questions_json else 0,
+            'source': self.source,
+            'paper_config': self.paper_config,
+            'share_token': self.share_token,
+            'is_shared': self.is_shared or False,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M') if self.updated_at else None,
+        }
+    
+    def __repr__(self):
+        return f'<QuestionSet {self.id} - {self.name}>'
+
+
+class GenerationLog(db.Model):
+    """Track paper generations per user for the credit/usage system"""
+    __tablename__ = 'generation_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(255), nullable=False, index=True)  # Supabase UUID
+    generation_type = db.Column(db.String(20), default='db')  # 'db' or 'custom'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<GenerationLog {self.id} user={self.user_id}>'
 
 
 class AIGeneratorConfig(db.Model):
@@ -334,3 +500,131 @@ class ActivityLog(db.Model):
     
     def __repr__(self):
         return f'<ActivityLog {self.user_id} - {self.action} {self.entity_type}>'
+
+
+class Quiz(db.Model):
+    """A live quiz created by a teacher from a question set"""
+    __tablename__ = 'quizzes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    join_code = db.Column(db.String(6), unique=True, nullable=False, index=True)
+    title = db.Column(db.String(200), nullable=False)
+
+    # Link to source
+    question_set_id = db.Column(db.Integer, db.ForeignKey('question_sets.id'))
+    teacher_user_id = db.Column(db.String(100), nullable=False, index=True)  # Supabase UUID
+
+    # Snapshot of questions at quiz creation time (decoupled from source)
+    questions_json = db.Column(db.JSON, nullable=False)
+
+    # Quiz configuration
+    time_limit_minutes = db.Column(db.Integer, default=30)
+    shuffle_questions = db.Column(db.Boolean, default=True)
+    shuffle_options = db.Column(db.Boolean, default=True)
+    show_results_to_students = db.Column(db.Boolean, default=True)
+
+    # State: waiting → active → ended
+    status = db.Column(db.String(20), default='waiting')
+    started_at = db.Column(db.DateTime)
+    ended_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    question_set = db.relationship('QuestionSet', backref='quizzes')
+    sessions = db.relationship('QuizSession', backref='quiz', lazy='dynamic',
+                               cascade='all, delete-orphan')
+
+    @staticmethod
+    def generate_join_code():
+        """Generate a unique 4-digit numeric join code."""
+        import random
+        for _ in range(100):  # max attempts
+            code = str(random.randint(1000, 9999))
+            if not Quiz.query.filter_by(join_code=code).first():
+                return code
+        raise ValueError('Could not generate a unique join code after 100 attempts')
+
+    @property
+    def student_count(self):
+        return self.sessions.count()
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+    @property
+    def is_ended(self):
+        return self.status == 'ended'
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'join_code': self.join_code,
+            'title': self.title,
+            'status': self.status,
+            'student_count': self.student_count,
+            'time_limit_minutes': self.time_limit_minutes,
+            'question_count': len(self.questions_json) if self.questions_json else 0,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f'<Quiz {self.join_code} - {self.title}>'
+
+
+class QuizSession(db.Model):
+    """A student's participation in a quiz"""
+    __tablename__ = 'quiz_sessions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    quiz_id = db.Column(db.Integer, db.ForeignKey('quizzes.id'), nullable=False)
+    student_name = db.Column(db.String(100), nullable=False)
+    session_token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+
+    # Results
+    score = db.Column(db.Integer, default=0)
+    total_questions = db.Column(db.Integer, default=0)
+    responses_json = db.Column(db.JSON)   # {"0": "selected_answer", "1": "selected_answer", ...}
+    time_taken_seconds = db.Column(db.Integer)
+
+    # State: joined → in_progress → submitted
+    status = db.Column(db.String(20), default='joined')
+    joined_at = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime)
+
+    @property
+    def score_percentage(self):
+        if not self.total_questions:
+            return 0
+        return round((self.score / self.total_questions) * 100)
+
+    def grade(self, questions_json):
+        """Auto-grade responses against the answer key. Call before committing."""
+        if not self.responses_json or not questions_json:
+            return
+        correct = 0
+        for idx, q in enumerate(questions_json):
+            student_answer = self.responses_json.get(str(idx))
+            if student_answer and student_answer == q.get('correct_answer'):
+                correct += 1
+        self.score = correct
+        self.total_questions = len(questions_json)
+
+    def to_dict(self, include_responses=False):
+        data = {
+            'id': self.id,
+            'student_name': self.student_name,
+            'score': self.score,
+            'total_questions': self.total_questions,
+            'score_percentage': self.score_percentage,
+            'status': self.status,
+            'time_taken_seconds': self.time_taken_seconds,
+            'joined_at': self.joined_at.strftime('%H:%M') if self.joined_at else None,
+            'submitted_at': self.submitted_at.strftime('%H:%M') if self.submitted_at else None,
+        }
+        if include_responses:
+            data['responses'] = self.responses_json
+        return data
+
+    def __repr__(self):
+        return f'<QuizSession {self.student_name} - Quiz {self.quiz_id}>'

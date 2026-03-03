@@ -1,0 +1,448 @@
+{% extends "base.html" %}
+{% block title %}Quiz Lobby — {{ quiz.title }} — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<style>
+    .quiz-lobby-wrapper {
+        min-height: 100vh;
+        padding: 100px 1rem 3rem;
+        background: linear-gradient(135deg, #0a0f1c 0%, #121a2e 50%, #0d1117 100%);
+    }
+
+    .quiz-lobby-inner {
+        max-width: 640px;
+        margin: 0 auto;
+    }
+
+    /* ── Code Display ── */
+    .quiz-code-block {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        padding: 2rem;
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .quiz-code-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.4);
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 0.75rem;
+    }
+
+    .quiz-code-display {
+        font-size: 3.5rem;
+        font-weight: 800;
+        letter-spacing: 16px;
+        color: #fff;
+        font-variant-numeric: tabular-nums;
+        background: linear-gradient(135deg, #6366f1, #a78bfa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.75rem;
+    }
+
+    .quiz-code-url {
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 0.85rem;
+        margin-bottom: 1rem;
+    }
+
+    .quiz-code-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+    }
+
+    .quiz-code-btn {
+        padding: 8px 16px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .quiz-code-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+    }
+
+    .quiz-code-btn.copied {
+        background: rgba(16, 185, 129, 0.15);
+        border-color: #10b981;
+        color: #10b981;
+    }
+
+    /* ── Quiz Info ── */
+    .quiz-info {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+    }
+
+    .quiz-info-tag {
+        background: rgba(99, 102, 241, 0.12);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        border-radius: 10px;
+        padding: 6px 14px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #a5b4fc;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    /* ── Student List ── */
+    .quiz-students-block {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .quiz-students-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .quiz-students-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .quiz-students-count {
+        background: rgba(99, 102, 241, 0.2);
+        color: #a5b4fc;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .quiz-student-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .quiz-student-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        animation: fadeIn 0.3s ease;
+    }
+
+    .quiz-student-item:last-child {
+        border-bottom: none;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    .quiz-student-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+
+    .quiz-student-name {
+        color: #e2e8f0;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+
+    .quiz-empty {
+        color: rgba(255, 255, 255, 0.3);
+        text-align: center;
+        padding: 2rem;
+        font-size: 0.9rem;
+        font-style: italic;
+    }
+
+    /* ── Actions ── */
+    .quiz-lobby-actions {
+        display: flex;
+        gap: 12px;
+    }
+
+    .quiz-start-btn {
+        flex: 1;
+        padding: 16px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        border: none;
+        border-radius: 14px;
+        color: #fff;
+        font-weight: 700;
+        font-size: 1.05rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .quiz-start-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 24px rgba(16, 185, 129, 0.4);
+    }
+
+    .quiz-start-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .quiz-end-btn {
+        padding: 16px 24px;
+        background: rgba(239, 68, 68, 0.1);
+        border: 2px solid rgba(239, 68, 68, 0.3);
+        border-radius: 14px;
+        color: #f87171;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .quiz-end-btn:hover {
+        background: rgba(239, 68, 68, 0.2);
+    }
+
+    /* ── Status badge ── */
+    .quiz-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .quiz-status-badge.waiting {
+        background: rgba(245, 158, 11, 0.15);
+        color: #fbbf24;
+    }
+
+    .quiz-status-badge.active {
+        background: rgba(16, 185, 129, 0.15);
+        color: #34d399;
+    }
+
+    .quiz-status-badge.ended {
+        background: rgba(239, 68, 68, 0.15);
+        color: #f87171;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="quiz-lobby-wrapper">
+    <div class="quiz-lobby-inner">
+        <h1 style="font-size:1.4rem; font-weight:700; color:#fff; margin-bottom:0.5rem;">
+            {{ quiz.title }}
+        </h1>
+        <div style="margin-bottom: 1.5rem;">
+            <span class="quiz-status-badge {{ quiz.status }}" id="statusBadge">
+                <i class="bi bi-circle-fill" style="font-size:6px;"></i>
+                {{ quiz.status|capitalize }}
+            </span>
+        </div>
+
+        <!-- Join Code -->
+        <div class="quiz-code-block">
+            <div class="quiz-code-label">Quiz Join Code</div>
+            <div class="quiz-code-display">{{ quiz.join_code }}</div>
+            <div class="quiz-code-url">prosno.io/quiz/join/{{ quiz.join_code }}</div>
+            <div class="quiz-code-actions">
+                <button class="quiz-code-btn" id="copyCodeBtn" onclick="copyCode()">
+                    <i class="bi bi-clipboard"></i> Copy Code
+                </button>
+                <button class="quiz-code-btn" onclick="copyLink()">
+                    <i class="bi bi-link-45deg"></i> Copy Link
+                </button>
+            </div>
+        </div>
+
+        <!-- Quiz Info Tags -->
+        <div class="quiz-info">
+            <div class="quiz-info-tag">
+                <i class="bi bi-question-circle"></i>
+                {{ quiz.questions_json|length }} questions
+            </div>
+            <div class="quiz-info-tag">
+                <i class="bi bi-clock"></i>
+                {{ quiz.time_limit_minutes }} minutes
+            </div>
+            <div class="quiz-info-tag">
+                <i class="bi bi-shuffle"></i>
+                Shuffle {% if quiz.shuffle_questions %}ON{% else %}OFF{% endif %}
+            </div>
+        </div>
+
+        <!-- Student List -->
+        <div class="quiz-students-block">
+            <div class="quiz-students-header">
+                <div class="quiz-students-title">
+                    <i class="bi bi-people-fill"></i> Students Joined
+                </div>
+                <span class="quiz-students-count" id="studentCount">{{ students|length }}</span>
+            </div>
+            <ul class="quiz-student-list" id="studentList">
+                {% for s in students %}
+                <li class="quiz-student-item">
+                    <div class="quiz-student-avatar">{{ s.student_name[0]|upper }}</div>
+                    <span class="quiz-student-name">{{ s.student_name }}</span>
+                </li>
+                {% else %}
+                <li class="quiz-empty" id="emptyMsg">Waiting for students to join...</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Actions -->
+        <div class="quiz-lobby-actions">
+            {% if quiz.status == 'waiting' %}
+            <button class="quiz-start-btn" id="startBtn" onclick="startQuiz()">
+                <i class="bi bi-play-fill"></i> Start Quiz
+            </button>
+            {% elif quiz.status == 'active' %}
+            <button class="quiz-end-btn" id="endBtn" onclick="endQuiz()" style="flex:1;">
+                <i class="bi bi-stop-fill"></i> End Quiz
+            </button>
+            <a href="/quiz/{{ quiz.join_code }}/results" class="quiz-start-btn" style="flex:1; text-decoration:none;">
+                <i class="bi bi-bar-chart"></i> View Results
+            </a>
+            {% elif quiz.status == 'ended' %}
+            <a href="/quiz/{{ quiz.join_code }}/results" class="quiz-start-btn" style="flex:1; text-decoration:none;">
+                <i class="bi bi-bar-chart"></i> View Results
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const quizCode = '{{ quiz.join_code }}';
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+    // ── Poll student list ──
+    setInterval(async () => {
+        try {
+            const res = await fetch(`/quiz/${quizCode}/status`);
+            const data = await res.json();
+
+            // Update student count
+            document.getElementById('studentCount').textContent = data.student_count;
+
+            // Update student list
+            const list = document.getElementById('studentList');
+            if (data.students.length > 0) {
+                list.innerHTML = data.students.map(s =>
+                    `<li class="quiz-student-item">
+                    <div class="quiz-student-avatar">${s.student_name[0].toUpperCase()}</div>
+                    <span class="quiz-student-name">${s.student_name}</span>
+                </li>`
+                ).join('');
+            }
+
+            // Update status badge
+            const badge = document.getElementById('statusBadge');
+            badge.className = `quiz-status-badge ${data.status}`;
+            badge.innerHTML = `<i class="bi bi-circle-fill" style="font-size:6px;"></i> ${data.status.charAt(0).toUpperCase() + data.status.slice(1)}`;
+
+            // If quiz became active, refresh page
+            if (data.status === 'active' && !document.getElementById('endBtn')) {
+                location.reload();
+            }
+        } catch (e) { }
+    }, 3000);
+
+    function copyCode() {
+        navigator.clipboard.writeText(quizCode).then(() => {
+            const btn = document.getElementById('copyCodeBtn');
+            btn.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy Code';
+                btn.classList.remove('copied');
+            }, 2000);
+        });
+    }
+
+    function copyLink() {
+        navigator.clipboard.writeText(`${window.location.origin}/quiz/join/${quizCode}`);
+    }
+
+    async function startQuiz() {
+        const btn = document.getElementById('startBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starting...';
+
+        try {
+            const res = await fetch(`/quiz/${quizCode}/start`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+            });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else { alert(data.error); btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-fill"></i> Start Quiz'; }
+        } catch (e) {
+            alert('Failed to start quiz.');
+            btn.disabled = false; btn.innerHTML = '<i class="bi bi-play-fill"></i> Start Quiz';
+        }
+    }
+
+    async function endQuiz() {
+        if (!confirm('Are you sure you want to end this quiz? Students who haven\'t submitted will not be graded.')) return;
+
+        try {
+            const res = await fetch(`/quiz/${quizCode}/end`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+            });
+            const data = await res.json();
+            if (data.success) location.reload();
+            else alert(data.error);
+        } catch (e) { alert('Failed to end quiz.'); }
+    }
+</script>
+{% endblock %}

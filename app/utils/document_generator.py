@@ -207,7 +207,7 @@ def to_bengali_numeral(num_str):
     return bengali_str
 
 
-def add_question_to_document(document, q, show_answer=False):
+def add_question_to_document(document, q, show_answer=False, omr_style=True):
     """Adds a single formatted question to the document object with math expression support."""
     
     OMR_CIRCLE = '◯'
@@ -217,6 +217,8 @@ def add_question_to_document(document, q, show_answer=False):
 
     # A. Add Question Text (with math support)
     p = document.add_paragraph()
+    p.paragraph_format.keep_with_next = True
+    p.paragraph_format.space_after = Pt(0)
     question_text = q.get("question_text", "")
     q_id = str(q.get("id", ""))
     
@@ -237,6 +239,8 @@ def add_question_to_document(document, q, show_answer=False):
     if q.get("type") == "complex":
         for sub_opt in q.get("sub_options", []):
             p_sub = document.add_paragraph()
+            p_sub.paragraph_format.keep_with_next = True
+            p_sub.paragraph_format.space_after = Pt(0)
             p_sub.style = 'List Bullet'
             if _has_math_expression(sub_opt):
                 _add_math_text_to_paragraph(p_sub, sub_opt, font_size=Pt(8), font_name='Nirmala UI')
@@ -246,6 +250,8 @@ def add_question_to_document(document, q, show_answer=False):
                 run.font.name = 'Nirmala UI'
         
         prompt_p = document.add_paragraph()
+        prompt_p.paragraph_format.keep_with_next = True
+        prompt_p.paragraph_format.space_after = Pt(0)
         final_prompt = q.get("final_prompt", "নিচের কোনটি সঠিক?")
         if _has_math_expression(final_prompt):
             _add_math_text_to_paragraph(prompt_p, final_prompt, font_size=Pt(8), font_name='Nirmala UI', bold=True)
@@ -261,6 +267,25 @@ def add_question_to_document(document, q, show_answer=False):
 
     if len(options) >= 4:
         opt_table = document.add_table(rows=2, cols=2)
+
+        # --- Make option table compact: zero cell margins & cantSplit rows ---
+        tbl = opt_table._tbl
+        tblPr = tbl.tblPr if tbl.tblPr is not None else OxmlElement('w:tblPr')
+        # Zero cell margins
+        tblCellMar = OxmlElement('w:tblCellMar')
+        for side in ['top', 'left', 'bottom', 'right']:
+            el = OxmlElement(f'w:{side}')
+            el.set(qn('w:w'), '0')
+            el.set(qn('w:type'), 'dxa')
+            tblCellMar.append(el)
+        tblPr.append(tblCellMar)
+        # Prevent rows from splitting across columns/pages
+        for row in opt_table.rows:
+            tr = row._tr
+            trPr = tr.get_or_add_trPr()
+            cantSplit = OxmlElement('w:cantSplit')
+            trPr.append(cantSplit)
+
         cell_data = [
             (opt_table.cell(0, 0), options[0], bengali_prefixes[0]),
             (opt_table.cell(0, 1), options[1], bengali_prefixes[1]),
@@ -271,16 +296,18 @@ def add_question_to_document(document, q, show_answer=False):
         for c, option_text, prefix in cell_data:
             p = c.paragraphs[0]
             p.text = ''
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(0)
             
             option_str = str(option_text).strip()
             is_correct = (show_answer is True) and (option_str == correct_ans)
-            current_circle = FILLED_CIRCLE if is_correct else OMR_CIRCLE
-
-            run_circle = p.add_run(current_circle)
-            run_circle.font.size = Pt(8)
-            run_circle.font.name = 'Nirmala UI'
-            if is_correct:
-                run_circle.bold = True
+            if omr_style:
+                current_circle = FILLED_CIRCLE if is_correct else OMR_CIRCLE
+                run_circle = p.add_run(current_circle)
+                run_circle.font.size = Pt(8)
+                run_circle.font.name = 'Nirmala UI'
+                if is_correct:
+                    run_circle.bold = True
             
             # Add option with math support
             if _has_math_expression(option_str):
@@ -324,7 +351,223 @@ def add_question_to_document(document, q, show_answer=False):
                 correct_run.font.name = 'Nirmala UI'
 
 
-def create_question_paper(questions, output_path, paper_config, show_answer=False):
+def add_short_question_section(document, sq_config):
+    """Render খ-বিভাগ (সংক্ষিপ্ত প্রশ্ন) section into the document.
+
+    Args:
+        document: The python-docx Document object.
+        sq_config: Dict with keys ``questions``, ``answer_count``, ``marks_per_question``.
+                   If None or empty, the section is silently skipped.
+    """
+    if not sq_config or not sq_config.get('questions'):
+        return
+
+    questions = sq_config['questions']
+    answer_count = sq_config.get('answer_count', len(questions))
+    marks = sq_config.get('marks_per_question', 2)
+
+    # Switch back to single-column layout for this section
+    single_sec = document.add_section(WD_SECTION.CONTINUOUS)
+    sec_pr = single_sec._sectPr
+    cols = sec_pr.find(qn('w:cols'))
+    if cols is None:
+        cols = OxmlElement('w:cols')
+        sec_pr.insert_element_before(cols, 'w:docGrid')
+    cols.set(qn('w:num'), '1')
+
+    # Section header
+    header_p = document.add_paragraph()
+    header_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    header_p.paragraph_format.space_before = Pt(10)
+    header_p.paragraph_format.space_after = Pt(4)
+    run = header_p.add_run('খ-বিভাগ (সংক্ষিপ্ত প্রশ্ন)')
+    run.bold = True
+    run.font.size = Pt(10)
+    run.font.name = 'Nirmala UI'
+
+    # Instruction line
+    bn_n = to_bengali_numeral(answer_count)
+    bn_marks = to_bengali_numeral(marks)
+    instr_p = document.add_paragraph()
+    instr_p.paragraph_format.space_after = Pt(4)
+    instr_run = instr_p.add_run(
+        f'নিচের যেকোনো {bn_n}টির উত্তর দাও। প্রতিটি প্রশ্নের মান {bn_marks}।'
+    )
+    instr_run.font.size = Pt(9)
+    instr_run.font.name = 'Nirmala UI'
+
+    # Switch to 2-column for the questions
+    two_col = document.add_section(WD_SECTION.CONTINUOUS)
+    tc_pr = two_col._sectPr
+    tc_cols = tc_pr.find(qn('w:cols'))
+    if tc_cols is None:
+        tc_cols = OxmlElement('w:cols')
+        tc_pr.insert_element_before(tc_cols, 'w:docGrid')
+    tc_cols.set(qn('w:num'), '2')
+    tc_cols.set(qn('w:space'), '720')
+
+    for idx, q in enumerate(questions, 1):
+        bn_num = to_bengali_numeral(idx)
+        q_text = q.get('question_text', '')
+        q_marks = q.get('marks', marks)
+        bn_q_marks = to_bengali_numeral(q_marks)
+
+        p = document.add_paragraph()
+        p.paragraph_format.space_after = Pt(2)
+        p.paragraph_format.keep_with_next = True
+
+        # Set up right-aligned tab stop for marks
+        section = document.sections[-1]
+        col_width = (
+            section.page_width - section.left_margin - section.right_margin - Inches(0.5)
+        ) / 2
+        tab_stops = p.paragraph_format.tab_stops
+        tab_stops.add_tab_stop(col_width, WD_ALIGN_PARAGRAPH.RIGHT)
+
+        if _has_math_expression(q_text):
+            run = p.add_run(f'{bn_num}। ')
+            run.bold = True
+            run.font.size = Pt(9)
+            run.font.name = 'Nirmala UI'
+            _add_math_text_to_paragraph(
+                p, q_text, font_size=Pt(9), font_name='Nirmala UI'
+            )
+        else:
+            run = p.add_run(f'{bn_num}। {q_text}')
+            run.font.size = Pt(9)
+            run.font.name = 'Nirmala UI'
+
+        p.add_run('\t')
+        marks_run = p.add_run(bn_q_marks)
+        marks_run.font.size = Pt(9)
+        marks_run.font.name = 'Nirmala UI'
+        marks_run.bold = True
+
+
+def add_cq_section(document, cq_config):
+    """Render গ-বিভাগ (সৃজনশীল প্রশ্ন) section into the document.
+
+    Args:
+        document: The python-docx Document object.
+        cq_config: Dict with keys ``questions``, ``answer_count``.
+                   If None or empty, the section is silently skipped.
+    """
+    if not cq_config or not cq_config.get('questions'):
+        return
+
+    questions = cq_config['questions']
+    answer_count = cq_config.get('answer_count', len(questions))
+
+    # Switch to single-column layout
+    single_sec = document.add_section(WD_SECTION.CONTINUOUS)
+    sec_pr = single_sec._sectPr
+    cols = sec_pr.find(qn('w:cols'))
+    if cols is None:
+        cols = OxmlElement('w:cols')
+        sec_pr.insert_element_before(cols, 'w:docGrid')
+    cols.set(qn('w:num'), '1')
+
+    # Section header
+    header_p = document.add_paragraph()
+    header_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    header_p.paragraph_format.space_before = Pt(10)
+    header_p.paragraph_format.space_after = Pt(4)
+    run = header_p.add_run('গ-বিভাগ (সৃজনশীল প্রশ্ন)')
+    run.bold = True
+    run.font.size = Pt(10)
+    run.font.name = 'Nirmala UI'
+
+    # Instruction line
+    bn_n = to_bengali_numeral(answer_count)
+    instr_p = document.add_paragraph()
+    instr_p.paragraph_format.space_after = Pt(6)
+    instr_run = instr_p.add_run(
+        f'নিচের যেকোনো {bn_n}টির উত্তর দাও।'
+    )
+    instr_run.font.size = Pt(9)
+    instr_run.font.name = 'Nirmala UI'
+
+    bengali_parts = [
+        ('part_ka', 'marks_ka', 'ক'),
+        ('part_kha', 'marks_kha', 'খ'),
+        ('part_ga', 'marks_ga', 'গ'),
+        ('part_gha', 'marks_gha', 'ঘ'),
+    ]
+
+    for idx, q in enumerate(questions, 1):
+        bn_num = to_bengali_numeral(idx)
+        stem = q.get('stem', '')
+
+        # Question number + stem
+        stem_p = document.add_paragraph()
+        stem_p.paragraph_format.space_before = Pt(6)
+        stem_p.paragraph_format.space_after = Pt(2)
+        stem_p.paragraph_format.keep_with_next = True
+
+        num_run = stem_p.add_run(f'{bn_num}। উদ্দীপক: ')
+        num_run.bold = True
+        num_run.font.size = Pt(9)
+        num_run.font.name = 'Nirmala UI'
+
+        if _has_math_expression(stem):
+            _add_math_text_to_paragraph(
+                stem_p, stem, font_size=Pt(9), font_name='Nirmala UI'
+            )
+        else:
+            stem_run = stem_p.add_run(stem)
+            stem_run.font.size = Pt(9)
+            stem_run.font.name = 'Nirmala UI'
+
+        # Add light gray shading to the stem paragraph
+        pPr = stem_p._element.get_or_add_pPr()
+        shd = OxmlElement('w:shd')
+        shd.set(qn('w:fill'), 'F2F2F2')
+        shd.set(qn('w:val'), 'clear')
+        pPr.append(shd)
+
+        # Sub-parts
+        for part_key, marks_key, label in bengali_parts:
+            part_text = q.get(part_key)
+            if not part_text:
+                continue
+            part_marks = q.get(marks_key, 0)
+            bn_marks = to_bengali_numeral(part_marks)
+
+            pp = document.add_paragraph()
+            pp.paragraph_format.space_after = Pt(1)
+            pp.paragraph_format.left_indent = Inches(0.5)
+
+            # Set up right-aligned tab stop for marks
+            section = document.sections[-1]
+            usable_width = (
+                section.page_width
+                - section.left_margin
+                - section.right_margin
+                - Inches(0.5)
+            )
+            tab_stops = pp.paragraph_format.tab_stops
+            tab_stops.add_tab_stop(usable_width, WD_ALIGN_PARAGRAPH.RIGHT)
+
+            if _has_math_expression(part_text):
+                prefix_run = pp.add_run(f'{label}. ')
+                prefix_run.font.size = Pt(9)
+                prefix_run.font.name = 'Nirmala UI'
+                _add_math_text_to_paragraph(
+                    pp, part_text, font_size=Pt(9), font_name='Nirmala UI'
+                )
+            else:
+                run = pp.add_run(f'{label}. {part_text}')
+                run.font.size = Pt(9)
+                run.font.name = 'Nirmala UI'
+
+            pp.add_run('\t')
+            m_run = pp.add_run(bn_marks)
+            m_run.font.size = Pt(9)
+            m_run.font.name = 'Nirmala UI'
+            m_run.bold = True
+
+
+def create_question_paper(questions, output_path, paper_config, show_answer=False, omr_style=True, sq_config=None, cq_config=None):
     """
     Generates a COMPACT two-column MCQ paper with a FULL-WIDTH header.
     
@@ -333,6 +576,9 @@ def create_question_paper(questions, output_path, paper_config, show_answer=Fals
         output_path: Path to save the document
         paper_config: Dict with title, class_name, subject_name, time, marks
         show_answer: Whether to show correct answers
+        omr_style: Whether to show OMR circles beside options
+        sq_config: Optional short question section config
+        cq_config: Optional creative question section config
     """
     num_questions = len(questions)
     time_minutes = paper_config.get('time', num_questions)
@@ -400,10 +646,27 @@ def create_question_paper(questions, output_path, paper_config, show_answer=Fals
     cols.set(qn('w:num'), '2')
     cols.set(qn('w:space'), '720')
 
+    # Add MCQ section header only when SQ or CQ sections are also present
+    has_extra_sections = bool(sq_config and sq_config.get('questions')) or bool(cq_config and cq_config.get('questions'))
+    if has_extra_sections and questions:
+        mcq_header_p = document.add_paragraph()
+        mcq_header_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        mcq_header_p.paragraph_format.space_after = Pt(4)
+        mcq_run = mcq_header_p.add_run('ক-বিভাগ (বহুনির্বাচনী প্রশ্ন)')
+        mcq_run.bold = True
+        mcq_run.font.size = Pt(10)
+        mcq_run.font.name = 'Nirmala UI'
+
     # Populate Questions (into the new 2-column section)
     for q in questions:
-        add_question_to_document(document, q, show_answer=show_answer)
-        
+        add_question_to_document(document, q, show_answer=show_answer, omr_style=omr_style)
+
+    # Render Short Question section (খ-বিভাগ)
+    add_short_question_section(document, sq_config)
+
+    # Render Creative Question section (গ-বিভাগ)
+    add_cq_section(document, cq_config)
+
     # Save the Document
     if output_path is None:
         # Return as BytesIO buffer for in-memory use
@@ -420,13 +683,16 @@ def create_question_paper(questions, output_path, paper_config, show_answer=Fals
     return output_path
 
 
-def generate_paper_to_memory(questions, paper_config):
+def generate_paper_to_memory(questions, paper_config, omr_style=True, sq_config=None, cq_config=None):
     """
     Generate both student and teacher copies as in-memory BytesIO buffers.
     
     Args:
         questions: List of Question model objects or dicts
         paper_config: Configuration dict for the paper
+        omr_style: Whether to show OMR circles beside options
+        sq_config: Optional short question section config
+        cq_config: Optional creative question section config
         
     Returns:
         Tuple of (student_buffer, teacher_buffer) - BytesIO objects
@@ -441,11 +707,11 @@ def generate_paper_to_memory(questions, paper_config):
         q_dict['id'] = str(idx)
         question_list.append(q_dict)
     
-    # Generate Student Copy (No Answers) - in memory
-    student_buffer = create_question_paper(question_list, None, paper_config, show_answer=False)
+    # Generate Student Copy (No Answers) - in memory (respects omr_style toggle)
+    student_buffer = create_question_paper(question_list, None, paper_config, show_answer=False, omr_style=omr_style, sq_config=sq_config, cq_config=cq_config)
     
-    # Generate Teacher Copy (With Answers) - in memory
-    teacher_buffer = create_question_paper(question_list, None, paper_config, show_answer=True)
+    # Generate Teacher Copy (With Answers) - always show circles for correct answers
+    teacher_buffer = create_question_paper(question_list, None, paper_config, show_answer=True, omr_style=True, sq_config=sq_config, cq_config=cq_config)
     
     # Free up memory after document generation
     del question_list
@@ -454,17 +720,23 @@ def generate_paper_to_memory(questions, paper_config):
     return student_buffer, teacher_buffer
 
 
-def generate_paper_from_db(questions, paper_config, output_folder):
+def generate_paper_from_db(
+    questions, paper_config, output_folder, omr_style=True,
+    sq_config=None, cq_config=None,
+):
     """
     Generate both student and teacher copies of question paper.
     
     Args:
-        questions: List of Question model objects or dicts
-        paper_config: Configuration dict for the paper
-        output_folder: Folder to save generated files
+        questions: List of Question model objects or dicts.
+        paper_config: Configuration dict for the paper.
+        output_folder: Folder to save generated files.
+        omr_style: Whether to show OMR circles beside options.
+        sq_config: Optional short question section config.
+        cq_config: Optional creative question section config.
         
     Returns:
-        Tuple of (student_file_path, teacher_file_path)
+        Tuple of (student_file_path, teacher_file_path).
     """
     # Convert Question models to dicts if needed, with sequential IDs
     question_list = []
@@ -486,13 +758,21 @@ def generate_paper_from_db(questions, paper_config, output_folder):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     
-    # Generate Student Copy (No Answers)
+    # Generate Student Copy (No Answers) - respects omr_style toggle
     student_path = os.path.join(output_folder, f"{base_filename}_student.docx")
-    create_question_paper(question_list, student_path, paper_config, show_answer=False)
+    create_question_paper(
+        question_list, student_path, paper_config,
+        show_answer=False, omr_style=omr_style,
+        sq_config=sq_config, cq_config=cq_config,
+    )
     
-    # Generate Teacher Copy (With Answers)
+    # Generate Teacher Copy (With Answers) - always show circles for correct answers
     teacher_path = os.path.join(output_folder, f"{base_filename}_teacher.docx")
-    create_question_paper(question_list, teacher_path, paper_config, show_answer=True)
+    create_question_paper(
+        question_list, teacher_path, paper_config,
+        show_answer=True, omr_style=True,
+        sq_config=sq_config, cq_config=cq_config,
+    )
     
     # Free up memory after document generation (important for low-memory environments)
     del question_list

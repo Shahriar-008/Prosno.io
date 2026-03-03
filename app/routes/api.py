@@ -3,7 +3,7 @@ API routes for Prosno.io
 """
 from flask import Blueprint, request, jsonify
 from app import db, limiter
-from app.models import Class, Subject, Chapter, Question
+from app.models import Class, Subject, Chapter, Question, ShortQuestion, CQQuestion
 
 api_bp = Blueprint('api', __name__)
 
@@ -86,3 +86,41 @@ def get_stats():
         'chapters': Chapter.query.count(),
         'questions': Question.query.count()
     })
+
+
+@api_bp.route('/short-questions/count')
+@limiter.limit("60 per minute")
+def get_short_question_count():
+    """Get count of active short questions, optionally filtered by subject/chapter."""
+    subject_id = request.args.get('subject_id', type=int)
+    chapter_id = request.args.get('chapter_id', type=int)
+
+    query = ShortQuestion.query.filter_by(is_active=True)
+    if subject_id:
+        query = query.filter_by(subject_id=subject_id)
+    if chapter_id:
+        query = query.filter_by(chapter_id=chapter_id)
+
+    return jsonify({'count': query.count()})
+
+
+@api_bp.route('/cq-questions/count')
+@limiter.limit("60 per minute")
+def get_cq_question_count():
+    """Get count of active creative questions, optionally filtered by subject/chapter/board/year."""
+    subject_id = request.args.get('subject_id', type=int)
+    chapter_id = request.args.get('chapter_id', type=int)
+    board = request.args.get('board', type=str)
+    year = request.args.get('year', type=int)
+
+    query = CQQuestion.query.filter_by(is_active=True)
+    if subject_id:
+        query = query.filter_by(subject_id=subject_id)
+    if chapter_id:
+        query = query.filter_by(chapter_id=chapter_id)
+    if board:
+        query = query.filter_by(board=board)
+    if year:
+        query = query.filter_by(year=year)
+
+    return jsonify({'count': query.count()})

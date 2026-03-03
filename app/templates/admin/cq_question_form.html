@@ -1,0 +1,232 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ 'সম্পাদনা' if question else 'নতুন' }} সৃজনশীল প্রশ্ন - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ 'সৃজনশীল প্রশ্ন সম্পাদনা' if question else 'নতুন সৃজনশীল প্রশ্ন' }}</h1>
+    <p>{{ 'প্রশ্নের তথ্য আপডেট করুন' if question else 'একটি নতুন সৃজনশীল প্রশ্ন তৈরি করুন' }}</p>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="row g-3">
+                <!-- Class Selection -->
+                <div class="col-md-4">
+                    <label for="class_id" class="form-label">শ্রেণি <span class="text-danger">*</span></label>
+                    <select class="form-select" id="class_id" onchange="loadSubjects(this.value)">
+                        <option value="">-- শ্রেণি নির্বাচন করুন --</option>
+                        {% for c in classes %}
+                        <option value="{{ c.id }}" {{ 'selected' if selected_class_id and c.id == selected_class_id else '' }}>
+                            {{ c.name_bn or c.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Subject Selection (cascading) -->
+                <div class="col-md-4">
+                    <label for="subject_id" class="form-label">বিষয় <span class="text-danger">*</span></label>
+                    <select class="form-select" id="subject_id" name="subject_id" required onchange="loadChapters(this.value)">
+                        <option value="">-- প্রথমে শ্রেণি নির্বাচন করুন --</option>
+                        {% if question and question.subject %}
+                        <option value="{{ question.subject.id }}" selected>{{ question.subject.name_bn or question.subject.name }}</option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- Chapter Selection (cascading) -->
+                <div class="col-md-4">
+                    <label for="chapter_id" class="form-label">অধ্যায়</label>
+                    <select class="form-select" id="chapter_id" name="chapter_id">
+                        <option value="">-- সব অধ্যায় --</option>
+                        {% if question and question.chapter %}
+                        <option value="{{ question.chapter.id }}" selected>
+                            {{ question.chapter.name_bn or question.chapter.name }}
+                        </option>
+                        {% endif %}
+                    </select>
+                </div>
+
+                <!-- Stem (উদ্দীপক) -->
+                <div class="col-12">
+                    <label for="stem" class="form-label">উদ্দীপক <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="stem" name="stem" rows="5" required
+                              placeholder="এখানে উদ্দীপকটি লিখুন...">{{ question.stem if question else '' }}</textarea>
+                </div>
+
+                <!-- Sub-parts with marks -->
+                <div class="col-12">
+                    <h6 class="mt-2 mb-3">প্রশ্নের অংশসমূহ</h6>
+                </div>
+
+                <!-- Part ক -->
+                <div class="col-md-9">
+                    <label for="part_ka" class="form-label">ক.</label>
+                    <textarea class="form-control" id="part_ka" name="part_ka" rows="2"
+                              placeholder="ক অংশের প্রশ্ন...">{{ question.part_ka if question else '' }}</textarea>
+                </div>
+                <div class="col-md-3">
+                    <label for="marks_ka" class="form-label">নম্বর (ক)</label>
+                    <input type="number" class="form-control marks-input" id="marks_ka" name="marks_ka"
+                           value="{{ question.marks_ka if question else 1 }}" min="0" max="20" onchange="updateTotal()">
+                </div>
+
+                <!-- Part খ -->
+                <div class="col-md-9">
+                    <label for="part_kha" class="form-label">খ.</label>
+                    <textarea class="form-control" id="part_kha" name="part_kha" rows="2"
+                              placeholder="খ অংশের প্রশ্ন...">{{ question.part_kha if question else '' }}</textarea>
+                </div>
+                <div class="col-md-3">
+                    <label for="marks_kha" class="form-label">নম্বর (খ)</label>
+                    <input type="number" class="form-control marks-input" id="marks_kha" name="marks_kha"
+                           value="{{ question.marks_kha if question else 2 }}" min="0" max="20" onchange="updateTotal()">
+                </div>
+
+                <!-- Part গ -->
+                <div class="col-md-9">
+                    <label for="part_ga" class="form-label">গ.</label>
+                    <textarea class="form-control" id="part_ga" name="part_ga" rows="2"
+                              placeholder="গ অংশের প্রশ্ন...">{{ question.part_ga if question else '' }}</textarea>
+                </div>
+                <div class="col-md-3">
+                    <label for="marks_ga" class="form-label">নম্বর (গ)</label>
+                    <input type="number" class="form-control marks-input" id="marks_ga" name="marks_ga"
+                           value="{{ question.marks_ga if question else 3 }}" min="0" max="20" onchange="updateTotal()">
+                </div>
+
+                <!-- Part ঘ -->
+                <div class="col-md-9">
+                    <label for="part_gha" class="form-label">ঘ.</label>
+                    <textarea class="form-control" id="part_gha" name="part_gha" rows="2"
+                              placeholder="ঘ অংশের প্রশ্ন...">{{ question.part_gha if question else '' }}</textarea>
+                </div>
+                <div class="col-md-3">
+                    <label for="marks_gha" class="form-label">নম্বর (ঘ)</label>
+                    <input type="number" class="form-control marks-input" id="marks_gha" name="marks_gha"
+                           value="{{ question.marks_gha if question else 4 }}" min="0" max="20" onchange="updateTotal()">
+                </div>
+
+                <!-- Total marks display -->
+                <div class="col-12 mt-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fw-bold">মোট নম্বর: <span id="totalMarks">{{ question.total_marks if question else 10 }}</span></span>
+                        <span id="marksWarning" class="badge bg-warning text-dark" style="display: none;">
+                            <i class="bi bi-exclamation-triangle me-1"></i>মোট নম্বর ১০ হওয়া উচিত
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Board & Year (optional) -->
+                <div class="col-12 mt-2">
+                    <h6 class="mb-2 text-muted">বোর্ড তথ্য (ঐচ্ছিক)</h6>
+                </div>
+                <div class="col-md-6">
+                    <label for="board" class="form-label">বোর্ড</label>
+                    <select class="form-select" id="board" name="board">
+                        <option value="">-- বোর্ড নির্বাচন করুন --</option>
+                        {% set boards = ['ঢাকা বোর্ড', 'রাজশাহী বোর্ড', 'চট্টগ্রাম বোর্ড', 'কুমিল্লা বোর্ড', 'যশোর বোর্ড', 'বরিশাল বোর্ড', 'সিলেট বোর্ড', 'দিনাজপুর বোর্ড', 'ময়মনসিংহ বোর্ড'] %}
+                        {% for b in boards %}
+                        <option value="{{ b }}" {{ 'selected' if question and question.board == b else '' }}>{{ b }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label for="year" class="form-label">পরীক্ষার বছর</label>
+                    <input type="number" class="form-control" id="year" name="year"
+                           value="{{ question.year if question and question.year else '' }}"
+                           min="2000" max="2100" placeholder="যেমন: 2024">
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i> সংরক্ষণ করুন
+                </button>
+                <a href="{{ url_for('admin.cq_questions') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg me-1"></i> বাতিল
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function loadSubjects(classId) {
+        const subjectSelect = document.getElementById('subject_id');
+        const chapterSelect = document.getElementById('chapter_id');
+        subjectSelect.innerHTML = '<option value="">-- বিষয় নির্বাচন করুন --</option>';
+        chapterSelect.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
+
+        if (!classId) {
+            subjectSelect.innerHTML = '<option value="">-- প্রথমে শ্রেণি নির্বাচন করুন --</option>';
+            return;
+        }
+
+        fetch(`/api/subjects/${classId}`)
+            .then(r => r.json())
+            .then(subjects => {
+                subjects.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = s.name_bn || s.name;
+                    subjectSelect.appendChild(opt);
+                });
+                {% if question and question.subject_id %}
+                subjectSelect.value = '{{ question.subject_id }}';
+                if (subjectSelect.value) loadChapters(subjectSelect.value);
+                {% endif %}
+            });
+    }
+
+    function loadChapters(subjectId) {
+        const chapterSelect = document.getElementById('chapter_id');
+        chapterSelect.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
+
+        if (!subjectId) return;
+
+        fetch(`/api/chapters/${subjectId}`)
+            .then(r => r.json())
+            .then(chapters => {
+                chapters.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.name_bn || c.name;
+                    chapterSelect.appendChild(opt);
+                });
+                {% if question and question.chapter_id %}
+                chapterSelect.value = '{{ question.chapter_id }}';
+                {% endif %}
+            });
+    }
+
+    function updateTotal() {
+        const ka  = parseInt(document.getElementById('marks_ka').value)  || 0;
+        const kha = parseInt(document.getElementById('marks_kha').value) || 0;
+        const ga  = parseInt(document.getElementById('marks_ga').value)  || 0;
+        const gha = parseInt(document.getElementById('marks_gha').value) || 0;
+        const total = ka + kha + ga + gha;
+
+        document.getElementById('totalMarks').textContent = total;
+        const warning = document.getElementById('marksWarning');
+        warning.style.display = total !== 10 ? 'inline-block' : 'none';
+    }
+
+    // On page load: if editing, pre-select class and cascade
+    {% if selected_class_id %}
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('class_id').value = '{{ selected_class_id }}';
+        loadSubjects('{{ selected_class_id }}');
+    });
+    {% endif %}
+
+    // Run marks total on load
+    document.addEventListener('DOMContentLoaded', updateTotal);
+</script>
+{% endblock %}

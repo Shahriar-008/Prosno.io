@@ -165,6 +165,354 @@
                                         </div>
                                     </div>
 
+                                    <div class="col-md-4">
+                                        <div class="form-check form-switch mt-4">
+                                            <input class="form-check-input" type="checkbox" id="omrStyleToggle" checked>
+                                            <label class="form-check-label" for="omrStyleToggle">
+                                                <i class="bi bi-circle me-1"></i> OMR Circles
+                                            </label>
+                                            <div class="form-text small">Show OMR-style circles beside options</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Additional Question Sections (SQ / CQ) -->
+                                    <div class="col-12 mt-2">
+                                        <div class="accordion" id="extraSectionsAccordion">
+                                            <div class="accordion-item">
+                                                <h2 class="accordion-header">
+                                                    <button class="accordion-button collapsed" type="button"
+                                                        data-bs-toggle="collapse" data-bs-target="#extraSectionsBody">
+                                                        <i class="bi bi-plus-square me-2"></i> অতিরিক্ত প্রশ্ন বিভাগ (সংক্ষিপ্ত / সৃজনশীল)
+                                                    </button>
+                                                </h2>
+                                                <div id="extraSectionsBody" class="accordion-collapse collapse"
+                                                     data-bs-parent="#extraSectionsAccordion">
+                                                    <div class="accordion-body">
+
+                                                        <!-- Short Questions Panel -->
+                                                        <div class="card mb-3">
+                                                            <div class="card-header d-flex align-items-center">
+                                                                <div class="form-check form-switch me-3">
+                                                                    <input class="form-check-input" type="checkbox"
+                                                                           id="sqInclude" onchange="toggleSqPanel()">
+                                                                    <label class="form-check-label fw-bold" for="sqInclude">
+                                                                        সংক্ষিপ্ত প্রশ্ন যোগ করুন
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="card-body" id="sqPanel" style="display:none;">
+                                                                {% if session.get('user') %}
+                                                                <!-- Source mode toggle -->
+                                                                <div class="mb-3 d-flex gap-2 align-items-center">
+                                                                    <span class="text-muted small fw-semibold">উৎস:</span>
+                                                                    <div class="btn-group btn-group-sm" role="group">
+                                                                        <button type="button" class="btn btn-outline-primary active"
+                                                                            id="sqModeDbBtn" onclick="setSqMode('db')">
+                                                                            <i class="bi bi-database me-1"></i> প্রশ্নব্যাংক থেকে
+                                                                        </button>
+                                                                        <button type="button" class="btn btn-outline-primary"
+                                                                            id="sqModeCustomBtn" onclick="setSqMode('custom')">
+                                                                            <i class="bi bi-pencil me-1"></i> নিজে লিখুন
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                {% endif %}
+
+                                                                <!-- DB mode fields -->
+                                                                <div id="sqDbContent">
+                                                                    <div class="row g-3">
+                                                                        <div class="col-12">
+                                                                            <label class="form-label">শ্রেণি</label>
+                                                                            <select class="form-select" id="sqClassId"
+                                                                                    onchange="loadSqSubjectsForClass(this.value)">
+                                                                                <option value="">-- শ্রেণি নির্বাচন করুন --</option>
+                                                                                {% for c in classes %}
+                                                                                <option value="{{ c.id }}">{{ c.name_bn or c.name }}</option>
+                                                                                {% endfor %}
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <label class="form-label">বিষয়</label>
+                                                                            <select class="form-select" id="sqSubjectId"
+                                                                                    onchange="loadSqChapters(this.value); fetchSqCount()">
+                                                                                <option value="">-- বিষয় নির্বাচন করুন --</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <label class="form-label">অধ্যায় (ঐচ্ছিক)</label>
+                                                                            <select class="form-select" id="sqChapterId"
+                                                                                    onchange="fetchSqCount()">
+                                                                                <option value="">-- সব অধ্যায় --</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label">মোট প্রশ্ন সংখ্যা (M)</label>
+                                                                            <input type="number" class="form-control" id="sqIncludeCount"
+                                                                                   min="1" value="3" onchange="validateSq()">
+                                                                            <div class="form-text" id="sqAvailableText">Available: —</div>
+                                                                        </div>
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label">উত্তর দিতে হবে (N)</label>
+                                                                            <input type="number" class="form-control" id="sqAnswerCount"
+                                                                                   min="1" value="2" onchange="validateSq()">
+                                                                        </div>
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label">প্রতিটির নম্বর</label>
+                                                                            <input type="number" class="form-control" id="sqMarks"
+                                                                                   min="1" value="2">
+                                                                        </div>
+                                                                        <div class="col-12">
+                                                                            <div class="text-danger small" id="sqError" style="display:none;"></div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {% if session.get('user') %}
+                                                                <!-- Custom mode inline builder -->
+                                                                <div id="sqCustomContent" style="display:none;">
+                                                                    <div class="mcq-builder-card mb-3">
+                                                                        <div class="mb-2">
+                                                                            <label class="form-label fw-bold">প্রশ্ন <span class="text-danger">*</span></label>
+                                                                            <textarea class="form-control" id="dbCustomSqText" rows="2"
+                                                                                placeholder="সংক্ষিপ্ত প্রশ্নটি লিখুন..."></textarea>
+                                                                        </div>
+                                                                        <div class="row g-2 align-items-end">
+                                                                            <div class="col-md-4">
+                                                                                <label class="form-label small">নম্বর</label>
+                                                                                <input type="number" class="form-control form-control-sm"
+                                                                                    id="dbCustomSqMarks" value="2" min="1" max="20">
+                                                                            </div>
+                                                                            <div class="col-md-8 text-end">
+                                                                                <button type="button" class="btn btn-sm btn-success"
+                                                                                    onclick="addDbCustomSq()">
+                                                                                    <i class="bi bi-plus-lg me-1"></i> যোগ করুন
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div id="dbCustomSqList" class="custom-questions-list mb-3">
+                                                                        <div class="text-center text-muted p-2">
+                                                                            <i class="bi bi-inbox"></i>
+                                                                            <p class="mb-0 small">কোনো প্রশ্ন যোগ করা হয়নি।</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div id="dbCustomSqConfigPanel" style="display:none;" class="p-2 border rounded">
+                                                                        <div class="row g-2">
+                                                                            <div class="col-md-4">
+                                                                                <label class="form-label small">মোট (M)</label>
+                                                                                <input type="number" class="form-control form-control-sm"
+                                                                                    id="dbCustomSqIncludeCount" min="1" value="3">
+                                                                            </div>
+                                                                            <div class="col-md-4">
+                                                                                <label class="form-label small">উত্তর (N)</label>
+                                                                                <input type="number" class="form-control form-control-sm"
+                                                                                    id="dbCustomSqAnswerCount" min="1" value="2">
+                                                                            </div>
+                                                                            <div class="col-md-4">
+                                                                                <label class="form-label small">নম্বর</label>
+                                                                                <input type="number" class="form-control form-control-sm"
+                                                                                    id="dbCustomSqMarksEach" min="1" value="2">
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Creative Questions Panel -->
+                                                        <div class="card">
+                                                            <div class="card-header d-flex align-items-center">
+                                                                <div class="form-check form-switch me-3">
+                                                                    <input class="form-check-input" type="checkbox"
+                                                                           id="cqInclude" onchange="toggleCqPanel()">
+                                                                    <label class="form-check-label fw-bold" for="cqInclude">
+                                                                        সৃজনশীল প্রশ্ন যোগ করুন
+                                                                    </label>
+                                                                </div>
+                                                            </div>
+                                                            <div class="card-body" id="cqPanel" style="display:none;">
+                                                                {% if session.get('user') %}
+                                                                <!-- Source mode toggle -->
+                                                                <div class="mb-3 d-flex gap-2 align-items-center">
+                                                                    <span class="text-muted small fw-semibold">উৎস:</span>
+                                                                    <div class="btn-group btn-group-sm" role="group">
+                                                                        <button type="button" class="btn btn-outline-primary active"
+                                                                            id="cqModeDbBtn" onclick="setCqMode('db')">
+                                                                            <i class="bi bi-database me-1"></i> প্রশ্নব্যাংক থেকে
+                                                                        </button>
+                                                                        <button type="button" class="btn btn-outline-primary"
+                                                                            id="cqModeCustomBtn" onclick="setCqMode('custom')">
+                                                                            <i class="bi bi-pencil me-1"></i> নিজে লিখুন
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                                {% endif %}
+
+                                                                <!-- DB mode fields -->
+                                                                <div id="cqDbContent">
+                                                                    <div class="row g-3">
+                                                                        <div class="col-12">
+                                                                            <label class="form-label">শ্রেণি</label>
+                                                                            <select class="form-select" id="cqClassId"
+                                                                                    onchange="loadCqSubjectsForClass(this.value)">
+                                                                                <option value="">-- শ্রেণি নির্বাচন করুন --</option>
+                                                                                {% for c in classes %}
+                                                                                <option value="{{ c.id }}">{{ c.name_bn or c.name }}</option>
+                                                                                {% endfor %}
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <label class="form-label">বিষয়</label>
+                                                                            <select class="form-select" id="cqSubjectId"
+                                                                                    onchange="loadCqChapters(this.value); fetchCqCount()">
+                                                                                <option value="">-- বিষয় নির্বাচন করুন --</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <label class="form-label">অধ্যায় (ঐচ্ছিক)</label>
+                                                                            <select class="form-select" id="cqChapterId"
+                                                                                    onchange="fetchCqCount()">
+                                                                                <option value="">-- সব অধ্যায় --</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <label class="form-label">বোর্ড (ঐচ্ছিক)</label>
+                                                                            <select class="form-select" id="cqBoard" onchange="fetchCqCount()">
+                                                                                <option value="">-- সব বোর্ড --</option>
+                                                                                <option value="ঢাকা বোর্ড">ঢাকা বোর্ড</option>
+                                                                                <option value="রাজশাহী বোর্ড">রাজশাহী বোর্ড</option>
+                                                                                <option value="চট্টগ্রাম বোর্ড">চট্টগ্রাম বোর্ড</option>
+                                                                                <option value="কুমিল্লা বোর্ড">কুমিল্লা বোর্ড</option>
+                                                                                <option value="যশোর বোর্ড">যশোর বোর্ড</option>
+                                                                                <option value="বরিশাল বোর্ড">বরিশাল বোর্ড</option>
+                                                                                <option value="সিলেট বোর্ড">সিলেট বোর্ড</option>
+                                                                                <option value="দিনাজপুর বোর্ড">দিনাজপুর বোর্ড</option>
+                                                                                <option value="ময়মনসিংহ বোর্ড">ময়মনসিংহ বোর্ড</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <label class="form-label">বছর (ঐচ্ছিক)</label>
+                                                                            <input type="number" class="form-control" id="cqYear"
+                                                                                   min="2000" max="2100" placeholder="যেমন: 2024"
+                                                                                   onchange="fetchCqCount()">
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <label class="form-label">মোট প্রশ্ন সংখ্যা (M)</label>
+                                                                            <input type="number" class="form-control" id="cqIncludeCount"
+                                                                                   min="1" value="3" onchange="validateCq()">
+                                                                            <div class="form-text" id="cqAvailableText">Available: —</div>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <label class="form-label">উত্তর দিতে হবে (N)</label>
+                                                                            <input type="number" class="form-control" id="cqAnswerCount"
+                                                                                   min="1" value="2" onchange="validateCq()">
+                                                                        </div>
+                                                                        <div class="col-12">
+                                                                            <div class="text-danger small" id="cqError" style="display:none;"></div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {% if session.get('user') %}
+                                                                <!-- Custom mode inline CQ builder -->
+                                                                <div id="cqCustomContent" style="display:none;">
+                                                                    <div class="mcq-builder-card mb-3">
+                                                                        <div class="mb-2">
+                                                                            <label class="form-label fw-bold">উদ্দীপক <span class="text-danger">*</span></label>
+                                                                            <textarea class="form-control" id="dbCustomCqStem" rows="2"
+                                                                                placeholder="উদ্দীপকটি লিখুন..."></textarea>
+                                                                        </div>
+                                                                        <div class="row g-2 mb-2">
+                                                                            <div class="col-md-9">
+                                                                                <label class="form-label small">ক.</label>
+                                                                                <input type="text" class="form-control form-control-sm"
+                                                                                    id="dbCustomCqKa" placeholder="ক অংশের প্রশ্ন...">
+                                                                            </div>
+                                                                            <div class="col-md-3">
+                                                                                <label class="form-label small">নম্বর</label>
+                                                                                <input type="number" class="form-control form-control-sm"
+                                                                                    id="dbCustomCqMarksKa" value="1" min="0" max="20"
+                                                                                    onchange="updateDbCustomCqTotal()">
+                                                                            </div>
+                                                                            <div class="col-md-9">
+                                                                                <label class="form-label small">খ.</label>
+                                                                                <input type="text" class="form-control form-control-sm"
+                                                                                    id="dbCustomCqKha" placeholder="খ অংশের প্রশ্ন...">
+                                                                            </div>
+                                                                            <div class="col-md-3">
+                                                                                <label class="form-label small">নম্বর</label>
+                                                                                <input type="number" class="form-control form-control-sm"
+                                                                                    id="dbCustomCqMarksKha" value="2" min="0" max="20"
+                                                                                    onchange="updateDbCustomCqTotal()">
+                                                                            </div>
+                                                                            <div class="col-md-9">
+                                                                                <label class="form-label small">গ.</label>
+                                                                                <input type="text" class="form-control form-control-sm"
+                                                                                    id="dbCustomCqGa" placeholder="গ অংশের প্রশ্ন...">
+                                                                            </div>
+                                                                            <div class="col-md-3">
+                                                                                <label class="form-label small">নম্বর</label>
+                                                                                <input type="number" class="form-control form-control-sm"
+                                                                                    id="dbCustomCqMarksGa" value="3" min="0" max="20"
+                                                                                    onchange="updateDbCustomCqTotal()">
+                                                                            </div>
+                                                                            <div class="col-md-9">
+                                                                                <label class="form-label small">ঘ.</label>
+                                                                                <input type="text" class="form-control form-control-sm"
+                                                                                    id="dbCustomCqGha" placeholder="ঘ অংশের প্রশ্ন...">
+                                                                            </div>
+                                                                            <div class="col-md-3">
+                                                                                <label class="form-label small">নম্বর</label>
+                                                                                <input type="number" class="form-control form-control-sm"
+                                                                                    id="dbCustomCqMarksGha" value="4" min="0" max="20"
+                                                                                    onchange="updateDbCustomCqTotal()">
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="d-flex align-items-center justify-content-between">
+                                                                            <span class="small">
+                                                                                মোট: <strong id="dbCustomCqTotal">10</strong>
+                                                                                <span id="dbCustomCqTotalWarning"
+                                                                                    class="badge bg-warning text-dark ms-1"
+                                                                                    style="display:none;">১০ হওয়া উচিত</span>
+                                                                            </span>
+                                                                            <button type="button" class="btn btn-sm btn-success"
+                                                                                onclick="addDbCustomCq()">
+                                                                                <i class="bi bi-plus-lg me-1"></i> যোগ করুন
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div id="dbCustomCqList" class="custom-questions-list mb-3">
+                                                                        <div class="text-center text-muted p-2">
+                                                                            <i class="bi bi-inbox"></i>
+                                                                            <p class="mb-0 small">কোনো প্রশ্ন যোগ করা হয়নি।</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div id="dbCustomCqConfigPanel" style="display:none;" class="p-2 border rounded">
+                                                                        <div class="row g-2">
+                                                                            <div class="col-md-6">
+                                                                                <label class="form-label small">মোট (M)</label>
+                                                                                <input type="number" class="form-control form-control-sm"
+                                                                                    id="dbCustomCqIncludeCount" min="1" value="3">
+                                                                            </div>
+                                                                            <div class="col-md-6">
+                                                                                <label class="form-label small">উত্তর (N)</label>
+                                                                                <input type="number" class="form-control form-control-sm"
+                                                                                    id="dbCustomCqAnswerCount" min="1" value="2">
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                {% endif %}
+                                                            </div>
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <!-- Generate Button -->
                                     <div class="col-12 text-center mt-4">
                                         <button type="submit" class="btn btn-primary btn-lg" id="generateBtn">
@@ -247,7 +595,12 @@
                                 </div>
                             </div>
 
-                            <div class="text-center mt-4">
+                            <div class="text-center mt-4 d-flex justify-content-center gap-3">
+                                <button type="button" class="btn btn-outline-warning" id="saveToAccountBtn"
+                                    onclick="saveToAccount('db')">
+                                    <i class="bi bi-bookmark-plus me-2"></i>
+                                    Save to My Account
+                                </button>
                                 <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
                                     <i class="bi bi-arrow-repeat me-2"></i>
                                     Generate Another Paper
@@ -449,6 +802,164 @@ Answer: b</code></pre>
                                     </div>
                                 </div>
 
+                                {% if session.get('user') %}
+                                <hr class="my-2">
+
+                                <!-- Custom Short Questions (SQ) Builder -->
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h5 class="settings-title mb-0">
+                                            <i class="bi bi-textarea-t"></i> সংক্ষিপ্ত প্রশ্ন যোগ করুন
+                                        </h5>
+                                        <button class="btn btn-sm btn-outline-primary" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#customSqSection">
+                                            <i class="bi bi-chevron-down me-1"></i> Show / Hide
+                                        </button>
+                                    </div>
+                                    <div class="collapse mt-3" id="customSqSection">
+                                        <div class="mcq-builder-card">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">প্রশ্ন <span class="text-danger">*</span></label>
+                                                <textarea class="form-control" id="customSqText" rows="3"
+                                                    placeholder="সংক্ষিপ্ত প্রশ্নটি লিখুন..."></textarea>
+                                            </div>
+                                            <div class="row g-2 align-items-end">
+                                                <div class="col-md-4">
+                                                    <label class="form-label">নম্বর</label>
+                                                    <input type="number" class="form-control" id="customSqMarks"
+                                                        value="2" min="1" max="20">
+                                                </div>
+                                                <div class="col-md-8 text-end">
+                                                    <button type="button" class="btn btn-success" onclick="addCustomSq()">
+                                                        <i class="bi bi-plus-lg me-1"></i> SQ যোগ করুন
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div id="customSqList" class="mt-3 custom-questions-list">
+                                            <div class="text-center text-muted p-3">
+                                                <i class="bi bi-inbox" style="font-size:1.5rem;"></i>
+                                                <p class="mb-0 small mt-1">কোনো সংক্ষিপ্ত প্রশ্ন যোগ করা হয়নি।</p>
+                                            </div>
+                                        </div>
+                                        <div id="customSqConfigPanel" style="display:none;" class="mt-3 p-3 border rounded">
+                                            <div class="row g-2">
+                                                <div class="col-md-4">
+                                                    <label class="form-label small">মোট প্রশ্ন (M)</label>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                        id="customSqIncludeCount" min="1" value="3">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small">উত্তর দিতে হবে (N)</label>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                        id="customSqAnswerCount" min="1" value="2">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small">প্রতিটির নম্বর</label>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                        id="customSqMarksEach" min="1" value="2">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Custom Creative Questions (CQ) Builder -->
+                                <div class="col-12">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h5 class="settings-title mb-0">
+                                            <i class="bi bi-file-ruled"></i> সৃজনশীল প্রশ্ন যোগ করুন
+                                        </h5>
+                                        <button class="btn btn-sm btn-outline-primary" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#customCqSection">
+                                            <i class="bi bi-chevron-down me-1"></i> Show / Hide
+                                        </button>
+                                    </div>
+                                    <div class="collapse mt-3" id="customCqSection">
+                                        <div class="mcq-builder-card">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">উদ্দীপক <span class="text-danger">*</span></label>
+                                                <textarea class="form-control" id="customCqStem" rows="3"
+                                                    placeholder="উদ্দীপকটি লিখুন..."></textarea>
+                                            </div>
+                                            <div class="row g-2 mb-2">
+                                                <div class="col-md-9">
+                                                    <label class="form-label">ক.</label>
+                                                    <input type="text" class="form-control" id="customCqKa"
+                                                        placeholder="ক অংশের প্রশ্ন...">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">নম্বর</label>
+                                                    <input type="number" class="form-control" id="customCqMarksKa"
+                                                        value="1" min="0" max="20" onchange="updateCustomCqTotal()">
+                                                </div>
+                                                <div class="col-md-9">
+                                                    <label class="form-label">খ.</label>
+                                                    <input type="text" class="form-control" id="customCqKha"
+                                                        placeholder="খ অংশের প্রশ্ন...">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">নম্বর</label>
+                                                    <input type="number" class="form-control" id="customCqMarksKha"
+                                                        value="2" min="0" max="20" onchange="updateCustomCqTotal()">
+                                                </div>
+                                                <div class="col-md-9">
+                                                    <label class="form-label">গ.</label>
+                                                    <input type="text" class="form-control" id="customCqGa"
+                                                        placeholder="গ অংশের প্রশ্ন...">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">নম্বর</label>
+                                                    <input type="number" class="form-control" id="customCqMarksGa"
+                                                        value="3" min="0" max="20" onchange="updateCustomCqTotal()">
+                                                </div>
+                                                <div class="col-md-9">
+                                                    <label class="form-label">ঘ.</label>
+                                                    <input type="text" class="form-control" id="customCqGha"
+                                                        placeholder="ঘ অংশের প্রশ্ন...">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">নম্বর</label>
+                                                    <input type="number" class="form-control" id="customCqMarksGha"
+                                                        value="4" min="0" max="20" onchange="updateCustomCqTotal()">
+                                                </div>
+                                            </div>
+                                            <div class="d-flex align-items-center justify-content-between mt-2">
+                                                <span class="small">
+                                                    মোট নম্বর: <strong id="customCqTotal">10</strong>
+                                                    <span id="customCqTotalWarning"
+                                                        class="badge bg-warning text-dark ms-2"
+                                                        style="display:none;">১০ হওয়া উচিত</span>
+                                                </span>
+                                                <button type="button" class="btn btn-success" onclick="addCustomCq()">
+                                                    <i class="bi bi-plus-lg me-1"></i> CQ যোগ করুন
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div id="customCqList" class="mt-3 custom-questions-list">
+                                            <div class="text-center text-muted p-3">
+                                                <i class="bi bi-inbox" style="font-size:1.5rem;"></i>
+                                                <p class="mb-0 small mt-1">কোনো সৃজনশীল প্রশ্ন যোগ করা হয়নি।</p>
+                                            </div>
+                                        </div>
+                                        <div id="customCqConfigPanel" style="display:none;" class="mt-3 p-3 border rounded">
+                                            <div class="row g-2">
+                                                <div class="col-md-6">
+                                                    <label class="form-label small">মোট প্রশ্ন (M)</label>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                        id="customCqIncludeCount" min="1" value="3">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label small">উত্তর দিতে হবে (N)</label>
+                                                    <input type="number" class="form-control form-control-sm"
+                                                        id="customCqAnswerCount" min="1" value="2">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
                                 <hr class="my-4">
 
                                 <!-- Paper Settings -->
@@ -483,6 +994,17 @@ Answer: b</code></pre>
                                         <label for="customTime" class="form-label">Time (Minutes)</label>
                                         <input type="number" class="form-control" id="customTime" value="30" min="5"
                                             max="180">
+                                    </div>
+                                </div>
+
+                                <div class="col-md-3">
+                                    <div class="form-check form-switch mt-4">
+                                        <input class="form-check-input" type="checkbox" id="customOmrStyleToggle"
+                                            checked>
+                                        <label class="form-check-label" for="customOmrStyleToggle">
+                                            <i class="bi bi-circle me-1"></i> OMR Circles
+                                        </label>
+                                        <div class="form-text small">Show OMR-style circles</div>
                                     </div>
                                 </div>
 
@@ -574,7 +1096,12 @@ Answer: b</code></pre>
                                 </a>
                                 {% endif %}
                             </div>
-                            <div class="text-center mt-4">
+                            <div class="text-center mt-4 d-flex justify-content-center gap-3">
+                                <button type="button" class="btn btn-outline-warning" id="customSaveToAccountBtn"
+                                    onclick="saveToAccount('custom')">
+                                    <i class="bi bi-bookmark-plus me-2"></i>
+                                    Save to My Account
+                                </button>
                                 <button type="button" class="btn btn-outline-secondary" onclick="resetCustomForm()">
                                     <i class="bi bi-arrow-repeat me-2"></i> Generate Another Paper
                                 </button>
@@ -655,6 +1182,26 @@ Answer: b</code></pre>
                         subjectSelect.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
                     });
                     subjectSelect.disabled = false;
+
+                    // Also populate SQ/CQ subject dropdowns and sync class selectors
+                    const sqClassSel = document.getElementById('sqClassId');
+                    const cqClassSel = document.getElementById('cqClassId');
+                    if (sqClassSel) sqClassSel.value = classId;
+                    if (cqClassSel) cqClassSel.value = classId;
+                    const sqSel = document.getElementById('sqSubjectId');
+                    const cqSel = document.getElementById('cqSubjectId');
+                    if (sqSel) {
+                        sqSel.innerHTML = '<option value="">-- বিষয় নির্বাচন করুন --</option>';
+                        subjects.forEach(s => {
+                            sqSel.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
+                        });
+                    }
+                    if (cqSel) {
+                        cqSel.innerHTML = '<option value="">-- বিষয় নির্বাচন করুন --</option>';
+                        subjects.forEach(s => {
+                            cqSel.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
+                        });
+                    }
                 })
                 .catch(err => {
                     console.error('Error loading subjects:', err);
@@ -805,7 +1352,25 @@ Answer: b</code></pre>
                 question_count: parseInt(document.getElementById('questionCount').value),
                 time_minutes: parseInt(document.getElementById('timeMinutes').value),
                 title: document.getElementById('paperTitle').value,
-                randomize: document.getElementById('randomizeOrder')?.checked || false
+                randomize: document.getElementById('randomizeOrder')?.checked || false,
+                omr_style: document.getElementById('omrStyleToggle').checked,
+                // Short Questions
+                sq_include: document.getElementById('sqInclude')?.checked || false,
+                sq_subject_id: sqMode === 'db' ? (parseInt(document.getElementById('sqSubjectId')?.value) || null) : null,
+                sq_chapter_id: sqMode === 'db' ? (parseInt(document.getElementById('sqChapterId')?.value) || null) : null,
+                sq_include_count: sqMode === 'db' ? (parseInt(document.getElementById('sqIncludeCount')?.value) || 0) : (parseInt(document.getElementById('dbCustomSqIncludeCount')?.value) || dbCustomSqQuestions.length),
+                sq_answer_count: sqMode === 'db' ? (parseInt(document.getElementById('sqAnswerCount')?.value) || 0) : (parseInt(document.getElementById('dbCustomSqAnswerCount')?.value) || dbCustomSqQuestions.length),
+                sq_marks: sqMode === 'db' ? (parseInt(document.getElementById('sqMarks')?.value) || 2) : (parseInt(document.getElementById('dbCustomSqMarksEach')?.value) || 2),
+                sq_custom_questions: sqMode === 'custom' ? dbCustomSqQuestions : [],
+                // Creative Questions
+                cq_include: document.getElementById('cqInclude')?.checked || false,
+                cq_subject_id: cqMode === 'db' ? (parseInt(document.getElementById('cqSubjectId')?.value) || null) : null,
+                cq_chapter_id: cqMode === 'db' ? (parseInt(document.getElementById('cqChapterId')?.value) || null) : null,
+                cq_board: cqMode === 'db' ? (document.getElementById('cqBoard')?.value || null) : null,
+                cq_year: cqMode === 'db' ? (parseInt(document.getElementById('cqYear')?.value) || null) : null,
+                cq_include_count: cqMode === 'db' ? (parseInt(document.getElementById('cqIncludeCount')?.value) || 0) : (parseInt(document.getElementById('dbCustomCqIncludeCount')?.value) || dbCustomCqQuestions.length),
+                cq_answer_count: cqMode === 'db' ? (parseInt(document.getElementById('cqAnswerCount')?.value) || 0) : (parseInt(document.getElementById('dbCustomCqAnswerCount')?.value) || dbCustomCqQuestions.length),
+                cq_custom_questions: cqMode === 'custom' ? dbCustomCqQuestions : [],
             };
 
             // Show loading state
@@ -880,6 +1445,10 @@ Answer: b</code></pre>
                     };
 
                     resultCard.style.display = 'block';
+                    // Track paper_id for save feature
+                    if (typeof lastGeneratedPaperId !== 'undefined') {
+                        lastGeneratedPaperId = data.paper_id;
+                    }
                 })
                 .catch(err => {
                     console.error('Error:', err);
@@ -1084,12 +1653,392 @@ Answer: b</code></pre>
         document.getElementById('questionsInfo').style.display = 'none';
         document.getElementById('questionsList').innerHTML = '';
         window.allQuestions = [];
+
+        // Reset SQ/CQ panels
+        const sqCb = document.getElementById('sqInclude');
+        const cqCb = document.getElementById('cqInclude');
+        if (sqCb) { sqCb.checked = false; toggleSqPanel(); }
+        if (cqCb) { cqCb.checked = false; toggleCqPanel(); }
+    }
+
+    // ==========================================
+    // SHORT QUESTION & CREATIVE QUESTION HELPERS
+    // ==========================================
+    let _sqAvailable = 0;
+    let _cqAvailable = 0;
+
+    function toggleSqPanel() {
+        const panel = document.getElementById('sqPanel');
+        if (panel) panel.style.display = document.getElementById('sqInclude').checked ? 'block' : 'none';
+    }
+    function toggleCqPanel() {
+        const panel = document.getElementById('cqPanel');
+        if (panel) panel.style.display = document.getElementById('cqInclude').checked ? 'block' : 'none';
+    }
+
+    function loadSqSubjectsForClass(classId) {
+        const sqSel = document.getElementById('sqSubjectId');
+        const chaptSel = document.getElementById('sqChapterId');
+        sqSel.innerHTML = '<option value="">-- বিষয় নির্বাচন করুন --</option>';
+        if (chaptSel) chaptSel.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
+        if (!classId) return;
+        fetch(`/api/subjects/${classId}`)
+            .then(r => r.json())
+            .then(subjects => {
+                subjects.forEach(s => {
+                    sqSel.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
+                });
+            });
+    }
+
+    function loadCqSubjectsForClass(classId) {
+        const cqSel = document.getElementById('cqSubjectId');
+        const chaptSel = document.getElementById('cqChapterId');
+        cqSel.innerHTML = '<option value="">-- বিষয় নির্বাচন করুন --</option>';
+        if (chaptSel) chaptSel.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
+        if (!classId) return;
+        fetch(`/api/subjects/${classId}`)
+            .then(r => r.json())
+            .then(subjects => {
+                subjects.forEach(s => {
+                    cqSel.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
+                });
+            });
+    }
+
+    function loadSqChapters(subjectId) {
+        const sel = document.getElementById('sqChapterId');
+        sel.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
+        if (!subjectId) return;
+        fetch(`/get-chapters/${subjectId}`)
+            .then(r => r.json())
+            .then(chapters => {
+                chapters.forEach(c => {
+                    sel.innerHTML += `<option value="${c.id}">${c.name_bn || c.name}</option>`;
+                });
+            });
+    }
+    function loadCqChapters(subjectId) {
+        const sel = document.getElementById('cqChapterId');
+        sel.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
+        if (!subjectId) return;
+        fetch(`/get-chapters/${subjectId}`)
+            .then(r => r.json())
+            .then(chapters => {
+                chapters.forEach(c => {
+                    sel.innerHTML += `<option value="${c.id}">${c.name_bn || c.name}</option>`;
+                });
+            });
+    }
+
+    function fetchSqCount() {
+        const subjectId = document.getElementById('sqSubjectId')?.value;
+        if (!subjectId) { _sqAvailable = 0; document.getElementById('sqAvailableText').textContent = 'Available: —'; return; }
+        const chapterId = document.getElementById('sqChapterId')?.value;
+        let url = `/api/short-questions/count?subject_id=${subjectId}`;
+        if (chapterId) url += `&chapter_id=${chapterId}`;
+        fetch(url).then(r => r.json()).then(d => {
+            _sqAvailable = d.count;
+            document.getElementById('sqAvailableText').textContent = `Available: ${d.count}`;
+            validateSq();
+        });
+    }
+    function fetchCqCount() {
+        const subjectId = document.getElementById('cqSubjectId')?.value;
+        if (!subjectId) { _cqAvailable = 0; document.getElementById('cqAvailableText').textContent = 'Available: —'; return; }
+        const chapterId = document.getElementById('cqChapterId')?.value;
+        const board = document.getElementById('cqBoard')?.value;
+        const year = document.getElementById('cqYear')?.value;
+        let url = `/api/cq-questions/count?subject_id=${subjectId}`;
+        if (chapterId) url += `&chapter_id=${chapterId}`;
+        if (board) url += `&board=${encodeURIComponent(board)}`;
+        if (year) url += `&year=${year}`;
+        fetch(url).then(r => r.json()).then(d => {
+            _cqAvailable = d.count;
+            document.getElementById('cqAvailableText').textContent = `Available: ${d.count}`;
+            validateCq();
+        });
+    }
+
+    function validateSq() {
+        const el = document.getElementById('sqError');
+        const m = parseInt(document.getElementById('sqIncludeCount')?.value) || 0;
+        const n = parseInt(document.getElementById('sqAnswerCount')?.value) || 0;
+        let msg = '';
+        if (n < 1) msg = 'উত্তর সংখ্যা (N) কমপক্ষে ১ হতে হবে।';
+        else if (n > m) msg = 'উত্তর সংখ্যা (N) মোট প্রশ্ন সংখ্যা (M) এর চেয়ে বেশি হতে পারবে না।';
+        else if (m > _sqAvailable && _sqAvailable > 0) msg = `মোট প্রশ্ন সংখ্যা (M) উপলব্ধ প্রশ্নের (${_sqAvailable}) চেয়ে বেশি।`;
+        el.textContent = msg;
+        el.style.display = msg ? 'block' : 'none';
+        return !msg;
+    }
+    function validateCq() {
+        const el = document.getElementById('cqError');
+        const m = parseInt(document.getElementById('cqIncludeCount')?.value) || 0;
+        const n = parseInt(document.getElementById('cqAnswerCount')?.value) || 0;
+        let msg = '';
+        if (n < 1) msg = 'উত্তর সংখ্যা (N) কমপক্ষে ১ হতে হবে।';
+        else if (n > m) msg = 'উত্তর সংখ্যা (N) মোট প্রশ্ন সংখ্যা (M) এর চেয়ে বেশি হতে পারবে না।';
+        else if (m > _cqAvailable && _cqAvailable > 0) msg = `মোট প্রশ্ন সংখ্যা (M) উপলব্ধ প্রশ্নের (${_cqAvailable}) চেয়ে বেশি।`;
+        el.textContent = msg;
+        el.style.display = msg ? 'block' : 'none';
+        return !msg;
     }
 
     // ==========================================
     // CUSTOM QUESTIONS
     // ==========================================
     let customQuestions = [];
+
+    // ==========================================
+    // CUSTOM SQ / CQ DATA & HELPERS
+    // ==========================================
+    let customSqQuestions = [];       // Custom mode tab
+    let customCqQuestions = [];       // Custom mode tab
+    let dbCustomSqQuestions = [];     // DB mode custom toggle
+    let dbCustomCqQuestions = [];     // DB mode custom toggle
+
+    // ----- Custom mode tab: SQ -----
+    function addCustomSq() {
+        const text = document.getElementById('customSqText').value.trim();
+        const marks = parseInt(document.getElementById('customSqMarks').value) || 2;
+        if (!text) { alert('প্রশ্নের টেক্সট লিখুন।'); return; }
+        customSqQuestions.push({ question_text: text, marks: marks, type: 'short' });
+        document.getElementById('customSqText').value = '';
+        renderCustomSqList();
+    }
+
+    function removeCustomSq(i) {
+        customSqQuestions.splice(i, 1);
+        renderCustomSqList();
+    }
+
+    function renderCustomSqList() {
+        const el = document.getElementById('customSqList');
+        const cfg = document.getElementById('customSqConfigPanel');
+        if (!el) return;
+        if (customSqQuestions.length === 0) {
+            el.innerHTML = '<div class="text-center text-muted p-3"><i class="bi bi-inbox" style="font-size:1.5rem;"></i><p class="mb-0 small mt-1">কোনো সংক্ষিপ্ত প্রশ্ন যোগ করা হয়নি।</p></div>';
+            if (cfg) cfg.style.display = 'none';
+            return;
+        }
+        let html = '';
+        customSqQuestions.forEach((q, i) => {
+            html += `<div class="custom-question-item"><div class="cq-header"><span class="cq-number">${i+1}.</span><span class="cq-text">${q.question_text}</span><button type="button" class="btn btn-sm btn-outline-danger cq-remove" onclick="removeCustomSq(${i})"><i class="bi bi-x"></i></button></div><div class="cq-options"><span class="badge bg-secondary">${q.marks} নম্বর</span></div></div>`;
+        });
+        el.innerHTML = html;
+        if (cfg) {
+            cfg.style.display = 'block';
+            document.getElementById('customSqIncludeCount').max = customSqQuestions.length;
+            document.getElementById('customSqAnswerCount').max = customSqQuestions.length;
+        }
+    }
+
+    // ----- Custom mode tab: CQ -----
+    function updateCustomCqTotal() {
+        const ka = parseInt(document.getElementById('customCqMarksKa')?.value) || 0;
+        const kha = parseInt(document.getElementById('customCqMarksKha')?.value) || 0;
+        const ga = parseInt(document.getElementById('customCqMarksGa')?.value) || 0;
+        const gha = parseInt(document.getElementById('customCqMarksGha')?.value) || 0;
+        const total = ka + kha + ga + gha;
+        const el = document.getElementById('customCqTotal');
+        if (el) el.textContent = total;
+        const warn = document.getElementById('customCqTotalWarning');
+        if (warn) warn.style.display = total !== 10 ? 'inline-block' : 'none';
+    }
+
+    function addCustomCq() {
+        const stem = document.getElementById('customCqStem')?.value.trim();
+        if (!stem) { alert('উদ্দীপক লিখুন।'); return; }
+        const q = {
+            stem: stem,
+            part_ka: document.getElementById('customCqKa')?.value.trim() || null,
+            part_kha: document.getElementById('customCqKha')?.value.trim() || null,
+            part_ga: document.getElementById('customCqGa')?.value.trim() || null,
+            part_gha: document.getElementById('customCqGha')?.value.trim() || null,
+            marks_ka: parseInt(document.getElementById('customCqMarksKa')?.value) || 0,
+            marks_kha: parseInt(document.getElementById('customCqMarksKha')?.value) || 0,
+            marks_ga: parseInt(document.getElementById('customCqMarksGa')?.value) || 0,
+            marks_gha: parseInt(document.getElementById('customCqMarksGha')?.value) || 0,
+            type: 'creative'
+        };
+        q.total_marks = q.marks_ka + q.marks_kha + q.marks_ga + q.marks_gha;
+        customCqQuestions.push(q);
+        document.getElementById('customCqStem').value = '';
+        ['Ka', 'Kha', 'Ga', 'Gha'].forEach(p => {
+            const inp = document.getElementById('customCq' + p);
+            if (inp) inp.value = '';
+        });
+        renderCustomCqList();
+    }
+
+    function removeCustomCq(i) {
+        customCqQuestions.splice(i, 1);
+        renderCustomCqList();
+    }
+
+    function renderCustomCqList() {
+        const el = document.getElementById('customCqList');
+        const cfg = document.getElementById('customCqConfigPanel');
+        if (!el) return;
+        if (customCqQuestions.length === 0) {
+            el.innerHTML = '<div class="text-center text-muted p-3"><i class="bi bi-inbox" style="font-size:1.5rem;"></i><p class="mb-0 small mt-1">কোনো সৃজনশীল প্রশ্ন যোগ করা হয়নি।</p></div>';
+            if (cfg) cfg.style.display = 'none';
+            return;
+        }
+        let html = '';
+        customCqQuestions.forEach((q, i) => {
+            const stemPreview = q.stem.length > 80 ? q.stem.substring(0, 80) + '...' : q.stem;
+            html += `<div class="custom-question-item"><div class="cq-header"><span class="cq-number">${i+1}.</span><span class="cq-text">${stemPreview}</span><button type="button" class="btn btn-sm btn-outline-danger cq-remove" onclick="removeCustomCq(${i})"><i class="bi bi-x"></i></button></div><div class="cq-options"><span class="badge bg-secondary">${q.total_marks} নম্বর</span></div></div>`;
+        });
+        el.innerHTML = html;
+        if (cfg) {
+            cfg.style.display = 'block';
+            document.getElementById('customCqIncludeCount').max = customCqQuestions.length;
+            document.getElementById('customCqAnswerCount').max = customCqQuestions.length;
+        }
+    }
+
+    // ----- DB mode custom SQ toggle -----
+    let sqMode = 'db';
+    function setSqMode(mode) {
+        sqMode = mode;
+        const dbContent = document.getElementById('sqDbContent');
+        const customContent = document.getElementById('sqCustomContent');
+        const dbBtn = document.getElementById('sqModeDbBtn');
+        const customBtn = document.getElementById('sqModeCustomBtn');
+        if (mode === 'db') {
+            if (dbContent) dbContent.style.display = 'block';
+            if (customContent) customContent.style.display = 'none';
+            if (dbBtn) dbBtn.classList.add('active');
+            if (customBtn) customBtn.classList.remove('active');
+        } else {
+            if (dbContent) dbContent.style.display = 'none';
+            if (customContent) customContent.style.display = 'block';
+            if (dbBtn) dbBtn.classList.remove('active');
+            if (customBtn) customBtn.classList.add('active');
+        }
+    }
+
+    function addDbCustomSq() {
+        const text = document.getElementById('dbCustomSqText')?.value.trim();
+        const marks = parseInt(document.getElementById('dbCustomSqMarks')?.value) || 2;
+        if (!text) { alert('প্রশ্নের টেক্সট লিখুন।'); return; }
+        dbCustomSqQuestions.push({ question_text: text, marks: marks, type: 'short' });
+        document.getElementById('dbCustomSqText').value = '';
+        renderDbCustomSqList();
+    }
+
+    function removeDbCustomSq(i) {
+        dbCustomSqQuestions.splice(i, 1);
+        renderDbCustomSqList();
+    }
+
+    function renderDbCustomSqList() {
+        const el = document.getElementById('dbCustomSqList');
+        const cfg = document.getElementById('dbCustomSqConfigPanel');
+        if (!el) return;
+        if (dbCustomSqQuestions.length === 0) {
+            el.innerHTML = '<div class="text-center text-muted p-2"><i class="bi bi-inbox"></i><p class="mb-0 small">কোনো প্রশ্ন যোগ করা হয়নি।</p></div>';
+            if (cfg) cfg.style.display = 'none';
+            return;
+        }
+        let html = '';
+        dbCustomSqQuestions.forEach((q, i) => {
+            html += `<div class="custom-question-item"><div class="cq-header"><span class="cq-number">${i+1}.</span><span class="cq-text">${q.question_text}</span><button type="button" class="btn btn-sm btn-outline-danger cq-remove" onclick="removeDbCustomSq(${i})"><i class="bi bi-x"></i></button></div><div class="cq-options"><span class="badge bg-secondary">${q.marks} নম্বর</span></div></div>`;
+        });
+        el.innerHTML = html;
+        if (cfg) {
+            cfg.style.display = 'block';
+            document.getElementById('dbCustomSqIncludeCount').max = dbCustomSqQuestions.length;
+            document.getElementById('dbCustomSqAnswerCount').max = dbCustomSqQuestions.length;
+        }
+    }
+
+    // ----- DB mode custom CQ toggle -----
+    let cqMode = 'db';
+    function setCqMode(mode) {
+        cqMode = mode;
+        const dbContent = document.getElementById('cqDbContent');
+        const customContent = document.getElementById('cqCustomContent');
+        const dbBtn = document.getElementById('cqModeDbBtn');
+        const customBtn = document.getElementById('cqModeCustomBtn');
+        if (mode === 'db') {
+            if (dbContent) dbContent.style.display = 'block';
+            if (customContent) customContent.style.display = 'none';
+            if (dbBtn) dbBtn.classList.add('active');
+            if (customBtn) customBtn.classList.remove('active');
+        } else {
+            if (dbContent) dbContent.style.display = 'none';
+            if (customContent) customContent.style.display = 'block';
+            if (dbBtn) dbBtn.classList.remove('active');
+            if (customBtn) customBtn.classList.add('active');
+        }
+    }
+
+    function updateDbCustomCqTotal() {
+        const ka = parseInt(document.getElementById('dbCustomCqMarksKa')?.value) || 0;
+        const kha = parseInt(document.getElementById('dbCustomCqMarksKha')?.value) || 0;
+        const ga = parseInt(document.getElementById('dbCustomCqMarksGa')?.value) || 0;
+        const gha = parseInt(document.getElementById('dbCustomCqMarksGha')?.value) || 0;
+        const total = ka + kha + ga + gha;
+        const el = document.getElementById('dbCustomCqTotal');
+        if (el) el.textContent = total;
+        const warn = document.getElementById('dbCustomCqTotalWarning');
+        if (warn) warn.style.display = total !== 10 ? 'inline-block' : 'none';
+    }
+
+    function addDbCustomCq() {
+        const stem = document.getElementById('dbCustomCqStem')?.value.trim();
+        if (!stem) { alert('উদ্দীপক লিখুন।'); return; }
+        const q = {
+            stem: stem,
+            part_ka: document.getElementById('dbCustomCqKa')?.value.trim() || null,
+            part_kha: document.getElementById('dbCustomCqKha')?.value.trim() || null,
+            part_ga: document.getElementById('dbCustomCqGa')?.value.trim() || null,
+            part_gha: document.getElementById('dbCustomCqGha')?.value.trim() || null,
+            marks_ka: parseInt(document.getElementById('dbCustomCqMarksKa')?.value) || 0,
+            marks_kha: parseInt(document.getElementById('dbCustomCqMarksKha')?.value) || 0,
+            marks_ga: parseInt(document.getElementById('dbCustomCqMarksGa')?.value) || 0,
+            marks_gha: parseInt(document.getElementById('dbCustomCqMarksGha')?.value) || 0,
+            type: 'creative'
+        };
+        q.total_marks = q.marks_ka + q.marks_kha + q.marks_ga + q.marks_gha;
+        dbCustomCqQuestions.push(q);
+        document.getElementById('dbCustomCqStem').value = '';
+        ['Ka', 'Kha', 'Ga', 'Gha'].forEach(p => {
+            const inp = document.getElementById('dbCustomCq' + p);
+            if (inp) inp.value = '';
+        });
+        renderDbCustomCqList();
+    }
+
+    function removeDbCustomCq(i) {
+        dbCustomCqQuestions.splice(i, 1);
+        renderDbCustomCqList();
+    }
+
+    function renderDbCustomCqList() {
+        const el = document.getElementById('dbCustomCqList');
+        const cfg = document.getElementById('dbCustomCqConfigPanel');
+        if (!el) return;
+        if (dbCustomCqQuestions.length === 0) {
+            el.innerHTML = '<div class="text-center text-muted p-2"><i class="bi bi-inbox"></i><p class="mb-0 small">কোনো প্রশ্ন যোগ করা হয়নি।</p></div>';
+            if (cfg) cfg.style.display = 'none';
+            return;
+        }
+        let html = '';
+        dbCustomCqQuestions.forEach((q, i) => {
+            const stemPreview = q.stem.length > 60 ? q.stem.substring(0, 60) + '...' : q.stem;
+            html += `<div class="custom-question-item"><div class="cq-header"><span class="cq-number">${i+1}.</span><span class="cq-text">${stemPreview}</span><button type="button" class="btn btn-sm btn-outline-danger cq-remove" onclick="removeDbCustomCq(${i})"><i class="bi bi-x"></i></button></div><div class="cq-options"><span class="badge bg-secondary">${q.total_marks} নম্বর</span></div></div>`;
+        });
+        el.innerHTML = html;
+        if (cfg) {
+            cfg.style.display = 'block';
+            document.getElementById('dbCustomCqIncludeCount').max = dbCustomCqQuestions.length;
+            document.getElementById('dbCustomCqAnswerCount').max = dbCustomCqQuestions.length;
+        }
+    }
 
     // Add a question from the MCQ builder form directly to the list
     function addQuestion() {
@@ -1378,7 +2327,19 @@ Answer: b</code></pre>
             },
             body: JSON.stringify({
                 questions: customQuestions,
-                paper_config: paperConfig
+                sq_questions: customSqQuestions,
+                cq_questions: customCqQuestions,
+                sq_config: customSqQuestions.length > 0 ? {
+                    include_count: parseInt(document.getElementById('customSqIncludeCount')?.value) || customSqQuestions.length,
+                    answer_count: parseInt(document.getElementById('customSqAnswerCount')?.value) || customSqQuestions.length,
+                    marks: parseInt(document.getElementById('customSqMarksEach')?.value) || 2
+                } : null,
+                cq_config: customCqQuestions.length > 0 ? {
+                    include_count: parseInt(document.getElementById('customCqIncludeCount')?.value) || customCqQuestions.length,
+                    answer_count: parseInt(document.getElementById('customCqAnswerCount')?.value) || customCqQuestions.length
+                } : null,
+                paper_config: paperConfig,
+                omr_style: document.getElementById('customOmrStyleToggle').checked
             })
         })
             .then(response => response.json())
@@ -1483,6 +2444,105 @@ Answer: b</code></pre>
             .catch(function (err) {
                 overlay.style.display = 'none';
                 showToast('❌ ' + err.message, 'error');
+            });
+    }
+
+    // ── Save to Account ──────────────────────────────────────
+    let lastGeneratedPaperId = null;
+    let lastFormData = null;
+
+    function saveToAccount(source) {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        let payload = {};
+
+        if (source === 'db') {
+            // DB mode: send selected question IDs + paper config
+            const selectedIds = Array.from(document.querySelectorAll('.question-input:checked'))
+                .map(cb => parseInt(cb.value));
+
+            // Build question list from loaded questions
+            const questions = (window.allQuestions || []).filter(q => selectedIds.includes(q.id));
+
+            const paperTitle = document.getElementById('paperTitle')?.value || 'Question Paper';
+            const className = document.getElementById('classSelect')?.selectedOptions[0]?.text || '';
+            const subjectName = document.getElementById('subjectSelect')?.selectedOptions[0]?.text || '';
+            const timeMinutes = parseInt(document.getElementById('timeMinutes')?.value) || 30;
+
+            payload = {
+                name: paperTitle + ' (' + questions.length + ' questions)',
+                questions: questions,
+                source: 'db',
+                paper_id: lastGeneratedPaperId,
+                paper_config: {
+                    title: paperTitle,
+                    class_name: className,
+                    subject_name: subjectName,
+                    time: timeMinutes,
+                    marks: questions.length
+                }
+            };
+        } else {
+            // Custom mode
+            if (!customQuestions || customQuestions.length === 0) {
+                showToast('❌ No questions to save.', 'error');
+                return;
+            }
+
+            const customTitle = document.getElementById('customPaperTitle')?.value || 'Custom Paper';
+
+            payload = {
+                name: customTitle + ' (' + customQuestions.length + ' questions)',
+                questions: customQuestions,
+                source: 'custom',
+                paper_config: {
+                    title: customTitle,
+                    class_name: document.getElementById('customClassName')?.value || '',
+                    subject_name: document.getElementById('customSubjectName')?.value || '',
+                    time: parseInt(document.getElementById('customTime')?.value) || 30,
+                    marks: customQuestions.length
+                }
+            };
+        }
+
+        // Determine which button was clicked to update its state
+        const btnId = source === 'db' ? 'saveToAccountBtn' : 'customSaveToAccountBtn';
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i> Saving...';
+        }
+
+        fetch('/save-question-set', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(payload)
+        })
+            .then(resp => resp.json())
+            .then(data => {
+                if (data.login_required) {
+                    showToast('🔒 Please <a href="/login?next=/generate" style="color:#fff;text-decoration:underline;">login</a> to save question sets.', 'warning');
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-bookmark-plus me-2"></i> Save to My Account'; }
+                    return;
+                }
+                if (data.error) {
+                    showToast('❌ ' + data.error, 'error');
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-bookmark-plus me-2"></i> Save to My Account'; }
+                    return;
+                }
+                showToast('✅ ' + data.message + ' <a href="/dashboard" style="color:#fff;text-decoration:underline;">View Dashboard</a>', 'success');
+                if (btn) {
+                    btn.innerHTML = '<i class="bi bi-bookmark-check me-2"></i> Saved!';
+                    btn.classList.remove('btn-outline-warning');
+                    btn.classList.add('btn-success');
+                }
+            })
+            .catch(err => {
+                console.error('Save error:', err);
+                showToast('❌ Failed to save. Please try again.', 'error');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-bookmark-plus me-2"></i> Save to My Account'; }
             });
     }
 </script>

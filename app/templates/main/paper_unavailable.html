@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Paper Unavailable — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background: #060a14;
+    }
+
+    .unavailable-wrap {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 120px 1rem 2rem;
+        text-align: center;
+    }
+
+    .unavailable-card {
+        max-width: 440px;
+    }
+
+    .unavailable-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(248, 113, 113, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        color: #f87171;
+        font-size: 2rem;
+    }
+
+    .unavailable-card h1 {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #f1f5f9;
+        margin-bottom: 0.5rem;
+    }
+
+    .unavailable-card p {
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 0.92rem;
+        line-height: 1.7;
+        margin-bottom: 1.5rem;
+    }
+
+    .unavailable-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 11px 24px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        color: rgba(255, 255, 255, 0.6);
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-weight: 600;
+        font-size: 0.88rem;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .unavailable-btn:hover {
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="unavailable-wrap">
+    <div class="unavailable-card">
+        <div class="unavailable-icon">
+            <i class="bi bi-file-earmark-x"></i>
+        </div>
+        <h1>Paper Not Available</h1>
+        <p>
+            This paper link is no longer active. The teacher may have disabled sharing
+            or the link may be incorrect.<br>
+            If you believe this is a mistake, please contact the person who shared this link.
+        </p>
+        <a href="{{ url_for('main.index') }}" class="unavailable-btn">
+            <i class="bi bi-house"></i> Go to Prosno.io
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,788 @@
+{% extends "base.html" %}
+{% block title %}Quiz — {{ quiz.title }} — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+    body {
+        background: #080c16;
+    }
+
+    /* ── Sticky Top Bar ── */
+    .quiz-topbar {
+        position: fixed;
+        top: 70px;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        background: rgba(8, 12, 22, 0.92);
+        backdrop-filter: blur(20px) saturate(1.4);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 14px 1.5rem;
+    }
+
+    .quiz-topbar-inner {
+        max-width: 880px;
+        margin: 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .quiz-topbar-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .quiz-timer {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 1.05rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: #c4b5fd;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 14px;
+        border-radius: 10px;
+        background: rgba(139, 92, 246, 0.1);
+        border: 1px solid rgba(139, 92, 246, 0.15);
+    }
+
+    .quiz-timer.urgent {
+        color: #fca5a5;
+        background: rgba(239, 68, 68, 0.1);
+        border-color: rgba(239, 68, 68, 0.2);
+        animation: timerPulse 1s infinite;
+    }
+
+    @keyframes timerPulse {
+        50% {
+            opacity: 0.65;
+        }
+    }
+
+    .quiz-progress-chip {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.45);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .quiz-progress-chip .answered-count {
+        color: #34d399;
+        font-weight: 700;
+    }
+
+    /* ── Mini Progress Bar ── */
+    .quiz-progress-bar {
+        position: fixed;
+        top: 118px;
+        left: 0;
+        right: 0;
+        z-index: 49;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .quiz-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6);
+        border-radius: 0 3px 3px 0;
+        transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* ── Main Content ── */
+    .quiz-play-wrapper {
+        min-height: 100vh;
+        padding: 140px 1rem 120px;
+        max-width: 880px;
+        margin: 0 auto;
+    }
+
+    /* ── Question Card ── */
+    .quiz-q-card {
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-left: 4px solid rgba(139, 92, 246, 0.35);
+        border-radius: 18px;
+        padding: 1.75rem 2rem;
+        margin-bottom: 1.25rem;
+        opacity: 0;
+        transform: translateY(20px);
+        animation: cardReveal 0.5s ease forwards;
+        transition: border-left-color 0.3s, box-shadow 0.3s;
+        scroll-margin-top: 140px;
+    }
+
+    .quiz-q-card.answered {
+        border-left-color: #34d399;
+    }
+
+    .quiz-q-card:hover {
+        box-shadow: 0 4px 32px rgba(139, 92, 246, 0.06);
+    }
+
+    @keyframes cardReveal {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ── Question Header ── */
+    .quiz-q-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+
+    .quiz-q-number {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #8b5cf6;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+    }
+
+    .quiz-q-check {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transform: scale(0.5);
+        transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .quiz-q-card.answered .quiz-q-check {
+        opacity: 1;
+        transform: scale(1);
+        background: rgba(52, 211, 153, 0.15);
+        color: #34d399;
+    }
+
+    .quiz-q-check i {
+        font-size: 0.8rem;
+    }
+
+    /* ── Question Text ── */
+    .quiz-q-text {
+        font-family: 'Noto Sans Bengali', 'Plus Jakarta Sans', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: #f1f5f9;
+        line-height: 1.8;
+        margin-bottom: 1.5rem;
+    }
+
+    /* ── Options: 2×2 Grid ── */
+    .quiz-options {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    @media (max-width: 600px) {
+        .quiz-options {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .quiz-q-card {
+            padding: 1.25rem 1rem;
+            border-radius: 14px;
+        }
+    }
+
+    .quiz-option {
+        position: relative;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.03);
+        border: 2px solid rgba(255, 255, 255, 0.07);
+        border-radius: 14px;
+        padding: 14px 16px;
+        color: #cbd5e1;
+        font-family: 'Noto Sans Bengali', 'Plus Jakarta Sans', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 500;
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        overflow: hidden;
+    }
+
+    .quiz-option::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 12px;
+        opacity: 0;
+        background: radial-gradient(circle at var(--x, 50%) var(--y, 50%),
+                rgba(139, 92, 246, 0.12) 0%,
+                transparent 60%);
+        transition: opacity 0.3s;
+        pointer-events: none;
+    }
+
+    .quiz-option:hover {
+        border-color: rgba(139, 92, 246, 0.3);
+        background: rgba(139, 92, 246, 0.05);
+        color: #e2e8f0;
+        transform: translateY(-1px);
+    }
+
+    .quiz-option:hover::before {
+        opacity: 1;
+    }
+
+    .quiz-option:active {
+        transform: scale(0.98);
+    }
+
+    .quiz-option.selected {
+        background: rgba(139, 92, 246, 0.12);
+        border-color: #8b5cf6;
+        color: #fff;
+        box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.1),
+            0 4px 16px rgba(139, 92, 246, 0.12);
+    }
+
+    .quiz-option-letter {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.4);
+        transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+        flex-shrink: 0;
+    }
+
+    .quiz-option.selected .quiz-option-letter {
+        background: #8b5cf6;
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(139, 92, 246, 0.35);
+    }
+
+    .quiz-option-text {
+        line-height: 1.5;
+    }
+
+    /* ── Complex Question Sub-Options ── */
+    .quiz-sub-options {
+        margin: 0 0 0.75rem 0.5rem;
+        padding: 0.75rem 1rem;
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 2px solid rgba(139, 92, 246, 0.2);
+        border-radius: 0 10px 10px 0;
+    }
+
+    .quiz-sub-option {
+        font-family: 'Noto Sans Bengali', 'Plus Jakarta Sans', sans-serif;
+        font-size: 0.98rem;
+        color: #e2e8f0;
+        line-height: 1.8;
+        padding: 2px 0;
+    }
+
+    .quiz-final-prompt {
+        font-family: 'Noto Sans Bengali', 'Plus Jakarta Sans', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #a78bfa;
+        margin-bottom: 1rem;
+        padding-left: 0.5rem;
+    }
+
+    /* ── Floating Submit ── */
+    .quiz-float-submit {
+        position: fixed;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%) translateY(80px);
+        z-index: 100;
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .quiz-float-submit.visible {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+        pointer-events: auto;
+    }
+
+    .quiz-float-submit-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 32px;
+        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        border: none;
+        border-radius: 16px;
+        color: #fff;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-weight: 700;
+        font-size: 0.95rem;
+        cursor: pointer;
+        box-shadow: 0 8px 32px rgba(99, 102, 241, 0.35),
+            0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+        transition: all 0.25s;
+        white-space: nowrap;
+    }
+
+    .quiz-float-submit-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 40px rgba(99, 102, 241, 0.5),
+            0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+    }
+
+    .quiz-float-submit-btn:active {
+        transform: translateY(-1px);
+    }
+
+    .submit-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        padding: 2px 10px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        min-width: 24px;
+    }
+
+    /* ── Submit Modal ── */
+    .quiz-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(6px);
+        z-index: 1000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .quiz-modal-overlay.show {
+        display: flex;
+    }
+
+    .quiz-modal {
+        background: #151a2b;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 22px;
+        padding: 2.25rem;
+        max-width: 420px;
+        width: 100%;
+        text-align: center;
+        animation: modalIn 0.3s ease;
+    }
+
+    @keyframes modalIn {
+        from {
+            opacity: 0;
+            transform: scale(0.92) translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .quiz-modal-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: rgba(139, 92, 246, 0.12);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        color: #a78bfa;
+        font-size: 1.4rem;
+    }
+
+    .quiz-modal h3 {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        color: #f1f5f9;
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .quiz-modal p {
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 0.88rem;
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+
+    .quiz-modal-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+    }
+
+    .quiz-modal-cancel {
+        padding: 11px 22px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-weight: 600;
+        font-size: 0.88rem;
+        transition: all 0.2s;
+    }
+
+    .quiz-modal-cancel:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+        color: #fff;
+    }
+
+    .quiz-modal-confirm {
+        padding: 11px 22px;
+        background: linear-gradient(135deg, #8b5cf6, #6366f1);
+        border: none;
+        border-radius: 12px;
+        color: #fff;
+        cursor: pointer;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-weight: 700;
+        font-size: 0.88rem;
+        transition: all 0.2s;
+    }
+
+    .quiz-modal-confirm:hover {
+        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+    }
+
+    /* ── Scroll-to-top ── */
+    .scroll-top-btn {
+        position: fixed;
+        bottom: 28px;
+        right: 28px;
+        z-index: 90;
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.3s;
+    }
+
+    .scroll-top-btn.visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .scroll-top-btn:hover {
+        background: rgba(139, 92, 246, 0.15);
+        border-color: rgba(139, 92, 246, 0.3);
+        color: #a78bfa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Top Bar -->
+<div class="quiz-topbar">
+    <div class="quiz-topbar-inner">
+        <div class="quiz-topbar-left">
+            <div class="quiz-timer" id="quizTimer">
+                <i class="bi bi-clock"></i> <span id="timerDisplay">--:--</span>
+            </div>
+            <div class="quiz-progress-chip" id="progressChip">
+                <span class="answered-count" id="answeredCount">0</span>
+                <span>/ {{ questions|length }} answered</span>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="quiz-progress-bar">
+    <div class="quiz-progress-fill" id="progressFill" style="width: 0%"></div>
+</div>
+
+<div class="quiz-play-wrapper">
+    <!-- All question cards rendered here -->
+    <div id="questionsContainer"></div>
+</div>
+
+<!-- Floating Submit -->
+<div class="quiz-float-submit" id="floatSubmit">
+    <button class="quiz-float-submit-btn" onclick="showSubmitModal()">
+        <i class="bi bi-check-circle-fill"></i>
+        Submit Quiz
+        <span class="submit-badge" id="submitBadge">0/0</span>
+    </button>
+</div>
+
+<!-- Scroll to top -->
+<button class="scroll-top-btn" id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+    <i class="bi bi-chevron-up"></i>
+</button>
+
+<!-- Submit confirmation modal -->
+<div class="quiz-modal-overlay" id="submitModal">
+    <div class="quiz-modal">
+        <div class="quiz-modal-icon">
+            <i class="bi bi-send-fill"></i>
+        </div>
+        <h3>Submit Quiz?</h3>
+        <p id="submitModalText">You have answered X/Y questions. Are you sure you want to submit?</p>
+        <div class="quiz-modal-actions">
+            <button class="quiz-modal-cancel" onclick="hideSubmitModal()">Go Back</button>
+            <button class="quiz-modal-confirm" onclick="submitQuiz()">
+                <i class="bi bi-check"></i> Submit
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const questions = {{ questions | tojson
+    }};
+    const quizCode = '{{ quiz.join_code }}';
+    const timeLimitSec = {{ quiz.time_limit_minutes }} * 60;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+    let answers = {};   // { questionIndex: "answer text" }
+    let startTime = Date.now();
+    let timeLeft = timeLimitSec;
+    let timerInterval;
+    const LETTERS = ['ক', 'খ', 'গ', 'ঘ'];
+
+    // ── Timer ──
+    function updateTimer() {
+        timeLeft = Math.max(0, timeLimitSec - Math.floor((Date.now() - startTime) / 1000));
+        const min = Math.floor(timeLeft / 60);
+        const sec = timeLeft % 60;
+        document.getElementById('timerDisplay').textContent =
+            `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+
+        const timerEl = document.getElementById('quizTimer');
+        if (timeLeft <= 120) timerEl.classList.add('urgent');
+        else timerEl.classList.remove('urgent');
+
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            submitQuiz();
+        }
+    }
+    timerInterval = setInterval(updateTimer, 1000);
+    updateTimer();
+
+    // ── Render all questions at once ──
+    function renderAllQuestions() {
+        const container = document.getElementById('questionsContainer');
+
+        container.innerHTML = questions.map((q, idx) => {
+            const options = q.answer_options || [];
+            const optionsHtml = options.map((opt, i) => {
+                const sel = answers[idx] === opt ? 'selected' : '';
+                return `<button class="quiz-option ${sel}"
+                            data-q="${idx}" data-opt="${i}"
+                            onclick="selectOption(${idx}, ${i})">
+                    <span class="quiz-option-letter">${LETTERS[i] || String.fromCharCode(65 + i)}</span>
+                    <span class="quiz-option-text">${opt}</span>
+                </button>`;
+            }).join('');
+
+            // Build sub-options HTML for complex questions
+            let subOptionsHtml = '';
+            if (q.type === 'complex' && q.sub_options && q.sub_options.length > 0) {
+                const subItems = q.sub_options.map(s => `<div class="quiz-sub-option">${s}</div>`).join('');
+                subOptionsHtml = `<div class="quiz-sub-options">${subItems}</div>`;
+                const prompt = q.final_prompt || 'নিচের কোনটি সঠিক?';
+                subOptionsHtml += `<div class="quiz-final-prompt">${prompt}</div>`;
+            }
+
+            const isAnswered = answers[idx] !== undefined;
+
+            return `<div class="quiz-q-card ${isAnswered ? 'answered' : ''}"
+                         id="qcard-${idx}"
+                         style="animation-delay: ${Math.min(idx * 0.06, 1.2)}s">
+                <div class="quiz-q-header">
+                    <div class="quiz-q-number">Question ${idx + 1} of ${questions.length}</div>
+                    <div class="quiz-q-check"><i class="bi bi-check-lg"></i></div>
+                </div>
+                <div class="quiz-q-text">${q.question_text}</div>
+                ${subOptionsHtml}
+                <div class="quiz-options">${optionsHtml}</div>
+            </div>`;
+        }).join('');
+
+        updateProgress();
+    }
+
+    // ── Select an option ──
+    window.selectOption = function (qIdx, optIdx) {
+        const q = questions[qIdx];
+        answers[qIdx] = q.answer_options[optIdx];
+
+        // Update just the card that changed (minimal DOM update)
+        const card = document.getElementById(`qcard-${qIdx}`);
+        if (card) {
+            card.classList.add('answered');
+
+            // Update option states within this card only
+            const opts = card.querySelectorAll('.quiz-option');
+            opts.forEach((btn, i) => {
+                btn.classList.toggle('selected', i === optIdx);
+            });
+        }
+
+        updateProgress();
+
+        // Auto-scroll to next unanswered question
+        const nextUnanswered = findNextUnanswered(qIdx);
+        if (nextUnanswered !== null) {
+            setTimeout(() => {
+                const nextCard = document.getElementById(`qcard-${nextUnanswered}`);
+                if (nextCard) {
+                    nextCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 300);
+        }
+    };
+
+    function findNextUnanswered(afterIdx) {
+        // Look forward first
+        for (let i = afterIdx + 1; i < questions.length; i++) {
+            if (answers[i] === undefined) return i;
+        }
+        // Then look from the beginning
+        for (let i = 0; i < afterIdx; i++) {
+            if (answers[i] === undefined) return i;
+        }
+        return null; // All answered
+    }
+
+    // ── Progress ──
+    function updateProgress() {
+        const answered = Object.keys(answers).length;
+        const total = questions.length;
+
+        document.getElementById('answeredCount').textContent = answered;
+        document.getElementById('progressFill').style.width = `${(answered / total) * 100}%`;
+        document.getElementById('submitBadge').textContent = `${answered}/${total}`;
+
+        // Show floating submit button once any question is answered
+        const floatSubmit = document.getElementById('floatSubmit');
+        if (answered > 0) {
+            floatSubmit.classList.add('visible');
+        } else {
+            floatSubmit.classList.remove('visible');
+        }
+    }
+
+    // ── Option hover glow effect ──
+    document.addEventListener('mousemove', (e) => {
+        const option = e.target.closest('.quiz-option');
+        if (option) {
+            const rect = option.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) / rect.width) * 100;
+            const y = ((e.clientY - rect.top) / rect.height) * 100;
+            option.style.setProperty('--x', x + '%');
+            option.style.setProperty('--y', y + '%');
+        }
+    });
+
+    // ── Scroll-to-top button ──
+    window.addEventListener('scroll', () => {
+        const btn = document.getElementById('scrollTopBtn');
+        if (window.scrollY > 500) btn.classList.add('visible');
+        else btn.classList.remove('visible');
+    });
+
+    // ── Submit ──
+    window.showSubmitModal = function () {
+        const answered = Object.keys(answers).length;
+        const unanswered = questions.length - answered;
+        let msg = `You have answered ${answered} out of ${questions.length} questions.`;
+        if (unanswered > 0) {
+            msg += ` ${unanswered} question${unanswered > 1 ? 's' : ''} left unanswered.`;
+        }
+        msg += ' Are you sure you want to submit?';
+        document.getElementById('submitModalText').textContent = msg;
+        document.getElementById('submitModal').classList.add('show');
+    };
+
+    window.hideSubmitModal = function () {
+        document.getElementById('submitModal').classList.remove('show');
+    };
+
+    window.submitQuiz = async function () {
+        clearInterval(timerInterval);
+        const timeTaken = Math.floor((Date.now() - startTime) / 1000);
+
+        const responses = {};
+        for (const [idx, answer] of Object.entries(answers)) {
+            responses[idx] = answer;
+        }
+
+        try {
+            const res = await fetch(`/quiz/${quizCode}/submit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({
+                    responses: responses,
+                    time_taken_seconds: timeTaken,
+                }),
+            });
+            const data = await res.json();
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            } else if (data.error) {
+                alert(data.error);
+                if (data.redirect) window.location.href = data.redirect;
+            }
+        } catch (err) {
+            alert('Failed to submit. Please try again.');
+        }
+    };
+
+    // ── Initial render ──
+    renderAllQuestions();
+}) ();
+</script>
+{% endblock %}
