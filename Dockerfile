@@ -1,15 +1,20 @@
 FROM python:3.11-slim-bookworm
 
-# Install system dependencies required by WeasyPrint (Cairo/Pango/GDK)
+# Install system dependencies + LibreOffice for DOCX→PDF conversion
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libcairo2 \
     libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libpangoft2-1.0-0 \
+    libharfbuzz0b \
     libgdk-pixbuf-2.0-0 \
     libffi-dev \
     shared-mime-info \
+    fontconfig \
     fonts-noto \
     wget \
+    libreoffice-writer-nogui \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -20,6 +25,12 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Copy app
 COPY . /app
+
+# Install Bengali fonts into system font directory so Pango/HarfBuzz can shape them
+RUN mkdir -p /usr/share/fonts/truetype/noto-bengali \
+    && cp /app/app/static/fonts/NotoSansBengali-Regular.ttf /usr/share/fonts/truetype/noto-bengali/ \
+    && cp /app/app/static/fonts/NotoSansBengali-Bold.ttf /usr/share/fonts/truetype/noto-bengali/ \
+    && fc-cache -f -v
 
 # Create writable directories for file generation
 RUN mkdir -p /tmp/prosno_output /tmp/prosno_uploads
