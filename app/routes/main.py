@@ -361,12 +361,16 @@ def generate_paper():
 
     # Generate the papers
     output_folder = current_app.config.get('OUTPUT_FOLDER', 'output')
-    student_path, teacher_path = generate_paper_from_db(
-        questions, paper_config, output_folder,
-        omr_style=omr_style,
-        sq_config=sq_config,
-        cq_config=cq_config,
-    )
+    try:
+        student_path, teacher_path = generate_paper_from_db(
+            questions, paper_config, output_folder,
+            omr_style=omr_style,
+            sq_config=sq_config,
+            cq_config=cq_config,
+        )
+    except Exception as e:
+        current_app.logger.error(f"Paper generation error: {e}")
+        return jsonify({'error': 'Failed to generate paper. Please try again.'}), 500
 
     # Save to database for tracking (including question IDs for regeneration)
     custom_cfg = {}

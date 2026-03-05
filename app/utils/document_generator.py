@@ -418,9 +418,10 @@ def add_short_question_section(document, sq_config):
 
         # Set up right-aligned tab stop for marks
         section = document.sections[-1]
-        col_width = (
-            section.page_width - section.left_margin - section.right_margin - Inches(0.5)
-        ) / 2
+        col_width = int(
+            (section.page_width - section.left_margin - section.right_margin - Inches(0.5))
+            / 2
+        )
         tab_stops = p.paragraph_format.tab_stops
         tab_stops.add_tab_stop(col_width, WD_ALIGN_PARAGRAPH.RIGHT)
 
@@ -539,7 +540,7 @@ def add_cq_section(document, cq_config):
 
             # Set up right-aligned tab stop for marks
             section = document.sections[-1]
-            usable_width = (
+            usable_width = int(
                 section.page_width
                 - section.left_margin
                 - section.right_margin
