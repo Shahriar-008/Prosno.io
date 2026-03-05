@@ -20,7 +20,7 @@ class Config:
     ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
     
     # Session security settings
-    SESSION_COOKIE_SECURE = bool(os.environ.get('RENDER') or os.environ.get('DYNO'))
+    SESSION_COOKIE_SECURE = bool(os.environ.get('RENDER') or os.environ.get('DYNO') or os.environ.get('PRODUCTION'))
     SESSION_COOKIE_HTTPONLY = True  # Prevent JavaScript access to session cookie
     SESSION_COOKIE_SAMESITE = 'Lax'  # Protect against CSRF
     
@@ -47,8 +47,8 @@ class Config:
     # Generated files folder - use /tmp on production for ephemeral storage
     OUTPUT_FOLDER = os.environ.get('OUTPUT_FOLDER') or os.path.join(basedir, 'output')
     
-    # On Render/Heroku, use /tmp for file generation (ephemeral but writable)
-    if os.environ.get('RENDER') or os.environ.get('DYNO'):
+    # On Render/Heroku/Coolify, use /tmp for file generation (ephemeral but writable)
+    if os.environ.get('RENDER') or os.environ.get('DYNO') or os.environ.get('PRODUCTION'):
         OUTPUT_FOLDER = '/tmp/prosno_output'
         UPLOAD_FOLDER = '/tmp/prosno_uploads'
 

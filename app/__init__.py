@@ -167,7 +167,7 @@ def _create_admin_user():
         import flask
         # Check if running in production (not debug mode)
         # We can't easily check app.debug here, so check for production env vars
-        if os.environ.get('RENDER') or os.environ.get('DYNO') or os.environ.get('PRODUCTION'):
+        if os.environ.get('RENDER') or os.environ.get('DYNO') or os.environ.get('PRODUCTION') or os.environ.get('COOLIFY'):
             print(
                 "\n" + "=" * 60 + "\n"
                 "CRITICAL: ADMIN_PASSWORD not set in production!\n"
