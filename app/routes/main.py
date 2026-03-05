@@ -345,11 +345,15 @@ def generate_paper():
                 }
 
     # Prepare paper configuration
-    total_marks = len(questions)  # MCQ marks
+    # Total marks = MCQ count + SQ (answer_count × marks_per_question) + CQ (answer_count × marks_per_cq)
+    total_marks = len(questions)  # MCQ marks (1 per question)
     if sq_config:
-        total_marks += len(sq_config['questions']) * sq_config['marks_per_question']
+        total_marks += sq_config['answer_count'] * sq_config['marks_per_question']
     if cq_config:
-        total_marks += sum(q['total_marks'] for q in cq_config['questions'])
+        # Marks per CQ = sum of all sub-part marks for one CQ question
+        # Use first question's total_marks as representative (they should all be equal)
+        cq_marks_per_q = cq_config['questions'][0].get('total_marks', 10) if cq_config['questions'] else 10
+        total_marks += cq_config['answer_count'] * cq_marks_per_q
 
     paper_config = {
         'title': paper_title,
@@ -390,7 +394,17 @@ def generate_paper():
         file_path=student_path,
         file_path_answers=teacher_path,
         omr_style=omr_style,
-        custom_paper_config=custom_cfg if custom_cfg else None,
+        custom_paper_config={
+            'title': paper_title,
+            'class_name': class_obj.name_bn or class_obj.name,
+            'subject_name': subject_obj.name_bn or subject_obj.name,
+            'time': time_minutes,
+            'marks': total_marks,
+            'omr_style': omr_style,
+            # Store sq/cq configs so PDF regeneration can reconstruct them
+            'sq_config': sq_config,
+            'cq_config': cq_config,
+        } if (sq_config or cq_config) else custom_cfg if custom_cfg else None,
     )
     db.session.add(paper)
     # Log generation for credit system
@@ -504,13 +518,19 @@ def generate_custom_paper():
         omr_style = data.get('omr_style', True)
         paper_config.setdefault('title', 'Home Test')
         # Compute total marks across all question types
-        total_marks = len(questions)
+        total_marks = len(questions)  # MCQ: 1 mark each
         if sq_config:
-            total_marks += len(sq_config['questions']) * sq_config['marks_per_question']
+            total_marks += sq_config['answer_count'] * sq_config['marks_per_question']
         if cq_config:
-            total_marks += sum(q.get('total_marks', 0) for q in cq_config['questions'])
+            cq_marks_per_q = cq_config['questions'][0].get('total_marks', 10) if cq_config['questions'] else 10
+            total_marks += cq_config['answer_count'] * cq_marks_per_q
         paper_config.setdefault('marks', total_marks or len(questions))
         paper_config.setdefault('time', max(len(questions), 30))
+        # Embed sq/cq configs in paper_config so they can be retrieved on PDF regeneration
+        if sq_config:
+            paper_config['sq_config'] = sq_config
+        if cq_config:
+            paper_config['cq_config'] = cq_config
 
         # Generate papers to disk
         import uuid
@@ -702,12 +722,17 @@ def _serve_pdf(paper, paper_type, show_answer):
                 'time': paper.time_minutes or 30,
                 'marks': paper.question_count or len(paper.custom_questions_json)
             }
+            # Extract sq/cq configs stored at generation time (if any)
+            stored_sq_config = custom_config.pop('sq_config', None)
+            stored_cq_config = custom_config.pop('cq_config', None)
 
             student_buf, teacher_buf = generate_paper_to_memory_pdf(
                 paper.custom_questions_json, custom_config,
                 student_only=not show_answer,
                 teacher_only=show_answer,
-                omr_style=omr_style
+                omr_style=omr_style,
+                sq_config=stored_sq_config,
+                cq_config=stored_cq_config,
             )
             buffer = teacher_buf if show_answer else student_buf
 
@@ -761,12 +786,22 @@ def _serve_pdf(paper, paper_type, show_answer):
             'marks': len(questions),
         }
 
+        # Retrieve sq/cq configs if they were stored (DB papers with CQ/SQ)
+        stored_cfg = paper.custom_paper_config or {}
+        stored_sq_config = stored_cfg.get('sq_config')
+        stored_cq_config = stored_cfg.get('cq_config')
+        # If marks were stored, use them (covers the case where total_marks was computed at generation)
+        if stored_cfg.get('marks'):
+            paper_config['marks'] = stored_cfg['marks']
+
         # Only generate the version we need (halves processing time)
         student_buf, teacher_buf = generate_paper_to_memory_pdf(
             questions, paper_config,
             student_only=not show_answer,
             teacher_only=show_answer,
-            omr_style=omr_style
+            omr_style=omr_style,
+            sq_config=stored_sq_config,
+            cq_config=stored_cq_config,
         )
         buffer = teacher_buf if show_answer else student_buf
 

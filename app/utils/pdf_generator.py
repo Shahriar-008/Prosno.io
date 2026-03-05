@@ -1090,9 +1090,12 @@ def create_question_paper_pdf(
     paper_config: dict,
     show_answer: bool = False,
     omr_style: bool = True,
+    sq_config: dict = None,
+    cq_config: dict = None,
 ) -> Union[io.BytesIO, str]:
     """
     Generate a two-column MCQ question paper as PDF.
+    Also renders SQ (خ-বিভাগ) and CQ (গ-বিভাগ) sections when sq_config / cq_config provided.
     """
     logger.debug(f"create_question_paper_pdf called with {len(questions)} questions")
     
@@ -1107,7 +1110,11 @@ def create_question_paper_pdf(
             pdf_path = os.path.join(tmpdir, 'paper.pdf')
             # Create DOCX using the existing document generator
             from . import document_generator as _docgen
-            _docgen.create_question_paper(questions, docx_path, paper_config, show_answer=show_answer, omr_style=omr_style)
+            _docgen.create_question_paper(
+                questions, docx_path, paper_config,
+                show_answer=show_answer, omr_style=omr_style,
+                sq_config=sq_config, cq_config=cq_config,
+            )
 
             # Run headless conversion
             cmd = [soffice_path, '--headless', '--convert-to', 'pdf', '--outdir', tmpdir, docx_path]
@@ -1149,6 +1156,9 @@ def create_question_paper_pdf(
 
     if weasy_ok:
         try:
+            # WeasyPrint path: generate DOCX via document_generator first, then
+            # convert with LibreOffice if available, else fall through to ReportLab.
+            # For now, fall through so ReportLab handles CQ/SQ rendering below.
             html = _build_html(questions, paper_config, show_answer, omr_style=omr_style)
             # If output_path is None, return BytesIO buffer
             if output_path is None:
@@ -1264,6 +1274,103 @@ def create_question_paper_pdf(
 
     story.append(main_table)
 
+    # --- Short Question section (খ-বিভাগ) ---
+    if sq_config and sq_config.get('questions'):
+        sq_questions = sq_config['questions']
+        sq_answer_count = sq_config.get('answer_count', len(sq_questions))
+        sq_marks = sq_config.get('marks_per_question', 2)
+        bn_n = to_bengali_numeral(sq_answer_count)
+        bn_marks = to_bengali_numeral(sq_marks)
+
+        story.append(Spacer(1, 10))
+        story.append(Paragraph('খ-বিভাগ (সংক্ষিপ্ত প্রশ্ন)', styles['title']))
+        story.append(Paragraph(
+            f'নিচের যেকোনো {bn_n}টির উত্তর দাও। প্রতিটি প্রশ্নের মান {bn_marks}।',
+            styles['center']
+        ))
+        story.append(Spacer(1, 6))
+
+        sq_style = ParagraphStyle(
+            'SQQuestion', fontName=FONT_REGULAR, fontSize=9, leading=12, spaceBefore=3, spaceAfter=2
+        )
+        sq_mark_style = ParagraphStyle(
+            'SQMark', fontName=FONT_BOLD, fontSize=9, leading=12, alignment=TA_RIGHT
+        )
+        for sq_idx, sq_q in enumerate(sq_questions, 1):
+            q_text = sq_q.get('question_text', '')
+            q_marks = sq_q.get('marks', sq_marks)
+            bn_idx = to_bengali_numeral(sq_idx)
+            bn_q_marks = to_bengali_numeral(q_marks)
+            formatted = _escape_and_format_math(q_text)
+            row = [
+                Paragraph(f'{bn_idx}। {formatted}', sq_style),
+                Paragraph(bn_q_marks, sq_mark_style),
+            ]
+            sq_row_table = Table([row], colWidths=[_USABLE_WIDTH - 40, 40])
+            sq_row_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ]))
+            story.append(sq_row_table)
+
+    # --- Creative Question section (গ-বিভাগ) ---
+    if cq_config and cq_config.get('questions'):
+        cq_questions = cq_config['questions']
+        cq_answer_count = cq_config.get('answer_count', len(cq_questions))
+        bn_n = to_bengali_numeral(cq_answer_count)
+
+        story.append(Spacer(1, 10))
+        story.append(Paragraph('গ-বিভাগ (সৃজনশীল প্রশ্ন)', styles['title']))
+        story.append(Paragraph(f'নিচের যেকোনো {bn_n}টির উত্তর দাও।', styles['center']))
+        story.append(Spacer(1, 6))
+
+        stem_style = ParagraphStyle(
+            'CQStem', fontName=FONT_BOLD, fontSize=9, leading=12,
+            spaceBefore=8, spaceAfter=2, backColor=colors.HexColor('#F2F2F2')
+        )
+        part_style = ParagraphStyle(
+            'CQPart', fontName=FONT_REGULAR, fontSize=9, leading=12,
+            leftIndent=18, spaceAfter=2
+        )
+        cq_mark_style = ParagraphStyle(
+            'CQMark', fontName=FONT_BOLD, fontSize=9, leading=12, alignment=TA_RIGHT
+        )
+
+        cq_bengali_parts = [
+            ('part_ka', 'marks_ka', 'ক'),
+            ('part_kha', 'marks_kha', 'খ'),
+            ('part_ga', 'marks_ga', 'গ'),
+            ('part_gha', 'marks_gha', 'ঘ'),
+        ]
+        for cq_idx, cq_q in enumerate(cq_questions, 1):
+            bn_idx = to_bengali_numeral(cq_idx)
+            stem = _escape_and_format_math(cq_q.get('stem', ''))
+            story.append(Paragraph(f'{bn_idx}। উদ্দীপক: {stem}', stem_style))
+
+            for part_key, marks_key, label in cq_bengali_parts:
+                part_text = cq_q.get(part_key)
+                if not part_text:
+                    continue
+                part_marks = cq_q.get(marks_key, 0)
+                bn_part_marks = to_bengali_numeral(part_marks)
+                formatted_part = _escape_and_format_math(part_text)
+                row = [
+                    Paragraph(f'{label}. {formatted_part}', part_style),
+                    Paragraph(bn_part_marks, cq_mark_style),
+                ]
+                cq_row_table = Table([row], colWidths=[_USABLE_WIDTH - 40, 40])
+                cq_row_table.setStyle(TableStyle([
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                    ('TOPPADDING', (0, 0), (-1, -1), 0),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ]))
+                story.append(cq_row_table)
+
     # Build PDF
     doc.build(story)
 
@@ -1279,6 +1386,8 @@ def generate_paper_to_memory_pdf(
     student_only: bool = False,
     teacher_only: bool = False,
     omr_style: bool = True,
+    sq_config: dict = None,
+    cq_config: dict = None,
 ) -> tuple:
     """Generate PDF copies as BytesIO buffers.
     
@@ -1287,6 +1396,8 @@ def generate_paper_to_memory_pdf(
         paper_config: Paper configuration dict
         student_only: If True, only generate student version (teacher_buffer will be None)
         teacher_only: If True, only generate teacher version (student_buffer will be None)
+        sq_config: Optional short question section config (keys: questions, answer_count, marks_per_question)
+        cq_config: Optional creative question section config (keys: questions, answer_count)
     
     Returns:
         Tuple of (student_buffer, teacher_buffer). One may be None if only generating one version.
@@ -1298,12 +1409,14 @@ def generate_paper_to_memory_pdf(
     
     if not teacher_only:
         student_buffer = create_question_paper_pdf(
-            question_list, None, paper_config, show_answer=False, omr_style=omr_style
+            question_list, None, paper_config, show_answer=False, omr_style=omr_style,
+            sq_config=sq_config, cq_config=cq_config,
         )
     
     if not student_only:
         teacher_buffer = create_question_paper_pdf(
-            question_list, None, paper_config, show_answer=True, omr_style=True
+            question_list, None, paper_config, show_answer=True, omr_style=True,
+            sq_config=sq_config, cq_config=cq_config,
         )
     
     # Free up memory after PDF generation (important for low-memory environments)
@@ -1319,6 +1432,8 @@ def generate_paper_from_db_pdf(
     paper_config: dict,
     output_folder: str,
     omr_style: bool = True,
+    sq_config: dict = None,
+    cq_config: dict = None,
 ) -> tuple:
     """Generate both student and teacher PDF copies saved to disk."""
     import uuid as _uuid
@@ -1335,12 +1450,14 @@ def generate_paper_from_db_pdf(
 
     student_path = os.path.join(output_folder, f"{base}_student.pdf")
     create_question_paper_pdf(
-        question_list, student_path, paper_config, show_answer=False, omr_style=omr_style
+        question_list, student_path, paper_config, show_answer=False, omr_style=omr_style,
+        sq_config=sq_config, cq_config=cq_config,
     )
 
     teacher_path = os.path.join(output_folder, f"{base}_teacher.pdf")
     create_question_paper_pdf(
-        question_list, teacher_path, paper_config, show_answer=True, omr_style=True
+        question_list, teacher_path, paper_config, show_answer=True, omr_style=True,
+        sq_config=sq_config, cq_config=cq_config,
     )
 
     # Free up memory after PDF generation
