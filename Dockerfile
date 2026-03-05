@@ -23,8 +23,9 @@ COPY . /app
 
 # Ensure fonts from repo are available (already in app/static/fonts)
 ENV PYTHONUNBUFFERED=1
+ENV PROSNO_SKIP_GLOBAL_APP=1
 
 EXPOSE 8000
 
 # Use gunicorn as entrypoint
-CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:8000"]
+CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:8000", "--timeout", "120", "--workers", "2"]
