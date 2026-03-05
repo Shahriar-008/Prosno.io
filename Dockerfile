@@ -37,5 +37,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8000/ || exit 1
 
-# Use gunicorn as entrypoint (preload to fail fast on import errors)
-CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:8000", "--timeout", "120", "--workers", "2", "--preload"]
+# Use gunicorn as entrypoint
+CMD ["gunicorn", "run:app", "--bind", "0.0.0.0:8000", "--timeout", "120", "--workers", "2"]

@@ -36,6 +36,10 @@ class Config:
     else:
         SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'instance', 'prosno.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+    }
     
     # Session
     PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
