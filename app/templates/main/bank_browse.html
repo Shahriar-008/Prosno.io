@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Question Bank — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/bank.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="bank-page">
+    <div class="container">
+        <!-- Breadcrumb -->
+        <nav class="bank-breadcrumb" id="bankBreadcrumb">
+            <a href="{{ url_for('main.bank_browse') }}" data-level="root">
+                <i class="bi bi-collection"></i> Question Bank
+            </a>
+        </nav>
+
+        <!-- Page Header -->
+        <div class="bank-page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <h1 id="bankTitle">Question Bank</h1>
+                <p class="bank-subtitle" id="bankSubtitle">
+                    Browse community-contributed questions by class, subject, and chapter
+                </p>
+            </div>
+            {% if user %}
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('main.bank_question_new') }}" class="bank-btn bank-btn-primary bank-btn-lg">
+                    <i class="bi bi-plus-lg"></i> Add Question
+                </a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Search -->
+        <div class="bank-search-wrap" id="bankSearchWrap" style="display:none;">
+            <i class="bi bi-search"></i>
+            <input type="text" class="bank-search" id="bankSearchInput"
+                   placeholder="Search questions in this chapter...">
+        </div>
+
+        <!-- Filters (shown at question level) -->
+        <div class="bank-filters" id="bankFilters" style="display:none;">
+            <div class="bank-type-tabs" id="bankTypeTabs">
+                <button class="bank-type-tab active" data-type="all">
+                    All <span class="tab-count" id="countAll">0</span>
+                </button>
+                <button class="bank-type-tab" data-type="MCQ">
+                    MCQ <span class="tab-count" id="countMCQ">0</span>
+                </button>
+                <button class="bank-type-tab" data-type="SQ">
+                    Short <span class="tab-count" id="countSQ">0</span>
+                </button>
+                <button class="bank-type-tab" data-type="CQ">
+                    Creative <span class="tab-count" id="countCQ">0</span>
+                </button>
+            </div>
+            <select class="bank-filter-select" id="bankSortSelect">
+                <option value="newest">Newest</option>
+                <option value="rating">Top Rated</option>
+                <option value="usage">Most Used</option>
+            </select>
+            <select class="bank-filter-select" id="bankDiffFilter">
+                <option value="">All Difficulties</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </div>
+
+        <!-- Content Area -->
+        <div id="bankContent">
+            <!-- Grid (classes / subjects / chapters) -->
+            <div class="bank-grid" id="bankGrid">
+                <!-- Skeleton loaders -->
+                <div class="bank-skeleton bank-skeleton-card"></div>
+                <div class="bank-skeleton bank-skeleton-card"></div>
+                <div class="bank-skeleton bank-skeleton-card"></div>
+                <div class="bank-skeleton bank-skeleton-card"></div>
+                <div class="bank-skeleton bank-skeleton-card"></div>
+                <div class="bank-skeleton bank-skeleton-card"></div>
+            </div>
+
+            <!-- Question list (hidden until chapter selected) -->
+            <div class="bank-question-list" id="bankQuestionList" style="display:none;"></div>
+
+            <!-- Pagination -->
+            <div class="bank-pagination" id="bankPagination" style="display:none;"></div>
+        </div>
+    </div>
+</section>
+
+<!-- Rate Question Modal -->
+<div class="bank-modal-overlay" id="rateModal">
+    <div class="bank-modal">
+        <div class="bank-modal-title">Rate this Question</div>
+        <div class="bank-modal-subtitle">How useful is this question for exam preparation?</div>
+        <div class="bank-stars" id="rateStars" style="font-size:2rem; justify-content:center; margin: 1.5rem 0;">
+            <i class="bi bi-star star" data-val="1"></i>
+            <i class="bi bi-star star" data-val="2"></i>
+            <i class="bi bi-star star" data-val="3"></i>
+            <i class="bi bi-star star" data-val="4"></i>
+            <i class="bi bi-star star" data-val="5"></i>
+        </div>
+        <div class="d-flex gap-2 justify-content-end">
+            <button class="bank-btn bank-btn-outline" onclick="closeRateModal()">Cancel</button>
+            <button class="bank-btn bank-btn-primary" id="rateSubmitBtn" disabled>Submit Rating</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="bank-toast" id="bankToast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/bank.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        BankBrowser.init({
+            isLoggedIn: {{ 'true' if user else 'false' }},
+            userId: {{ ("'" + user.id|string + "'") if user else 'null' }},
+            apiBase: '/api/v1/bank'
+        });
+    });
+</script>
+{% endblock %}

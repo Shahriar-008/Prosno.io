@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+
+{% block title %}Add Question — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/bank.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="bank-page">
+    <div class="container" style="max-width:760px;">
+        <nav class="bank-breadcrumb">
+            <a href="{{ url_for('main.bank_browse') }}"><i class="bi bi-collection"></i> Question Bank</a>
+            <span class="sep"><i class="bi bi-chevron-right"></i></span>
+            <span class="current">Add Question</span>
+        </nav>
+
+        <div class="bank-page-header">
+            <h1><i class="bi bi-plus-circle" style="color:var(--bank-teal);"></i> Add a Question</h1>
+            <p class="bank-subtitle">Contribute a question to the community bank</p>
+        </div>
+
+        <form id="bankQuestionForm" autocomplete="off">
+            <!-- Curriculum Location -->
+            <div class="bank-form-section">
+                <h3><i class="bi bi-geo-alt"></i> Curriculum Location</h3>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="bank-form-group">
+                            <label>Class <span class="required">*</span></label>
+                            <select class="bank-select" id="qfClass" required>
+                                <option value="">Select class...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="bank-form-group">
+                            <label>Subject <span class="required">*</span></label>
+                            <select class="bank-select" id="qfSubject" required disabled>
+                                <option value="">Select subject...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="bank-form-group">
+                            <label>Chapter <span class="required">*</span></label>
+                            <select class="bank-select" id="qfChapter" required disabled>
+                                <option value="">Select chapter...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Question Type -->
+            <div class="bank-form-section">
+                <h3><i class="bi bi-list-check"></i> Question Type</h3>
+                <div class="bank-type-tabs" id="qfTypeTabs">
+                    <button type="button" class="bank-type-tab active" data-type="MCQ">
+                        <i class="bi bi-check-circle"></i> MCQ
+                    </button>
+                    <button type="button" class="bank-type-tab" data-type="SQ">
+                        <i class="bi bi-pencil-square"></i> Short Question
+                    </button>
+                    <button type="button" class="bank-type-tab" data-type="CQ">
+                        <i class="bi bi-journal-text"></i> Creative Question
+                    </button>
+                </div>
+            </div>
+
+            <!-- Question Content -->
+            <div class="bank-form-section">
+                <h3><i class="bi bi-chat-left-text"></i> Question Content</h3>
+
+                <div class="bank-form-group">
+                    <label>Question Text <span class="required">*</span></label>
+                    <textarea class="bank-textarea" id="qfText" required
+                              placeholder="Enter the question text (Bengali or English)..."></textarea>
+                </div>
+
+                <!-- MCQ Options -->
+                <div id="qfMcqFields">
+                    <div class="bank-form-group">
+                        <label>Options <span class="required">*</span></label>
+                        <p style="font-size:.78rem;color:var(--bank-slate-600);margin-bottom:.5rem;">
+                            Click a letter to mark the correct answer
+                        </p>
+                        <div class="bank-option-row">
+                            <span class="opt-letter" data-idx="0" title="Click to mark correct">ক</span>
+                            <input class="bank-input mcq-option" data-idx="0" placeholder="Option ক" required>
+                        </div>
+                        <div class="bank-option-row">
+                            <span class="opt-letter" data-idx="1" title="Click to mark correct">খ</span>
+                            <input class="bank-input mcq-option" data-idx="1" placeholder="Option খ" required>
+                        </div>
+                        <div class="bank-option-row">
+                            <span class="opt-letter" data-idx="2" title="Click to mark correct">গ</span>
+                            <input class="bank-input mcq-option" data-idx="2" placeholder="Option গ" required>
+                        </div>
+                        <div class="bank-option-row">
+                            <span class="opt-letter" data-idx="3" title="Click to mark correct">ঘ</span>
+                            <input class="bank-input mcq-option" data-idx="3" placeholder="Option ঘ" required>
+                        </div>
+                    </div>
+                    <input type="hidden" id="qfCorrectAnswer" value="">
+                </div>
+
+                <!-- SQ Fields -->
+                <div id="qfSqFields" style="display:none;">
+                    <div class="bank-form-group">
+                        <label>Answer</label>
+                        <textarea class="bank-textarea" id="qfAnswer"
+                                  placeholder="Short answer..."></textarea>
+                    </div>
+                </div>
+
+                <!-- CQ Fields -->
+                <div id="qfCqFields" style="display:none;">
+                    <div class="bank-form-group">
+                        <label>Stem (উদ্দীপক)</label>
+                        <textarea class="bank-textarea" id="qfStem"
+                                  placeholder="Context / stimulus text..."></textarea>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="bank-form-group">
+                                <label>Part ক</label>
+                                <textarea class="bank-textarea" id="qfPartKa" style="min-height:70px;"
+                                          placeholder="Part ক question..."></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bank-form-group">
+                                <label>Marks ক</label>
+                                <input class="bank-input" type="number" id="qfMarksKa" min="1" max="10" value="1">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bank-form-group">
+                                <label>Part খ</label>
+                                <textarea class="bank-textarea" id="qfPartKha" style="min-height:70px;"
+                                          placeholder="Part খ question..."></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bank-form-group">
+                                <label>Marks খ</label>
+                                <input class="bank-input" type="number" id="qfMarksKha" min="1" max="10" value="2">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bank-form-group">
+                                <label>Part গ</label>
+                                <textarea class="bank-textarea" id="qfPartGa" style="min-height:70px;"
+                                          placeholder="Part গ question..."></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bank-form-group">
+                                <label>Marks গ</label>
+                                <input class="bank-input" type="number" id="qfMarksGa" min="1" max="10" value="3">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bank-form-group">
+                                <label>Part ঘ</label>
+                                <textarea class="bank-textarea" id="qfPartGha" style="min-height:70px;"
+                                          placeholder="Part ঘ question..."></textarea>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bank-form-group">
+                                <label>Marks ঘ</label>
+                                <input class="bank-input" type="number" id="qfMarksGha" min="1" max="10" value="4">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bank-form-group">
+                    <label>Explanation (optional)</label>
+                    <textarea class="bank-textarea" id="qfExplanation" style="min-height:70px;"
+                              placeholder="Why is this the correct answer?"></textarea>
+                </div>
+            </div>
+
+            <!-- Metadata -->
+            <div class="bank-form-section">
+                <h3><i class="bi bi-tags"></i> Metadata</h3>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="bank-form-group">
+                            <label>Difficulty</label>
+                            <select class="bank-select" id="qfDifficulty">
+                                <option value="easy">Easy</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="bank-form-group">
+                            <label>Marks</label>
+                            <input class="bank-input" type="number" id="qfMarks" min="1" max="20" value="1">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="bank-form-group">
+                            <label>Topic</label>
+                            <input class="bank-input" id="qfTopic" placeholder="e.g. Fractions">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bank-form-group">
+                            <label>Board (optional)</label>
+                            <input class="bank-input" id="qfBoard" placeholder="e.g. Dhaka Board">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="bank-form-group">
+                            <label>Year (optional)</label>
+                            <input class="bank-input" type="number" id="qfYear" min="2000" max="2030"
+                                   placeholder="e.g. 2024">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex gap-2 justify-content-end mb-5">
+                <a href="{{ url_for('main.bank_browse') }}" class="bank-btn bank-btn-outline bank-btn-lg">Cancel</a>
+                <button type="submit" class="bank-btn bank-btn-primary bank-btn-lg" id="qfSubmitBtn">
+                    <i class="bi bi-check-lg"></i> Save Question
+                </button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<!-- Toast -->
+<div class="bank-toast" id="bankToast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/bank.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        BankQuestionForm.init({
+            userId: '{{ user.id }}',
+            apiBase: '/api/v1/bank'
+        });
+    });
+</script>
+{% endblock %}

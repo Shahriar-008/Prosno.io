@@ -31,3 +31,12 @@ gunicorn==21.2.0
 # Supabase Auth (Google OAuth + email/password)
 supabase-auth>=2.28.0
 httpx>=0.28.0
+
+# Phase 2: Caching, Scheduling & Search (all optional — graceful fallback if not configured)
+Flask-Caching>=2.1,<3.0      # Redis or SimpleCache abstraction
+redis>=5.0,<6.0              # Redis client (used by Flask-Caching if REDIS_URL is set)
+APScheduler>=3.10,<4.0       # In-process background scheduler (no separate worker needed)
+meilisearch>=0.31,<1.0       # Meilisearch SDK (used only when MEILI_URL env var is set)
+
+# Phase 3: Semantic deduplication (optional — graceful fallback to SHA-256 hash)
+pgvector>=0.3,<1.0           # pgvector SQLAlchemy integration (requires PostgreSQL + pgvector ext)

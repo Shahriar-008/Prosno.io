@@ -1,0 +1,279 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Question Bank Analytics - Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Question Bank</h1>
+    <p>Teacher question bank analytics and moderation overview.</p>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-primary">
+                <i class="bi bi-database"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ total_q }}</h3>
+                <p>Total Questions</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-success">
+                <i class="bi bi-globe"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ public_q }}</h3>
+                <p>Public</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-warning">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ pending_q }}</h3>
+                <p>Pending Review</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-info">
+                <i class="bi bi-people"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ total_teachers }}</h3>
+                <p>Total Teachers</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-4 mb-4">
+    <!-- Question Status Donut Chart -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Question Status</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="statusChart" height="260"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Question Type Bar Chart -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Question Types (Public)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="typeChart" height="260"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trend Chart -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Questions Published (Last 30 Days)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="trendChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bottom Row: Contributors + Moderation Queue -->
+<div class="row g-4 mb-4">
+    <!-- Top Contributors -->
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Top 10 Contributors</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Published</th>
+                                <th>Reputation</th>
+                                <th>Trust</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tp in top_teachers %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ tp.display_name or 'Anonymous' }}</td>
+                                <td>{{ tp.questions_published }}</td>
+                                <td>{{ tp.reputation_score }}</td>
+                                <td>
+                                    {% if tp.is_trusted %}
+                                        <span class="badge bg-success">Trusted</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Standard</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-center text-muted py-3">No teachers yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Moderation Queue Snippet -->
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Moderation Queue</h5>
+                <span class="badge bg-warning">{{ recent_queue | length }} pending</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for mq in recent_queue %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="me-2" style="min-width:0; flex:1;">
+                                <p class="mb-1 text-truncate">
+                                    {% if mq.question %}
+                                        {{ mq.question.question_text[:80] }}{% if mq.question.question_text | length > 80 %}…{% endif %}
+                                    {% else %}
+                                        <em class="text-muted">Question deleted</em>
+                                    {% endif %}
+                                </p>
+                                <small class="text-muted">
+                                    {{ mq.submitted_at.strftime('%b %d, %H:%M') if mq.submitted_at else '' }}
+                                </small>
+                            </div>
+                            <div class="btn-group btn-group-sm flex-shrink-0">
+                                <button class="btn btn-outline-success btn-sm"
+                                        onclick="moderateItem({{ mq.id }}, 'approved')"
+                                        title="Approve">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm"
+                                        onclick="moderateItem({{ mq.id }}, 'rejected')"
+                                        title="Reject">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="list-group-item text-center text-muted py-3">
+                        No items pending review.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    // ── Status donut ────────────────────────────────────────────────────
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Public', 'Pending', 'Private', 'Rejected'],
+            datasets: [{
+                data: [{{ public_q }}, {{ pending_q }}, {{ private_q }}, {{ rejected_q }}],
+                backgroundColor: ['#198754', '#ffc107', '#6c757d', '#dc3545'],
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+
+    // ── Type bar chart ──────────────────────────────────────────────────
+    const typeCtx = document.getElementById('typeChart').getContext('2d');
+    const typeCounts = {{ type_counts | tojson }};
+    new Chart(typeCtx, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(typeCounts),
+            datasets: [{
+                label: 'Questions',
+                data: Object.values(typeCounts),
+                backgroundColor: ['#0d6efd', '#6f42c1', '#20c997'],
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+
+    // ── Trend line chart ────────────────────────────────────────────────
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    const dailyData = {{ daily_published | tojson }};
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: dailyData.map(d => d.date),
+            datasets: [{
+                label: 'Published',
+                data: dailyData.map(d => d.count),
+                borderColor: '#198754',
+                backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                fill: true,
+                tension: 0.3,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+})();
+
+function moderateItem(queueId, decision) {
+    if (!confirm('Are you sure you want to ' + decision.replace('ed', '') + ' this question?')) return;
+    fetch('/api/v1/admin/bank/moderation/' + queueId + '/decide', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({decision: decision}),
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.error) { alert(data.error); return; }
+        location.reload();
+    })
+    .catch(err => alert('Error: ' + err));
+}
+</script>
+{% endblock %}

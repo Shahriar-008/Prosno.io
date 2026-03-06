@@ -24,6 +24,7 @@ from app.models import (
     User, Class, Subject, Chapter, Question, GeneratedPaper,
     AIGeneratorConfig, AIGeneratorLog, ActivityLog,
     ShortQuestion, CQQuestion,
+    BankQuestion, TeacherProfile, ModerationQueue,
     ROLE_ADMIN, ROLE_EDITOR, admin_required,
 )
 
@@ -110,6 +111,88 @@ def dashboard():
     ).limit(5).all()
     
     return render_template('admin/dashboard.html', stats=stats, recent_papers=recent_papers)
+
+
+@admin_bp.route('/bank')
+@login_required
+def bank_dashboard():
+    """Question Bank analytics dashboard (Phase 4)."""
+    from datetime import timedelta
+    from sqlalchemy import func
+
+    total_q = BankQuestion.query.filter_by(is_active=True).count()
+    public_q = BankQuestion.query.filter_by(
+        visibility='public', is_active=True,
+    ).count()
+    pending_q = BankQuestion.query.filter_by(
+        visibility='pending', is_active=True,
+    ).count()
+    private_q = BankQuestion.query.filter_by(
+        visibility='private', is_active=True,
+    ).count()
+    rejected_q = BankQuestion.query.filter_by(
+        visibility='rejected', is_active=True,
+    ).count()
+    total_teachers = TeacherProfile.query.count()
+
+    # Type distribution
+    type_counts = dict(
+        db.session.query(BankQuestion.question_type, func.count())
+        .filter_by(visibility='public', is_active=True)
+        .group_by(BankQuestion.question_type)
+        .all()
+    )
+
+    # Daily published (last 30 days)
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    daily_rows = (
+        db.session.query(
+            func.date(BankQuestion.published_at).label('day'),
+            func.count().label('cnt'),
+        )
+        .filter(
+            BankQuestion.visibility == 'public',
+            BankQuestion.is_active == True,
+            BankQuestion.published_at >= thirty_days_ago,
+        )
+        .group_by(func.date(BankQuestion.published_at))
+        .order_by(func.date(BankQuestion.published_at))
+        .all()
+    )
+    daily_published = [
+        {'date': str(row.day), 'count': row.cnt} for row in daily_rows
+    ]
+
+    # Top 10 teachers by reputation
+    top_teachers = (
+        TeacherProfile.query
+        .order_by(TeacherProfile.reputation_score.desc())
+        .limit(10)
+        .all()
+    )
+
+    # Recent moderation queue items
+    recent_queue = (
+        ModerationQueue.query
+        .filter(ModerationQueue.decision.is_(None))
+        .order_by(ModerationQueue.submitted_at.desc())
+        .limit(10)
+        .all()
+    )
+
+    return render_template(
+        'admin/bank_dashboard.html',
+        total_q=total_q,
+        public_q=public_q,
+        pending_q=pending_q,
+        private_q=private_q,
+        rejected_q=rejected_q,
+        total_teachers=total_teachers,
+        type_counts=type_counts,
+        daily_published=daily_published,
+        top_teachers=top_teachers,
+        recent_queue=recent_queue,
+    )
 
 
 # ========== Class Management ==========

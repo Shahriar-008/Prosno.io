@@ -1069,6 +1069,75 @@ def delete_question_set(set_id):
     return jsonify({'success': True, 'message': 'Question set deleted!'})
 
 
+# ──────────────────────────────────────────────────────────
+# Teacher Question Bank — Frontend Pages
+# ──────────────────────────────────────────────────────────
+
+@main_bp.route('/bank')
+def bank_browse():
+    """Question bank browse page (public, but auth enriches UX)."""
+    user = _require_user()
+    return render_template('main/bank_browse.html', user=user)
+
+
+@main_bp.route('/bank/question/new')
+def bank_question_new():
+    """Question authoring form — requires login."""
+    user = _require_user()
+    if not user:
+        flash('Please login to contribute questions.', 'info')
+        return redirect(url_for('auth.login', next='/bank/question/new'))
+    return render_template('main/bank_question_form.html', user=user)
+
+
+@main_bp.route('/bank/library')
+def bank_library():
+    """Teacher's personal saved-question library."""
+    user = _require_user()
+    if not user:
+        flash('Please login to view your library.', 'info')
+        return redirect(url_for('auth.login', next='/bank/library'))
+    return render_template('main/bank_library.html', user=user)
+
+
+@main_bp.route('/bank/profile')
+def bank_profile():
+    """Teacher's own profile page."""
+    user = _require_user()
+    if not user:
+        flash('Please login to view your profile.', 'info')
+        return redirect(url_for('auth.login', next='/bank/profile'))
+    return render_template('main/bank_profile.html', user=user)
+
+
+@main_bp.route('/bank/teacher/<user_id>')
+def bank_teacher_profile(user_id):
+    """Public teacher profile page."""
+    user = _require_user()
+    return render_template(
+        'main/bank_teacher_profile.html',
+        user=user,
+        teacher_id=user_id,
+    )
+
+
+@main_bp.route('/bank/notifications')
+def bank_notifications():
+    """Teacher notifications page."""
+    user = _require_user()
+    if not user:
+        flash('Please login to view notifications.', 'info')
+        return redirect(url_for('auth.login', next='/bank/notifications'))
+    return render_template('main/bank_notifications.html', user=user)
+
+
+@main_bp.route('/bank/leaderboard')
+def bank_leaderboard():
+    """Leaderboard page."""
+    user = _require_user()
+    return render_template('main/bank_leaderboard.html', user=user)
+
+
 # ── Shareable Paper Links ─────────────────────────────────────
 
 

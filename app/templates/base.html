@@ -54,6 +54,10 @@
                     href="{{ url_for('main.generate') }}">
                     <i class="bi bi-plus-square-fill nav-link-icon"></i> Create
                 </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('main.bank') %}active{% endif %}"
+                    href="{{ url_for('main.bank_browse') }}">
+                    <i class="bi bi-collection-fill nav-link-icon"></i> Bank
+                </a>
                 <a class="nav-link {% if request.endpoint and request.endpoint.startswith('quiz.') %}active{% endif %}"
                     href="{{ url_for('quiz.join_page') }}">
                     <i class="bi bi-controller nav-link-icon"></i> Quiz
@@ -105,6 +109,15 @@
                         <div class="nav-dropdown-divider"></div>
                         <a class="nav-dropdown-item" href="{{ url_for('main.dashboard') }}">
                             <i class="bi bi-grid-1x2"></i> My Dashboard
+                        </a>
+                        <a class="nav-dropdown-item" href="{{ url_for('main.bank_profile') }}">
+                            <i class="bi bi-person-badge"></i> My Profile
+                        </a>
+                        <a class="nav-dropdown-item" href="{{ url_for('main.bank_library') }}">
+                            <i class="bi bi-bookmark-heart"></i> My Library
+                        </a>
+                        <a class="nav-dropdown-item" href="{{ url_for('main.bank_notifications') }}">
+                            <i class="bi bi-bell"></i> Notifications
                         </a>
                         <a class="nav-dropdown-item" href="#">
                             <i class="bi bi-gear"></i> Settings
@@ -162,6 +175,9 @@
             </a>
             <a class="nav-mobile-link" href="{{ url_for('main.generate') }}">
                 <i class="bi bi-plus-square-fill"></i> Create
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('main.bank_browse') }}">
+                <i class="bi bi-collection-fill"></i> Question Bank
             </a>
             <a class="nav-mobile-link" href="{{ url_for('quiz.join_page') }}">
                 <i class="bi bi-controller"></i> Quiz

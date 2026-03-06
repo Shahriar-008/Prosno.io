@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Leaderboard — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/bank.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="bank-page">
+    <div class="container" style="max-width:800px;">
+        <nav class="bank-breadcrumb">
+            <a href="{{ url_for('main.bank_browse') }}"><i class="bi bi-collection"></i> Question Bank</a>
+            <span class="sep"><i class="bi bi-chevron-right"></i></span>
+            <span class="current">Leaderboard</span>
+        </nav>
+
+        <div class="bank-page-header text-center mb-4">
+            <h1><i class="bi bi-trophy" style="color:var(--bank-amber);"></i> Top Contributors</h1>
+            <p class="bank-subtitle">Teachers making the biggest impact on the community</p>
+        </div>
+
+        <!-- Top 3 Podium -->
+        <div class="row g-3 justify-content-center mb-4" id="lbPodium" style="display:none;">
+            <div class="col-md-4 order-md-2" id="lbFirst"></div>
+            <div class="col-md-4 order-md-1" id="lbSecond"></div>
+            <div class="col-md-4 order-md-3" id="lbThird"></div>
+        </div>
+
+        <!-- Rows 4+ -->
+        <div class="d-flex flex-column gap-2" id="lbList">
+            <div class="bank-skeleton bank-skeleton-row"></div>
+            <div class="bank-skeleton bank-skeleton-row"></div>
+            <div class="bank-skeleton bank-skeleton-row"></div>
+            <div class="bank-skeleton bank-skeleton-row"></div>
+            <div class="bank-skeleton bank-skeleton-row"></div>
+        </div>
+
+        <div class="bank-pagination" id="lbPagination"></div>
+    </div>
+</section>
+
+<div class="bank-toast" id="bankToast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/bank.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        BankLeaderboard.init({
+            apiBase: '/api/v1/bank',
+            viewerUserId: {{ ("'" + user.id|string + "'") if user else 'null' }},
+            teacherProfileUrl: '{{ url_for("main.bank_teacher_profile", user_id="__UID__") }}'
+        });
+    });
+</script>
+{% endblock %}

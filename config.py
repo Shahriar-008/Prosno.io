@@ -95,6 +95,8 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False
     RATELIMIT_ENABLED = False
     SKIP_STARTUP_TASKS = True
+    # Disable caching in tests so browse endpoints always hit the DB
+    CACHE_TYPE = 'NullCache'
 
 
 config = {

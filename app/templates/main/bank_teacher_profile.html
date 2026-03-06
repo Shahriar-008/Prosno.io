@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Teacher Profile — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/bank.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="bank-page">
+    <div class="container">
+        <nav class="bank-breadcrumb">
+            <a href="{{ url_for('main.bank_browse') }}"><i class="bi bi-collection"></i> Question Bank</a>
+            <span class="sep"><i class="bi bi-chevron-right"></i></span>
+            <a href="{{ url_for('main.bank_leaderboard') }}">Leaderboard</a>
+            <span class="sep"><i class="bi bi-chevron-right"></i></span>
+            <span class="current" id="teacherBreadcrumbName">Teacher</span>
+        </nav>
+
+        <div class="row g-4">
+            <!-- Profile Card -->
+            <div class="col-lg-4">
+                <div class="bank-profile-card" id="profileCard">
+                    <div class="bank-profile-avatar" id="profileAvatar"></div>
+                    <div class="bank-profile-name" id="profileName">Loading...</div>
+                    <div class="bank-profile-rank" id="profileRank">
+                        <i class="bi bi-award"></i> <span>—</span>
+                    </div>
+                    <div class="bank-profile-stats" id="profileStats">
+                        <div>
+                            <div class="bank-stat-num" id="statPublished">—</div>
+                            <div class="bank-stat-label">Published</div>
+                        </div>
+                        <div>
+                            <div class="bank-stat-num" id="statUsed">—</div>
+                            <div class="bank-stat-label">Used by others</div>
+                        </div>
+                        <div>
+                            <div class="bank-stat-num" id="statReputation">—</div>
+                            <div class="bank-stat-label">Reputation</div>
+                        </div>
+                    </div>
+                    <div class="bank-badges" id="profileBadges"></div>
+                </div>
+            </div>
+
+            <!-- Published Questions -->
+            <div class="col-lg-8">
+                <div class="bank-page-header">
+                    <h1 id="teacherTitle">Teacher's Questions</h1>
+                    <p class="bank-subtitle">Public questions from this contributor</p>
+                </div>
+                <div class="bank-question-list" id="teacherQuestionList">
+                    <div class="bank-skeleton bank-skeleton-row"></div>
+                    <div class="bank-skeleton bank-skeleton-row"></div>
+                    <div class="bank-skeleton bank-skeleton-row"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="bank-toast" id="bankToast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/bank.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        BankProfile.init({
+            userId: '{{ teacher_id }}',
+            apiBase: '/api/v1/bank',
+            isOwnProfile: false,
+            viewerUserId: {{ ("'" + user.id|string + "'") if user else 'null' }}
+        });
+    });
+</script>
+{% endblock %}

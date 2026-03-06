@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/bank.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="bank-page">
+    <div class="container">
+        <nav class="bank-breadcrumb">
+            <a href="{{ url_for('main.bank_browse') }}"><i class="bi bi-collection"></i> Question Bank</a>
+            <span class="sep"><i class="bi bi-chevron-right"></i></span>
+            <span class="current">My Profile</span>
+        </nav>
+
+        <div class="row g-4">
+            <!-- Left: Profile Card -->
+            <div class="col-lg-4">
+                <div class="bank-profile-card" id="profileCard">
+                    <div class="bank-profile-avatar" id="profileAvatar"></div>
+                    <div class="bank-profile-name" id="profileName">Loading...</div>
+                    <div class="bank-profile-rank" id="profileRank">
+                        <i class="bi bi-award"></i> <span>—</span>
+                    </div>
+                    <div id="profileTrustBadge" style="margin-top:.5rem;"></div>
+                    <div class="bank-profile-stats" id="profileStats">
+                        <div>
+                            <div class="bank-stat-num" id="statCreated">—</div>
+                            <div class="bank-stat-label">Created</div>
+                        </div>
+                        <div>
+                            <div class="bank-stat-num" id="statPublished">—</div>
+                            <div class="bank-stat-label">Published</div>
+                        </div>
+                        <div>
+                            <div class="bank-stat-num" id="statReputation">—</div>
+                            <div class="bank-stat-label">Reputation</div>
+                        </div>
+                    </div>
+                    <div class="bank-badges" id="profileBadges"></div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="bank-form-section mt-3">
+                    <h3>Quick Actions</h3>
+                    <div class="d-flex flex-column gap-2">
+                        <a href="{{ url_for('main.bank_question_new') }}" class="bank-btn bank-btn-primary bank-btn-lg" style="justify-content:center;">
+                            <i class="bi bi-plus-lg"></i> Add Question
+                        </a>
+                        <a href="{{ url_for('main.bank_library') }}" class="bank-btn bank-btn-outline bank-btn-lg" style="justify-content:center;">
+                            <i class="bi bi-bookmark-heart"></i> My Library
+                        </a>
+                        <a href="{{ url_for('main.bank_leaderboard') }}" class="bank-btn bank-btn-outline bank-btn-lg" style="justify-content:center;">
+                            <i class="bi bi-trophy"></i> Leaderboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: My Questions -->
+            <div class="col-lg-8">
+                <div class="bank-page-header">
+                    <h1>My Questions</h1>
+                    <p class="bank-subtitle">Questions you've created in the bank</p>
+                </div>
+
+                <!-- Filters -->
+                <div class="bank-filters">
+                    <div class="bank-type-tabs" id="profileTypeTabs">
+                        <button class="bank-type-tab active" data-type="">All</button>
+                        <button class="bank-type-tab" data-type="MCQ">MCQ</button>
+                        <button class="bank-type-tab" data-type="SQ">Short</button>
+                        <button class="bank-type-tab" data-type="CQ">Creative</button>
+                    </div>
+                    <div class="bank-type-tabs" id="profileVisTabs">
+                        <button class="bank-filter-pill active" data-vis="">All</button>
+                        <button class="bank-filter-pill" data-vis="private">Private</button>
+                        <button class="bank-filter-pill" data-vis="pending">Pending</button>
+                        <button class="bank-filter-pill" data-vis="public">Public</button>
+                        <button class="bank-filter-pill" data-vis="rejected">Rejected</button>
+                    </div>
+                </div>
+
+                <!-- Question List -->
+                <div class="bank-question-list" id="profileQuestionList">
+                    <div class="bank-skeleton bank-skeleton-row"></div>
+                    <div class="bank-skeleton bank-skeleton-row"></div>
+                    <div class="bank-skeleton bank-skeleton-row"></div>
+                </div>
+                <div class="bank-pagination" id="profilePagination"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="bank-toast" id="bankToast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/bank.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        BankProfile.init({
+            userId: '{{ user.id }}',
+            apiBase: '/api/v1/bank',
+            isOwnProfile: true
+        });
+    });
+</script>
+{% endblock %}

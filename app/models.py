@@ -628,3 +628,390 @@ class QuizSession(db.Model):
 
     def __repr__(self):
         return f'<QuizSession {self.student_name} - Quiz {self.quiz_id}>'
+
+
+# ─── Teacher Question Bank ────────────────────────────────────────────────────
+
+class TeacherProfile(db.Model):
+    """Per-teacher contribution profile (keyed by Supabase user_id)."""
+    __tablename__ = 'teacher_profiles'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    display_name = db.Column(db.String(200))
+
+    # Trust / moderation
+    is_trusted = db.Column(db.Boolean, default=False)
+    trust_granted_at = db.Column(db.DateTime)
+    trust_granted_by = db.Column(db.String(100))   # admin user_id
+
+    # Cached counters (kept up-to-date by helpers after events)
+    approved_questions_count = db.Column(db.Integer, default=0)
+    reputation_score = db.Column(db.Integer, default=0)
+    account_created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    questions_created = db.Column(db.Integer, default=0)
+    questions_published = db.Column(db.Integer, default=0)
+    questions_used = db.Column(db.Integer, default=0)
+    total_downloads = db.Column(db.Integer, default=0)
+    average_rating = db.Column(db.Numeric(3, 2), default=0.00)
+    contributor_rank = db.Column(db.String(50), default='Newcomer')
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
+                           onupdate=datetime.utcnow)
+
+    bank_questions = db.relationship(
+        'BankQuestion', backref='teacher_profile', lazy='dynamic',
+        foreign_keys='BankQuestion.teacher_id',
+        primaryjoin='TeacherProfile.user_id == BankQuestion.teacher_id'
+    )
+    badges = db.relationship('TeacherBadge', backref='teacher_profile',
+                             lazy='dynamic',
+                             foreign_keys='TeacherBadge.teacher_id',
+                             primaryjoin='TeacherProfile.user_id == TeacherBadge.teacher_id')
+
+    def to_dict(self, public=False):
+        data = {
+            'user_id': self.user_id,
+            'display_name': self.display_name or 'Anonymous Teacher',
+            'questions_created': self.questions_created,
+            'questions_published': self.questions_published,
+            'questions_used': self.questions_used,
+            'total_downloads': self.total_downloads,
+            'average_rating': float(self.average_rating or 0),
+            'reputation_score': self.reputation_score,
+            'contributor_rank': self.contributor_rank,
+            'is_trusted': self.is_trusted,
+            'account_created_at': self.account_created_at.strftime('%Y-%m-%d') if self.account_created_at else None,
+        }
+        if not public:
+            data['approved_questions_count'] = self.approved_questions_count
+        return data
+
+    def __repr__(self):
+        return f'<TeacherProfile {self.user_id}>'
+
+
+class BankQuestion(db.Model):
+    """Teacher-contributed question in the shared question bank."""
+    __tablename__ = 'bank_questions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.String(100), nullable=False, index=True)
+
+    # Curriculum location
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'))
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'))
+    chapter_id = db.Column(db.Integer, db.ForeignKey('chapters.id'))
+
+    # Question content
+    question_type = db.Column(db.String(10), nullable=False)   # MCQ / SQ / CQ
+    question_text = db.Column(db.Text, nullable=False)
+    answer = db.Column(db.Text)
+    explanation = db.Column(db.Text)
+
+    # MCQ-specific
+    answer_options = db.Column(db.JSON)
+    correct_answer = db.Column(db.String(500))
+
+    # CQ-specific
+    stem = db.Column(db.Text)
+    part_ka = db.Column(db.Text)
+    part_kha = db.Column(db.Text)
+    part_ga = db.Column(db.Text)
+    part_gha = db.Column(db.Text)
+    marks_ka = db.Column(db.SmallInteger)
+    marks_kha = db.Column(db.SmallInteger)
+    marks_ga = db.Column(db.SmallInteger)
+    marks_gha = db.Column(db.SmallInteger)
+
+    # Classification
+    topic = db.Column(db.String(200))
+    difficulty = db.Column(db.String(20), default='medium')    # easy/medium/hard
+    marks = db.Column(db.SmallInteger, default=1)
+    board = db.Column(db.String(100))
+    year = db.Column(db.SmallInteger)
+
+    # Publishing state
+    # visibility: private / pending / public / rejected
+    visibility = db.Column(db.String(20), default='private', index=True)
+    # status: draft / submitted / approved / rejected
+    status = db.Column(db.String(20), default='draft')
+    published_at = db.Column(db.DateTime)
+    rejected_at = db.Column(db.DateTime)
+    rejection_reason = db.Column(db.Text)
+
+    # Origin: manual / ai_generated / copied
+    origin = db.Column(db.String(20), default='manual')
+    source_question_id = db.Column(db.Integer,
+                                   db.ForeignKey('bank_questions.id'))
+
+    # Engagement counters
+    usage_count = db.Column(db.Integer, default=0)
+    download_count = db.Column(db.Integer, default=0)
+    rating_total = db.Column(db.Integer, default=0)
+    rating_count = db.Column(db.Integer, default=0)
+
+    # Duplicate detection
+    text_hash = db.Column(db.String(64), index=True)
+
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow,
+                           onupdate=datetime.utcnow)
+
+    # Relationships
+    class_ref = db.relationship('Class', backref='bank_questions')
+    subject_ref = db.relationship('Subject', backref='bank_questions')
+    chapter_ref = db.relationship('Chapter', backref='bank_questions')
+    source_question = db.relationship('BankQuestion', remote_side=[id],
+                                      backref='copies')
+
+    @property
+    def average_rating(self):
+        if not self.rating_count:
+            return 0.0
+        return round(self.rating_total / self.rating_count, 2)
+
+    def to_dict(self, include_answer=False):
+        data = {
+            'id': self.id,
+            'teacher_id': self.teacher_id,
+            'class_id': self.class_id,
+            'subject_id': self.subject_id,
+            'chapter_id': self.chapter_id,
+            'question_type': self.question_type,
+            'question_text': self.question_text,
+            'topic': self.topic,
+            'difficulty': self.difficulty,
+            'marks': self.marks,
+            'board': self.board,
+            'year': self.year,
+            'visibility': self.visibility,
+            'status': self.status,
+            'origin': self.origin,
+            'source_question_id': self.source_question_id,
+            'usage_count': self.usage_count,
+            'download_count': self.download_count,
+            'average_rating': self.average_rating,
+            'rating_count': self.rating_count,
+            'created_at': self.created_at.strftime('%Y-%m-%d') if self.created_at else None,
+        }
+        # MCQ fields
+        if self.question_type == 'MCQ':
+            data['answer_options'] = self.answer_options
+            if include_answer:
+                data['correct_answer'] = self.correct_answer
+        # CQ fields
+        if self.question_type == 'CQ':
+            data.update({
+                'stem': self.stem,
+                'part_ka': self.part_ka,
+                'part_kha': self.part_kha,
+                'part_ga': self.part_ga,
+                'part_gha': self.part_gha,
+                'marks_ka': self.marks_ka,
+                'marks_kha': self.marks_kha,
+                'marks_ga': self.marks_ga,
+                'marks_gha': self.marks_gha,
+            })
+        # SQ / full answer
+        if include_answer:
+            data['answer'] = self.answer
+            data['explanation'] = self.explanation
+        return data
+
+    def __repr__(self):
+        return f'<BankQuestion {self.id} [{self.question_type}]>'
+
+
+class ModerationQueue(db.Model):
+    """Admin review queue for bank questions from new (untrusted) teachers."""
+    __tablename__ = 'moderation_queue'
+
+    id = db.Column(db.Integer, primary_key=True)
+    question_id = db.Column(db.Integer,
+                            db.ForeignKey('bank_questions.id', ondelete='CASCADE'),
+                            nullable=False)
+    submitted_by = db.Column(db.String(100), nullable=False)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_by = db.Column(db.String(100))
+    reviewed_at = db.Column(db.DateTime)
+    decision = db.Column(db.String(20))           # approved / rejected
+    admin_notes = db.Column(db.Text)
+    priority = db.Column(db.SmallInteger, default=5)  # 1=high, 10=low
+
+    question = db.relationship('BankQuestion', backref='moderation_entries')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'question_id': self.question_id,
+            'submitted_by': self.submitted_by,
+            'submitted_at': self.submitted_at.strftime('%Y-%m-%d %H:%M') if self.submitted_at else None,
+            'reviewed_by': self.reviewed_by,
+            'reviewed_at': self.reviewed_at.strftime('%Y-%m-%d %H:%M') if self.reviewed_at else None,
+            'decision': self.decision,
+            'admin_notes': self.admin_notes,
+            'priority': self.priority,
+        }
+
+    def __repr__(self):
+        return f'<ModerationQueue q={self.question_id} decision={self.decision}>'
+
+
+class QuestionInteraction(db.Model):
+    """Tracks what teachers do with bank questions (use, save, rate, copy)."""
+    __tablename__ = 'question_interactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    question_id = db.Column(db.Integer,
+                            db.ForeignKey('bank_questions.id', ondelete='CASCADE'),
+                            nullable=False)
+    teacher_id = db.Column(db.String(100), nullable=False)
+    # action_type: used / saved / copied / rated
+    action_type = db.Column(db.String(20), nullable=False)
+    rating_value = db.Column(db.SmallInteger)
+    question_set_id = db.Column(db.Integer, db.ForeignKey('question_sets.id'))
+    paper_id = db.Column(db.Integer, db.ForeignKey('generated_papers.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    question = db.relationship('BankQuestion', backref='interactions')
+
+    __table_args__ = (
+        db.UniqueConstraint('question_id', 'teacher_id', 'action_type',
+                            name='uq_qi_question_teacher_action'),
+    )
+
+    def __repr__(self):
+        return f'<QuestionInteraction {self.action_type} q={self.question_id}>'
+
+
+class TeacherLibrary(db.Model):
+    """Personal saved question library per teacher."""
+    __tablename__ = 'teacher_library'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.String(100), nullable=False, index=True)
+    question_id = db.Column(db.Integer,
+                            db.ForeignKey('bank_questions.id', ondelete='CASCADE'),
+                            nullable=False)
+    saved_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text)
+
+    question = db.relationship('BankQuestion', backref='library_saves')
+
+    __table_args__ = (
+        db.UniqueConstraint('teacher_id', 'question_id', name='uq_tl_teacher_question'),
+    )
+
+    def __repr__(self):
+        return f'<TeacherLibrary teacher={self.teacher_id} q={self.question_id}>'
+
+
+class TeacherBadge(db.Model):
+    """Gamification badges awarded to teachers."""
+    __tablename__ = 'teacher_badges'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.String(100), nullable=False, index=True)
+    badge_slug = db.Column(db.String(50), nullable=False)
+    badge_name = db.Column(db.String(100), nullable=False)
+    badge_icon = db.Column(db.String(10), default='🏆')
+    awarded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('teacher_id', 'badge_slug', name='uq_tb_teacher_badge'),
+    )
+
+    def to_dict(self):
+        return {
+            'slug': self.badge_slug,
+            'name': self.badge_name,
+            'icon': self.badge_icon,
+            'awarded_at': self.awarded_at.strftime('%Y-%m-%d') if self.awarded_at else None,
+        }
+
+    def __repr__(self):
+        return f'<TeacherBadge {self.badge_slug} teacher={self.teacher_id}>'
+
+
+class PublishPrompt(db.Model):
+    """
+    Tracks the post-paper 'publish to question bank?' prompt shown to teachers.
+    Created after a paper is generated, resolved when teacher responds.
+    """
+    __tablename__ = 'publish_prompts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.String(100), nullable=False, index=True)
+    paper_id = db.Column(db.Integer, db.ForeignKey('generated_papers.id'))
+    question_set_id = db.Column(db.Integer, db.ForeignKey('question_sets.id'))
+    question_ids = db.Column(db.JSON, nullable=False)  # [bank_question_id, ...]
+    responded = db.Column(db.Boolean, default=False)
+    decision = db.Column(db.String(20))           # publish / keep_private
+    published_ids = db.Column(db.JSON)            # subset actually published
+    responded_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    paper = db.relationship('GeneratedPaper', backref='publish_prompts')
+    question_set = db.relationship('QuestionSet', backref='publish_prompts')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'teacher_id': self.teacher_id,
+            'paper_id': self.paper_id,
+            'question_set_id': self.question_set_id,
+            'question_ids': self.question_ids or [],
+            'responded': self.responded,
+            'decision': self.decision,
+            'published_ids': self.published_ids or [],
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f'<PublishPrompt id={self.id} decided={self.responded}>'
+
+
+class TeacherNotification(db.Model):
+    """
+    In-app notification for a teacher — moderation outcomes, badge awards, trust grants.
+    Teachers poll GET /api/v1/bank/notifications to see these.
+    """
+    __tablename__ = 'teacher_notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.String(100), nullable=False, index=True)
+
+    # type: 'question_approved' / 'question_rejected' / 'badge_awarded' / 'trust_granted'
+    notif_type = db.Column(db.String(30), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text)
+
+    # Optional references
+    question_id = db.Column(db.Integer, db.ForeignKey('bank_questions.id',
+                            ondelete='SET NULL'))
+    badge_slug = db.Column(db.String(50))
+
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    question = db.relationship('BankQuestion', backref='notifications')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'type': self.notif_type,
+            'title': self.title,
+            'body': self.body,
+            'question_id': self.question_id,
+            'badge_slug': self.badge_slug,
+            'is_read': self.is_read,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else None,
+        }
+
+    def __repr__(self):
+        return f'<TeacherNotification {self.notif_type} teacher={self.teacher_id}>'
+

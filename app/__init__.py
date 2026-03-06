@@ -45,6 +45,10 @@ def create_app(config_class=Config):
     csrf.init_app(app)
     limiter.init_app(app)
 
+    # Initialize Flask-Caching (Redis if REDIS_URL set, SimpleCache fallback)
+    from app.utils.cache import init_cache
+    init_cache(app)
+
     # ProxyFix for Render (handling HTTPS headers)
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
@@ -105,12 +109,16 @@ def create_app(config_class=Config):
     from app.routes.api import api_bp
     from app.routes.auth import auth_bp
     from app.routes.quiz import quiz_bp
+    from app.routes.bank import bank_bp
+    from app.routes.moderation import moderation_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(auth_bp)
     app.register_blueprint(quiz_bp)
+    app.register_blueprint(bank_bp, url_prefix='/api/v1/bank')
+    app.register_blueprint(moderation_bp, url_prefix='/api/v1/admin/bank')
 
     # Ensure output folder exists (skip during tests)
     if not skip_startup_tasks:
@@ -136,6 +144,18 @@ def create_app(config_class=Config):
             if User.query.filter_by(is_admin=True).count() == 0:
                 print("No admin user found. Creating default admin...")
                 _create_admin_user()
+
+        # Start APScheduler background jobs (bank maintenance)
+        # Guard against Werkzeug reloader by only starting in the main process
+        import os as _os
+        _is_reloader_child = _os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+        _reloader_active = app.debug and not _is_reloader_child
+        if not _reloader_active:
+            try:
+                from app.utils.scheduler import start_scheduler
+                start_scheduler(app)
+            except Exception as _e:
+                print(f'Warning: Could not start background scheduler: {_e}')
 
             # Auto-upgrade existing admin users to have 'admin' role (migration fix)
             try:
@@ -303,6 +323,17 @@ def _apply_schema_migrations(db):
             # CQ board/year migrations
             ('cq_questions', 'board', "VARCHAR(100)"),
             ('cq_questions', 'year', "INTEGER"),
+            # Teacher Question Bank migrations
+            ('teacher_profiles', 'trust_granted_by', "VARCHAR(100)"),
+            ('bank_questions', 'text_hash', "VARCHAR(64)"),
+            ('bank_questions', 'origin', "VARCHAR(20) DEFAULT 'manual'"),
+            ('bank_questions', 'source_question_id', "INTEGER REFERENCES bank_questions(id)"),
+            ('bank_questions', 'rejection_reason', "TEXT"),
+            ('bank_questions', 'is_active', "BOOLEAN DEFAULT TRUE"),
+            ('teacher_badges', 'badge_icon', "VARCHAR(10) DEFAULT '🏆'"),
+            ('publish_prompts', 'published_ids', "JSON"),
+            ('question_interactions', 'question_set_id', "INTEGER REFERENCES question_sets(id)"),
+            ('question_interactions', 'paper_id', "INTEGER REFERENCES generated_papers(id)"),
         ]
         
         for table_name, column_name, column_def in migrations:

@@ -1,0 +1,119 @@
+# Teacher Question Bank — Phase 3-4 Implementation Plan
+
+Phases 1 and 2 are already complete (badges, caching, Meilisearch, notifications, auto-trust, reputation). This plan covers what remains for Phases 3 and 4.
+
+---
+
+## Proposed Changes
+
+### Phase 3 — Semantic Deduplication
+
+---
+
+#### [MODIFY] [bank_helpers.py](file:///d:/Work/Programming/prosno.io/app/utils/bank_helpers.py)
+
+Add `find_semantic_duplicates(question_text, exclude_id=None)` that:
+1. Tries to import `pgvector` + use `embedding_vector <-> ?` cosine distance query
+2. Falls back to [find_duplicates()](file:///d:/Work/Programming/prosno.io/app/utils/bank_helpers.py#42-53) (SHA256 hash) if pgvector is unavailable or `embedding_vector` is NULL
+3. Returns a list of [(BankQuestion, similarity_label)](file:///d:/Work/Programming/prosno.io/tests/conftest.py#12-30) tuples where `similarity_label` is `"exact"`, `"high"`, or `"moderate"`
+
+Also add `embed_question_text(text) -> list[float] | None` that calls the configured embedding endpoint (environment variable `EMBEDDING_API_URL`), returning `None` gracefully when unconfigured.
+
+---
+
+#### [MODIFY] [bank.py](file:///d:/Work/Programming/prosno.io/app/routes/bank.py)
+
+- **[duplicate_check](file:///d:/Work/Programming/prosno.io/app/routes/bank.py#693-714) endpoint**: call `find_semantic_duplicates()` instead of [find_duplicates()](file:///d:/Work/Programming/prosno.io/app/utils/bank_helpers.py#42-53); include `similarity` field (`"exact"` | `"high"` | `"moderate"`) on each result
+- **[respond_to_publish_prompt](file:///d:/Work/Programming/prosno.io/app/routes/bank.py#597-691) endpoint**: if semantic duplicates are found (not just exact hash), include them in `duplicate_warnings` with `similarity` field
+
+---
+
+#### [MODIFY] [requirements.txt](file:///d:/Work/Programming/prosno.io/requirements.txt)
+
+Add `pgvector` (optional dependency, caught gracefully).
+
+---
+
+#### [MODIFY] [tests/test_bank.py](file:///d:/Work/Programming/prosno.io/tests/test_bank.py)
+
+Add test class `TestSemanticDuplication`:
+- `test_duplicate_check_returns_similarity_field` — exact SHA-256 match returns `"exact"` in `similar[*].similarity`
+- `test_duplicate_check_no_match_returns_empty` — no match returns `has_duplicates: false`
+- `test_semantic_fallback_when_no_vector` — when `embedding_vector` is NULL, falls back to hash; response is still valid JSON
+
+---
+
+### Phase 4 — Admin Analytics Dashboard
+
+---
+
+#### [MODIFY] [moderation.py](file:///d:/Work/Programming/prosno.io/app/routes/moderation.py)
+
+Extend `/api/v1/admin/bank/stats` to also return:
+- `daily_published`: list of `{date, count}` for the past 30 days (questions approved per day)
+- `top_teachers`: top 10 by reputation (user_id, display_name, questions_published, reputation_score)
+- `top_subjects`: top 10 subjects by question count
+- `type_distribution`: already exists; keep as-is
+
+---
+
+#### [MODIFY] [admin.py](file:///d:/Work/Programming/prosno.io/app/routes/admin.py)
+
+Add `bank_dashboard()` route at `GET /admin/bank`:
+- Protected by `@login_required`
+- Calls the internal `/api/v1/admin/bank/stats` endpoint data directly (via Python function call, not HTTP)
+- Also fetches recent 10 moderation queue items
+- Renders `admin/bank_dashboard.html`
+
+---
+
+#### [NEW] [bank_dashboard.html](file:///d:/Work/Programming/prosno.io/app/templates/admin/bank_dashboard.html)
+
+Beautiful dashboard template extending [admin/base.html](file:///d:/Work/Programming/prosno.io/app/templates/admin/base.html) with:
+- **KPI cards**: Total Questions, Public, Pending Review, Total Teachers
+- **Question status donut chart** (Chart.js): public / pending / private / rejected
+- **Question type bar chart** (Chart.js): MCQ / SQ / CQ
+- **Top 10 contributors table**: rank, name, questions published, reputation, trust badge
+- **Questions published trend** (line chart, last 30 days, Chart.js)
+- **Moderation queue snippet**: 10 most recent items with Approve/Reject quick-action links pointing to moderation API
+
+---
+
+#### [MODIFY] [base.html](file:///d:/Work/Programming/prosno.io/app/templates/admin/base.html)
+
+Add "Question Bank" nav item under the **Reports** section pointing to `url_for('admin.bank_dashboard')`.
+
+---
+
+#### [MODIFY] [tests/test_bank.py](file:///d:/Work/Programming/prosno.io/tests/test_bank.py)
+
+Add `TestAdminStats`:
+- `test_admin_stats_returns_extended_fields` — `GET /api/v1/admin/bank/stats` returns `daily_published`, `top_teachers`, `top_subjects` keys
+
+---
+
+## Verification Plan
+
+### Automated Tests
+
+Run the full test suite (all 58+ tests must still pass, plus new tests):
+
+```powershell
+cd d:\Work\Programming\prosno.io
+.venv\Scripts\pytest tests\ -v
+```
+
+New tests to verify:
+- `tests/test_bank.py::TestSemanticDuplication::test_duplicate_check_returns_similarity_field`
+- `tests/test_bank.py::TestSemanticDuplication::test_duplicate_check_no_match_returns_empty`
+- `tests/test_bank.py::TestSemanticDuplication::test_semantic_fallback_when_no_vector`
+- `tests/test_bank.py::TestAdminStats::test_admin_stats_returns_extended_fields`
+
+### Manual Verification
+
+After running `python run.py`:
+
+1. Log in at `http://localhost:5000/admin/login`
+2. Verify the new **"Question Bank"** link appears in the left sidebar under Reports
+3. Click it — the `/admin/bank` page should load with KPI cards and charts (charts will be empty if no data; that's fine)
+4. Call `GET /api/v1/admin/bank/stats` directly (e.g. via curl / browser devtools) and verify `daily_published`, `top_teachers`, `top_subjects` keys are present in the JSON response

@@ -1,0 +1,868 @@
+# Teacher Question Bank — Backend Architecture
+
+## 1. Overview
+
+The Teacher Question Bank extends Prosno.io's existing question generation system into a **collaborative, trust-gated, curriculum-structured question repository**. Teachers can author questions privately, publish them after generating an exam paper, and browse/reuse questions contributed by others — all within the existing Class → Subject → Chapter hierarchy already present in the codebase.
+
+### Core Design Principles
+- **Trust-gated publishing** — not every question is immediately public
+- **Curriculum-first browsing** — questions live within the existing hierarchy
+- **Non-blocking** — duplicates are warned, never blocked; moderation is async
+- **Extensible** — marketplace, AI, and premium packs can be layered on without schema breaks
+
+---
+
+## 2. Context: Existing Codebase
+
+The platform is a **Flask + SQLAlchemy** app backed by **PostgreSQL** (Render) or SQLite (dev). Relevant existing models:
+
+| Model | Purpose |
+|---|---|
+| [User](file:///d:/Work/Programming/prosno.io/app/models.py#35-73) | Admin/editor users — needs teacher fields added |
+| [Class](file:///d:/Work/Programming/prosno.io/app/models.py#75-91) | Grade/class level |
+| [Subject](file:///d:/Work/Programming/prosno.io/app/models.py#93-112) | Subject per class |
+| [Chapter](file:///d:/Work/Programming/prosno.io/app/models.py#114-133) | Chapter per subject |
+| [Question](file:///d:/Work/Programming/prosno.io/app/models.py#135-178) | MCQ questions |
+| [ShortQuestion](file:///d:/Work/Programming/prosno.io/app/models.py#180-216) | Short answer (SQ) questions |
+| [CQQuestion](file:///d:/Work/Programming/prosno.io/app/models.py#218-283) | Creative questions (CQ) |
+| [QuestionSet](file:///d:/Work/Programming/prosno.io/app/models.py#312-357) | Teacher-saved question sets (linked to Supabase `user_id`) |
+| [GeneratedPaper](file:///d:/Work/Programming/prosno.io/app/models.py#285-310) | Generated exam papers |
+
+> **Key insight**: The existing [Question](file:///d:/Work/Programming/prosno.io/app/models.py#135-178), [ShortQuestion](file:///d:/Work/Programming/prosno.io/app/models.py#180-216), and [CQQuestion](file:///d:/Work/Programming/prosno.io/app/models.py#218-283) models are **admin-managed content**. The Question Bank introduces a **teacher-owned variant** of these, with metadata, visibility, and status tracking.
+
+---
+
+## 3. Database Schema
+
+### 3.1 New / Extended Tables
+
+#### `teacher_profiles` (new)
+Extends the existing Supabase user system with teacher-specific metadata.
+
+```sql
+CREATE TABLE teacher_profiles (
+    id              SERIAL PRIMARY KEY,
+    user_id         VARCHAR(100) UNIQUE NOT NULL,  -- Supabase UUID
+    display_name    VARCHAR(200),
+    is_trusted      BOOLEAN DEFAULT FALSE,
+    trust_granted_at TIMESTAMP,
+    trust_granted_by VARCHAR(100),                 -- admin user_id
+
+    -- Trust thresholds (cached counters for performance)
+    approved_questions_count  INTEGER DEFAULT 0,
+    reputation_score          INTEGER DEFAULT 0,
+    account_created_at        TIMESTAMP DEFAULT NOW(),
+
+    -- Contribution stats (denormalized for performance)
+    questions_created    INTEGER DEFAULT 0,
+    questions_published  INTEGER DEFAULT 0,
+    questions_used       INTEGER DEFAULT 0,  -- usage_count sum by others
+    total_downloads      INTEGER DEFAULT 0,
+    average_rating       NUMERIC(3,2) DEFAULT 0.00,
+
+    -- Gamification
+    contributor_rank     VARCHAR(50) DEFAULT 'Newcomer',
+    -- e.g. Newcomer → Contributor → Senior → Expert → Master
+
+    created_at  TIMESTAMP DEFAULT NOW(),
+    updated_at  TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_teacher_profiles_user_id ON teacher_profiles(user_id);
+CREATE INDEX idx_teacher_profiles_reputation ON teacher_profiles(reputation_score DESC);
+```
+
+---
+
+#### `bank_questions` (new — core table)
+The teacher question bank's central table. Separate from the admin-managed `questions` / `short_questions` / `cq_questions` tables, but shares the same Class→Subject→Chapter foreign keys.
+
+```sql
+CREATE TABLE bank_questions (
+    id              SERIAL PRIMARY KEY,
+    teacher_id      VARCHAR(100) NOT NULL,         -- Supabase UUID (creator)
+
+    -- Curriculum location (existing FK hierarchy)
+    class_id        INTEGER REFERENCES classes(id),
+    subject_id      INTEGER REFERENCES subjects(id),
+    chapter_id      INTEGER REFERENCES chapters(id),
+
+    -- Question content
+    question_type   VARCHAR(10) NOT NULL,           -- 'MCQ', 'SQ', 'CQ'
+    question_text   TEXT NOT NULL,
+    answer          TEXT,
+    explanation     TEXT,
+
+    -- MCQ-specific
+    answer_options  JSONB,                          -- ["A","B","C","D"]
+    correct_answer  VARCHAR(500),
+
+    -- CQ-specific
+    stem            TEXT,
+    part_ka         TEXT,
+    part_kha        TEXT,
+    part_ga         TEXT,
+    part_gha        TEXT,
+    marks_ka        SMALLINT,
+    marks_kha       SMALLINT,
+    marks_ga        SMALLINT,
+    marks_gha       SMALLINT,
+
+    -- Classification metadata
+    topic           VARCHAR(200),
+    difficulty      VARCHAR(20) DEFAULT 'medium',   -- easy / medium / hard
+    marks           SMALLINT DEFAULT 1,
+    board           VARCHAR(100),                   -- e.g. Dhaka Board
+    year            SMALLINT,
+
+    -- Publishing state
+    visibility      VARCHAR(20) DEFAULT 'private',  -- private / pending / public / rejected
+    status          VARCHAR(20) DEFAULT 'draft',    -- draft / submitted / approved / rejected
+    published_at    TIMESTAMP,
+    rejected_at     TIMESTAMP,
+    rejection_reason TEXT,
+
+    -- Source tracking
+    origin          VARCHAR(20) DEFAULT 'manual',   -- manual / ai_generated / copied
+    source_question_id INTEGER REFERENCES bank_questions(id),  -- if copied
+
+    -- Usage & quality metrics
+    usage_count     INTEGER DEFAULT 0,
+    download_count  INTEGER DEFAULT 0,
+    rating_total    INTEGER DEFAULT 0,
+    rating_count    INTEGER DEFAULT 0,
+
+    -- Similarity fingerprint for duplicate detection
+    text_hash       VARCHAR(64),                    -- SHA256 of normalized question_text
+    embedding_vector VECTOR(768),                   -- pgvector for semantic similarity (future)
+
+    created_at  TIMESTAMP DEFAULT NOW(),
+    updated_at  TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_bq_teacher_id   ON bank_questions(teacher_id);
+CREATE INDEX idx_bq_chapter_id   ON bank_questions(chapter_id);
+CREATE INDEX idx_bq_subject_id   ON bank_questions(subject_id);
+CREATE INDEX idx_bq_class_id     ON bank_questions(class_id);
+CREATE INDEX idx_bq_visibility   ON bank_questions(visibility);
+CREATE INDEX idx_bq_question_type ON bank_questions(question_type);
+CREATE INDEX idx_bq_text_hash    ON bank_questions(text_hash);
+-- Composite for curriculum browsing
+CREATE INDEX idx_bq_browse ON bank_questions(class_id, subject_id, chapter_id, question_type, visibility);
+```
+
+---
+
+#### `moderation_queue` (new)
+Tracks questions awaiting admin review before becoming public.
+
+```sql
+CREATE TABLE moderation_queue (
+    id              SERIAL PRIMARY KEY,
+    question_id     INTEGER NOT NULL REFERENCES bank_questions(id) ON DELETE CASCADE,
+    submitted_by    VARCHAR(100) NOT NULL,           -- teacher user_id
+    submitted_at    TIMESTAMP DEFAULT NOW(),
+    reviewed_by     VARCHAR(100),                    -- admin user_id
+    reviewed_at     TIMESTAMP,
+    decision        VARCHAR(20),                     -- approved / rejected
+    admin_notes     TEXT,
+    priority        SMALLINT DEFAULT 5              -- 1=high, 10=low
+);
+
+CREATE INDEX idx_mq_decision ON moderation_queue(decision) WHERE decision IS NULL;
+CREATE INDEX idx_mq_submitted_at ON moderation_queue(submitted_at);
+```
+
+---
+
+#### `question_interactions` (new)
+Tracks per-teacher actions on bank questions: usage, saves, ratings.
+
+```sql
+CREATE TABLE question_interactions (
+    id              SERIAL PRIMARY KEY,
+    question_id     INTEGER NOT NULL REFERENCES bank_questions(id) ON DELETE CASCADE,
+    teacher_id      VARCHAR(100) NOT NULL,
+    action_type     VARCHAR(20) NOT NULL,            -- 'used' / 'saved' / 'copied' / 'rated'
+    rating_value    SMALLINT CHECK (rating_value BETWEEN 1 AND 5),
+    question_set_id INTEGER REFERENCES question_sets(id),   -- if used in a question set
+    paper_id        INTEGER REFERENCES generated_papers(id), -- if used in a paper
+    created_at      TIMESTAMP DEFAULT NOW(),
+
+    UNIQUE (question_id, teacher_id, action_type)   -- one rating per teacher per question
+);
+
+CREATE INDEX idx_qi_question_id ON question_interactions(question_id);
+CREATE INDEX idx_qi_teacher_id  ON question_interactions(teacher_id);
+```
+
+---
+
+#### `teacher_library` (new)
+Questions a teacher has saved to their personal library.
+
+```sql
+CREATE TABLE teacher_library (
+    id          SERIAL PRIMARY KEY,
+    teacher_id  VARCHAR(100) NOT NULL,
+    question_id INTEGER NOT NULL REFERENCES bank_questions(id) ON DELETE CASCADE,
+    saved_at    TIMESTAMP DEFAULT NOW(),
+    notes       TEXT,
+
+    UNIQUE (teacher_id, question_id)
+);
+
+CREATE INDEX idx_tl_teacher_id ON teacher_library(teacher_id);
+```
+
+---
+
+#### `teacher_badges` (new)
+Gamification — awarded badges per teacher.
+
+```sql
+CREATE TABLE teacher_badges (
+    id          SERIAL PRIMARY KEY,
+    teacher_id  VARCHAR(100) NOT NULL,
+    badge_slug  VARCHAR(50) NOT NULL,               -- e.g. 'top_contributor', 'math_specialist'
+    badge_name  VARCHAR(100) NOT NULL,
+    awarded_at  TIMESTAMP DEFAULT NOW(),
+
+    UNIQUE (teacher_id, badge_slug)
+);
+
+CREATE INDEX idx_tb_teacher_id ON teacher_badges(teacher_id);
+```
+
+---
+
+#### `publish_prompts` (new)
+Tracks prompt state shown to teachers after generating an exam paper — whether they've responded and what they chose.
+
+```sql
+CREATE TABLE publish_prompts (
+    id              SERIAL PRIMARY KEY,
+    teacher_id      VARCHAR(100) NOT NULL,
+    paper_id        INTEGER REFERENCES generated_papers(id),
+    question_set_id INTEGER REFERENCES question_sets(id),
+    question_ids    JSONB NOT NULL,                  -- [bank_question_id, ...]
+    responded       BOOLEAN DEFAULT FALSE,
+    decision        VARCHAR(20),                     -- 'publish' / 'keep_private'
+    responded_at    TIMESTAMP,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_pp_teacher_id ON publish_prompts(teacher_id);
+CREATE INDEX idx_pp_responded  ON publish_prompts(responded) WHERE responded = FALSE;
+```
+
+---
+
+### 3.2 Schema Relationships Diagram
+
+```
+classes
+  └── subjects
+        └── chapters
+              └── bank_questions ◄── moderation_queue
+                    │                      │
+                    ├── question_interactions    (ratings, usage tracking)
+                    ├── teacher_library          (saved questions)
+                    └── publish_prompts          (post-paper prompt state)
+
+teacher_profiles ──► bank_questions (teacher_id)
+teacher_profiles ◄── teacher_badges
+```
+
+---
+
+## 4. Trust & Publishing Workflow
+
+### 4.1 Trust Resolution
+
+A teacher is considered **trusted** when any of the following are met (evaluated on publish attempt):
+
+```python
+def is_teacher_trusted(profile: TeacherProfile) -> bool:
+    if profile.is_trusted:          # manually granted by admin
+        return True
+    days_old = (now() - profile.account_created_at).days
+    return (
+        profile.approved_questions_count >= 50
+        and days_old >= 30
+        and profile.reputation_score >= 100
+    )
+```
+
+Trust thresholds are configurable (stored in a `system_config` key-value table or environment variable).
+
+---
+
+### 4.2 Publishing State Machine
+
+```
+       Teacher creates questions (bank_questions.visibility = 'private')
+                          │
+              Teacher generates exam paper
+                          │
+                  System fires publish_prompt
+                          │
+              ┌───────────┴──────────┐
+         [Publish]            [Keep Private]
+              │                    │
+    is_trusted = TRUE?        stays 'private'
+        │            │
+       YES           NO
+        │            │
+   visibility     visibility  →  moderation_queue
+   = 'public'     = 'pending'          │
+   status         status              ADMIN REVIEWS
+   = 'approved'   = 'submitted'        │
+                                ┌─────┴─────┐
+                           [Approve]   [Reject]
+                                │           │
+                           'public'    'rejected'
+                           'approved'  rejection_reason
+```
+
+---
+
+### 4.3 Publish API Flow (Sequence)
+
+```
+1. POST /api/v1/bank/papers/{paper_id}/publish-prompt
+   → Creates publish_prompt record, returns list of questions to potentially publish
+
+2. POST /api/v1/bank/publish-prompt/{prompt_id}/respond
+   Body: { decision: "publish" | "keep_private", question_ids: [...] }
+   → For each selected question:
+       a. Check duplicate (text_hash match or semantic similarity)
+       b. If duplicate: return warning with existing_question_id
+       c. If no duplicate OR teacher confirms:
+           - trusted teacher → set visibility='public', status='approved'
+           - new teacher     → set visibility='pending', insert moderation_queue row
+   → Update publish_prompt.responded = true
+
+3. Async (background job):
+   → Update teacher_profiles counters
+   → Check badge eligibility
+   → Notify teacher of moderation decision (when reviewed)
+```
+
+---
+
+## 5. API Design
+
+All endpoints are REST, returning JSON. Auth is via Supabase JWT (`Authorization: Bearer <token>`).
+
+### 5.1 Teacher Profile
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/bank/profile` | Get own teacher profile + stats |
+| `PUT` | `/api/v1/bank/profile` | Update display name, etc. |
+| `GET` | `/api/v1/bank/teachers/{user_id}/profile` | View another teacher's public profile |
+| `GET` | `/api/v1/bank/leaderboard` | Top contributors (paginated) |
+
+### 5.2 Question Authoring
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/v1/bank/questions` | Create a new question (private by default) |
+| `GET` | `/api/v1/bank/questions` | List own questions (with filters) |
+| `GET` | `/api/v1/bank/questions/{id}` | Get a specific question |
+| `PUT` | `/api/v1/bank/questions/{id}` | Edit a question (only if private/rejected) |
+| `DELETE` | `/api/v1/bank/questions/{id}` | Soft-delete (only own private questions) |
+
+**POST body example:**
+```json
+{
+  "class_id": 3,
+  "subject_id": 12,
+  "chapter_id": 45,
+  "question_type": "MCQ",
+  "question_text": "গতিশক্তির সূত্র কী?",
+  "answer_options": ["Ek = ½mv²", "Ek = mv", "Ek = mgh", "Ek = ma"],
+  "correct_answer": "Ek = ½mv²",
+  "explanation": "গতিশক্তি হলো...",
+  "difficulty": "medium",
+  "marks": 1,
+  "topic": "গতি ও শক্তি"
+}
+```
+
+### 5.3 Question Bank Browsing
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/bank/browse` | Browse by class/subject/chapter/type |
+| `GET` | `/api/v1/bank/browse/classes` | List all classes with question counts |
+| `GET` | `/api/v1/bank/browse/classes/{id}/subjects` | Subjects with question counts |
+| `GET` | `/api/v1/bank/browse/subjects/{id}/chapters` | Chapters with question counts |
+| `GET` | `/api/v1/bank/browse/chapters/{id}/questions` | Questions in a chapter (grouped by type) |
+| `GET` | `/api/v1/bank/search` | Full-text search across public questions |
+
+**Browse query parameters:**
+```
+?class_id=3
+&subject_id=12
+&chapter_id=45
+&question_type=MCQ        # MCQ | SQ | CQ
+&difficulty=medium
+&sort=rating | usage | newest
+&page=1&per_page=20
+```
+
+**Browse response shape:**
+```json
+{
+  "chapter": { "id": 45, "name": "Motion" },
+  "grouped": {
+    "MCQ": [ { ...question }, ... ],
+    "SQ":  [ ... ],
+    "CQ":  [ ... ]
+  },
+  "counts": { "MCQ": 120, "SQ": 45, "CQ": 30 }
+}
+```
+
+### 5.4 Question Interactions
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/v1/bank/questions/{id}/use` | Add question to own question set |
+| `POST` | `/api/v1/bank/questions/{id}/save` | Save to personal library |
+| `DELETE` | `/api/v1/bank/questions/{id}/save` | Remove from library |
+| `POST` | `/api/v1/bank/questions/{id}/rate` | Rate a question (1–5 stars) |
+| `POST` | `/api/v1/bank/questions/{id}/copy` | Copy & edit (creates private draft) |
+| `GET` | `/api/v1/bank/library` | Get own saved library |
+
+### 5.5 Publishing Workflow
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/v1/bank/papers/{paper_id}/publish-prompt` | Trigger post-paper prompt |
+| `GET` | `/api/v1/bank/publish-prompt/{id}` | Get prompt details |
+| `POST` | `/api/v1/bank/publish-prompt/{id}/respond` | Submit publish/keep-private decision |
+| `GET` | `/api/v1/bank/questions/{id}/duplicate-check` | Check for duplicates before publishing |
+
+### 5.6 Moderation (Admin)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/admin/moderation/queue` | List pending questions |
+| `GET` | `/api/v1/admin/moderation/{queue_id}` | View a specific item |
+| `POST` | `/api/v1/admin/moderation/{queue_id}/decide` | Approve or reject |
+| `PATCH` | `/api/v1/admin/teachers/{user_id}/trust` | Manually grant/revoke trusted status |
+| `GET` | `/api/v1/admin/teachers` | List all teacher profiles |
+
+---
+
+## 6. Duplicate Detection
+
+### 6.1 Strategy (Two-Phase)
+
+**Phase 1 — Exact Hash Match (fast, O(1))**
+- On question creation, compute `text_hash = SHA256(normalize(question_text))`
+- `normalize()`: lowercase, strip punctuation, collapse whitespace, remove diacritics
+- On publish attempt: `SELECT id FROM bank_questions WHERE text_hash = ? AND visibility = 'public'`
+
+**Phase 2 — Semantic Similarity (future, via pgvector)**
+- On publish: query nearest neighbors using `embedding_vector <-> ?` (cosine distance)
+- If distance < 0.15 → flag as highly similar
+- If 0.15 ≤ distance < 0.30 → flag as possibly related
+
+### 6.2 Warning Response
+
+If a duplicate is found, the API returns HTTP `200` with:
+```json
+{
+  "status": "duplicate_warning",
+  "similarity": "exact",   // or "high" / "moderate"
+  "existing_question": {
+    "id": 1042,
+    "question_text": "...",
+    "teacher": "Rahman Sir",
+    "usage_count": 312,
+    "rating": 4.7
+  },
+  "options": ["use_existing", "publish_variation"]
+}
+```
+
+Teacher can then proceed with `publish_variation` to publish anyway, or `use_existing` to just link to the existing question.
+
+---
+
+## 7. Reputation & Gamification
+
+### 7.1 Reputation Score Calculation
+
+Reputation is recalculated async after relevant events:
+
+```
+reputation_score = 
+    (questions_published × 2)
+  + (questions_used_by_others × 1)
+  + (avg_rating × questions_rated_count × 5)
+  + (total_downloads × 0.1)
+```
+
+Recalculated nightly via a **background job** or on demand when counter thresholds are crossed.
+
+### 7.2 Contributor Ranks
+
+| Rank | Threshold |
+|---|---|
+| Newcomer | 0–49 reputation |
+| Contributor | 50–199 |
+| Senior Contributor | 200–499 |
+| Expert | 500–999 |
+| Master | 1000+ |
+
+### 7.3 Badges
+
+| Badge Slug | Award Condition |
+|---|---|
+| `first_question` | Published first question |
+| `top_10_contributor` | In top 10 on leaderboard |
+| `math_specialist` | 50+ approved Math questions |
+| `board_question_expert` | 20+ questions with board + year set |
+| `hundred_published` | 100 approved questions |
+| `thousand_published` | 1000 approved questions |
+| `highly_rated` | avg_rating >= 4.5 with ≥ 20 ratings |
+| `widely_used` | questions used 1000+ times total |
+
+Badge evaluation runs as a background task triggered after each publish approval or usage event.
+
+---
+
+## 8. Caching Strategy
+
+### 8.1 Redis Key Patterns
+
+```
+# Browse hierarchy counts (TTL: 1 hour)
+bank:counts:class:{class_id}
+bank:counts:subject:{subject_id}
+bank:counts:chapter:{chapter_id}:{question_type}
+
+# Leaderboard (TTL: 15 minutes)
+bank:leaderboard:top100
+
+# Teacher profile stats (TTL: 5 minutes)
+bank:profile:{user_id}:stats
+
+# Chapter question listing (TTL: 30 minutes, invalidated on new publish)
+bank:browse:chapter:{chapter_id}:{type}:page:{n}
+```
+
+### 8.2 Cache Invalidation Events
+
+| Event | Keys Invalidated |
+|---|---|
+| Question published/approved | `bank:counts:class/subject/chapter:*`, chapter browse cache |
+| Teacher stat updated | `bank:profile:{user_id}:stats`, `bank:leaderboard:top100` |
+| Question rated/used | Chapter browse cache for that question |
+
+---
+
+## 9. Search
+
+Use **Meilisearch** (or Elasticsearch) for full-text search across `bank_questions.question_text + topic + explanation`.
+
+### 9.1 Index Fields
+```json
+{
+  "id": 1042,
+  "question_text": "...",
+  "topic": "Motion",
+  "class_name": "Class 10",
+  "subject_name": "Physics",
+  "chapter_name": "Motion",
+  "question_type": "MCQ",
+  "difficulty": "medium",
+  "usage_count": 312,
+  "rating": 4.7,
+  "visibility": "public"
+}
+```
+
+### 9.2 Filterable Attributes
+`class_id`, `subject_id`, `chapter_id`, `question_type`, `difficulty`, `visibility`
+
+### 9.3 Sync Strategy
+- New approved questions: sync immediately via post-commit hook
+- Bulk re-index: nightly via background job
+
+---
+
+## 10. Background Jobs
+
+Implement using **Celery + Redis** (or APScheduler for simpler deployment):
+
+| Job | Trigger | Action |
+|---|---|---|
+| `update_teacher_stats` | After approval, usage, rating | Recalculate profile counters |
+| `evaluate_badges` | After `update_teacher_stats` | Award new badges |
+| `evaluate_auto_trust` | Daily or after 50th approval | Check and grant trusted status |
+| `sync_search_index` | After each approval | Push to Meilisearch |
+| `update_reputation_scores` | Nightly | Recalculate all reputation scores |
+| `notify_moderation_decision` | After admin decision | Email/notification to teacher |
+
+---
+
+## 11. Integration with Existing Paper Generation
+
+### 11.1 Modified [GeneratedPaper](file:///d:/Work/Programming/prosno.io/app/models.py#285-310) Flow
+
+After a teacher generates a paper (existing `POST /api/generate-paper`), the backend:
+
+1. Identifies any `bank_questions` that were selected and linked to this paper
+2. Creates a `publish_prompts` record pointing to those question IDs
+3. Includes `{ "publish_prompt_id": 42 }` in the paper generation response
+
+The frontend then shows the publish modal using this ID.
+
+### 11.2 "Use in Exam Paper" Flow (Bank → Paper)
+
+When a teacher clicks **"Use in Exam Paper"** from the browse view:
+
+1. `POST /api/v1/bank/questions/{id}/use` — records interaction
+2. Front-end injects the bank question into the current paper builder session
+3. Paper generation proceeds normally
+4. After generation, publish prompt fires for *other* questions in the paper that were teacher-authored
+
+---
+
+## 12. SQLAlchemy Models (New)
+
+> These are the new models to add to [app/models.py](file:///d:/Work/Programming/prosno.io/app/models.py). They reference existing `classes`, `subjects`, `chapters`, `question_sets`, and `generated_papers` tables.
+
+```python
+class TeacherProfile(db.Model):
+    __tablename__ = 'teacher_profiles'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    display_name = db.Column(db.String(200))
+    is_trusted = db.Column(db.Boolean, default=False)
+    trust_granted_at = db.Column(db.DateTime)
+    trust_granted_by = db.Column(db.String(100))
+
+    approved_questions_count = db.Column(db.Integer, default=0)
+    reputation_score = db.Column(db.Integer, default=0)
+    account_created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    questions_created = db.Column(db.Integer, default=0)
+    questions_published = db.Column(db.Integer, default=0)
+    questions_used = db.Column(db.Integer, default=0)
+    total_downloads = db.Column(db.Integer, default=0)
+    average_rating = db.Column(db.Numeric(3, 2), default=0.00)
+    contributor_rank = db.Column(db.String(50), default='Newcomer')
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    bank_questions = db.relationship('BankQuestion', backref='teacher', lazy='dynamic',
+                                     foreign_keys='BankQuestion.teacher_id')
+    badges = db.relationship('TeacherBadge', backref='teacher', lazy='dynamic',
+                             foreign_keys='TeacherBadge.teacher_id')
+
+
+class BankQuestion(db.Model):
+    __tablename__ = 'bank_questions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.String(100), nullable=False, index=True)
+
+    class_id = db.Column(db.Integer, db.ForeignKey('classes.id'))
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'))
+    chapter_id = db.Column(db.Integer, db.ForeignKey('chapters.id'))
+
+    question_type = db.Column(db.String(10), nullable=False)   # MCQ / SQ / CQ
+    question_text = db.Column(db.Text, nullable=False)
+    answer = db.Column(db.Text)
+    explanation = db.Column(db.Text)
+
+    # MCQ fields
+    answer_options = db.Column(db.JSON)
+    correct_answer = db.Column(db.String(500))
+
+    # CQ fields
+    stem = db.Column(db.Text)
+    part_ka = db.Column(db.Text)
+    part_kha = db.Column(db.Text)
+    part_ga = db.Column(db.Text)
+    part_gha = db.Column(db.Text)
+    marks_ka = db.Column(db.SmallInteger)
+    marks_kha = db.Column(db.SmallInteger)
+    marks_ga = db.Column(db.SmallInteger)
+    marks_gha = db.Column(db.SmallInteger)
+
+    topic = db.Column(db.String(200))
+    difficulty = db.Column(db.String(20), default='medium')
+    marks = db.Column(db.SmallInteger, default=1)
+    board = db.Column(db.String(100))
+    year = db.Column(db.SmallInteger)
+
+    visibility = db.Column(db.String(20), default='private')  # private/pending/public/rejected
+    status = db.Column(db.String(20), default='draft')         # draft/submitted/approved/rejected
+    published_at = db.Column(db.DateTime)
+    rejected_at = db.Column(db.DateTime)
+    rejection_reason = db.Column(db.Text)
+
+    origin = db.Column(db.String(20), default='manual')        # manual/ai_generated/copied
+    source_question_id = db.Column(db.Integer, db.ForeignKey('bank_questions.id'))
+
+    usage_count = db.Column(db.Integer, default=0)
+    download_count = db.Column(db.Integer, default=0)
+    rating_total = db.Column(db.Integer, default=0)
+    rating_count = db.Column(db.Integer, default=0)
+
+    text_hash = db.Column(db.String(64), index=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    class_ref = db.relationship('Class', backref='bank_questions')
+    subject_ref = db.relationship('Subject', backref='bank_questions')
+    chapter_ref = db.relationship('Chapter', backref='bank_questions')
+
+    @property
+    def average_rating(self):
+        if not self.rating_count:
+            return 0
+        return round(self.rating_total / self.rating_count, 2)
+
+
+class ModerationQueue(db.Model):
+    __tablename__ = 'moderation_queue'
+
+    id = db.Column(db.Integer, primary_key=True)
+    question_id = db.Column(db.Integer, db.ForeignKey('bank_questions.id',
+                            ondelete='CASCADE'), nullable=False)
+    submitted_by = db.Column(db.String(100), nullable=False)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_by = db.Column(db.String(100))
+    reviewed_at = db.Column(db.DateTime)
+    decision = db.Column(db.String(20))          # approved / rejected
+    admin_notes = db.Column(db.Text)
+    priority = db.Column(db.SmallInteger, default=5)
+
+    question = db.relationship('BankQuestion', backref='moderation_entries')
+
+
+class QuestionInteraction(db.Model):
+    __tablename__ = 'question_interactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    question_id = db.Column(db.Integer, db.ForeignKey('bank_questions.id',
+                            ondelete='CASCADE'), nullable=False)
+    teacher_id = db.Column(db.String(100), nullable=False)
+    action_type = db.Column(db.String(20), nullable=False)  # used/saved/copied/rated
+    rating_value = db.Column(db.SmallInteger)
+    question_set_id = db.Column(db.Integer, db.ForeignKey('question_sets.id'))
+    paper_id = db.Column(db.Integer, db.ForeignKey('generated_papers.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    question = db.relationship('BankQuestion', backref='interactions')
+
+
+class TeacherLibrary(db.Model):
+    __tablename__ = 'teacher_library'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.String(100), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('bank_questions.id',
+                            ondelete='CASCADE'), nullable=False)
+    saved_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text)
+
+    question = db.relationship('BankQuestion', backref='library_saves')
+
+
+class TeacherBadge(db.Model):
+    __tablename__ = 'teacher_badges'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.String(100), nullable=False, index=True)
+    badge_slug = db.Column(db.String(50), nullable=False)
+    badge_name = db.Column(db.String(100), nullable=False)
+    awarded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('teacher_id', 'badge_slug'),)
+
+
+class PublishPrompt(db.Model):
+    __tablename__ = 'publish_prompts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.String(100), nullable=False)
+    paper_id = db.Column(db.Integer, db.ForeignKey('generated_papers.id'))
+    question_set_id = db.Column(db.Integer, db.ForeignKey('question_sets.id'))
+    question_ids = db.Column(db.JSON, nullable=False)
+    responded = db.Column(db.Boolean, default=False)
+    decision = db.Column(db.String(20))              # publish / keep_private
+    responded_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+```
+
+---
+
+## 13. Scalability Considerations
+
+| Concern | Solution |
+|---|---|
+| Millions of questions | Composite indexes on [(class_id, subject_id, chapter_id, question_type, visibility)](file:///d:/Work/Programming/prosno.io/app/models.py#505-573) |
+| High concurrent browsing | Redis cache for browse counts and paginated results |
+| Full-text search | Meilisearch sidecar index, async-synced |
+| Counter accuracy | Denormalized counters updated via background jobs, not real-time |
+| Stat recalculation | Nightly batch for reputation, incremental for counters |
+| Duplicate detection | SHA256 hash for exact match (microseconds); semantic vector search deferred to Phase 2 |
+
+---
+
+## 14. Future Extensibility
+
+The schema is designed to accommodate future features without breaking changes:
+
+| Future Feature | Extension Point |
+|---|---|
+| **Premium question packs** | Add `is_premium BOOLEAN` + `pack_id FK` to `bank_questions` |
+| **Teacher marketplace** | Add `price` + `purchase_count` + `revenue` columns to `teacher_profiles` |
+| **AI-generated questions** | `bank_questions.origin = 'ai_generated'` already tracked; add `ai_job_id FK` |
+| **Multi-language questions** | Add `lang VARCHAR(10) DEFAULT 'bn'` to `bank_questions` |
+| **Curriculum versioning** | Add `curriculum_year SMALLINT` to `bank_questions` |
+| **Semantic deduplication** | `embedding_vector VECTOR(768)` column already present (requires `pgvector`) |
+
+---
+
+## 15. Implementation Phases
+
+### Phase 1 — Foundation (MVP)
+- [ ] `TeacherProfile`, `BankQuestion` models and migrations
+- [ ] CRUD APIs for teacher-authored questions
+- [ ] Curriculum browse API (Class→Subject→Chapter→Questions)
+- [ ] Basic publish prompt (post-paper, with trust check)
+- [ ] SHA256 duplicate detection
+- [ ] Moderation queue (admin review UI)
+
+### Phase 2 — Engagement
+- [ ] `QuestionInteraction`, `TeacherLibrary` models
+- [ ] Rating, usage tracking, library save APIs
+- [ ] Teacher profile page (public stats)
+- [ ] Reputation score calculation (background job)
+- [ ] Leaderboard API
+
+### Phase 3 — Gamification & Search
+- [ ] Badge system (`TeacherBadge` + evaluation jobs)
+- [ ] Contributor rank labels
+- [ ] Meilisearch integration for full-text search
+- [ ] Redis caching for browse counts
+
+### Phase 4 — Scale & Intelligence
+- [ ] Semantic similarity via pgvector
+- [ ] Auto-trust evaluation job
+- [ ] Analytics dashboard for admins
+- [ ] Notification system for moderation decisions

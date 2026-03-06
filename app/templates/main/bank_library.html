@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}My Library — Prosno.io{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/bank.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="bank-page">
+    <div class="container" style="max-width:860px;">
+        <nav class="bank-breadcrumb">
+            <a href="{{ url_for('main.bank_browse') }}"><i class="bi bi-collection"></i> Question Bank</a>
+            <span class="sep"><i class="bi bi-chevron-right"></i></span>
+            <span class="current">My Library</span>
+        </nav>
+
+        <div class="bank-page-header d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <h1><i class="bi bi-bookmark-heart" style="color:var(--bank-teal);"></i> My Library</h1>
+                <p class="bank-subtitle">Questions you've saved for later</p>
+            </div>
+            <div>
+                <span class="bank-card-count" id="libraryCount" style="font-size:.9rem;padding:6px 14px;">
+                    <i class="bi bi-bookmark-fill"></i> <span>0</span> saved
+                </span>
+            </div>
+        </div>
+
+        <!-- Search -->
+        <div class="bank-search-wrap">
+            <i class="bi bi-search"></i>
+            <input type="text" class="bank-search" id="librarySearch"
+                   placeholder="Search your saved questions...">
+        </div>
+
+        <!-- Question List -->
+        <div class="bank-question-list" id="libraryList">
+            <div class="bank-skeleton bank-skeleton-row"></div>
+            <div class="bank-skeleton bank-skeleton-row"></div>
+            <div class="bank-skeleton bank-skeleton-row"></div>
+        </div>
+
+        <div class="bank-pagination" id="libraryPagination"></div>
+
+        <!-- Empty State -->
+        <div class="bank-empty" id="libraryEmpty" style="display:none;">
+            <i class="bi bi-bookmark"></i>
+            <h3>No saved questions yet</h3>
+            <p>Browse the question bank and save questions you find useful for quick access later.</p>
+            <a href="{{ url_for('main.bank_browse') }}" class="bank-btn bank-btn-primary bank-btn-lg mt-3">
+                <i class="bi bi-collection"></i> Browse Questions
+            </a>
+        </div>
+    </div>
+</section>
+
+<div class="bank-toast" id="bankToast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/bank.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        BankLibrary.init({
+            userId: '{{ user.id }}',
+            apiBase: '/api/v1/bank'
+        });
+    });
+</script>
+{% endblock %}
