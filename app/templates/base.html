@@ -78,6 +78,10 @@
                     href="{{ url_for('main.index') }}">Home</a>
                 <a class="nav-link {% if request.endpoint == 'main.generate' %}active{% endif %}"
                     href="{{ url_for('main.generate') }}">Features</a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('quiz.') %}active{% endif %}"
+                    href="{{ url_for('quiz.join_page') }}">
+                    <i class="bi bi-controller nav-link-icon"></i> Join Quiz
+                </a>
                 <a class="nav-link {% if request.endpoint == 'main.about' %}active{% endif %}"
                     href="{{ url_for('main.about') }}">About</a>
                 <a class="nav-link {% if request.endpoint == 'main.contact' %}active{% endif %}"
@@ -213,6 +217,9 @@
             </a>
             <a class="nav-mobile-link" href="{{ url_for('main.generate') }}">
                 <i class="bi bi-lightning-charge"></i> Features
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('quiz.join_page') }}">
+                <i class="bi bi-controller"></i> Join Quiz
             </a>
             <a class="nav-mobile-link" href="{{ url_for('main.about') }}">
                 <i class="bi bi-info-circle"></i> About
