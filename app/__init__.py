@@ -159,12 +159,13 @@ def create_app(config_class=Config):
 
             # Auto-upgrade existing admin users to have 'admin' role (migration fix)
             try:
-                admin_users = User.query.filter_by(is_admin=True).all()
-                for user in admin_users:
-                    if user.role != ROLE_ADMIN:
-                        user.role = ROLE_ADMIN
-                        print(f"Upgraded user '{user.username}' to admin role")
-                db.session.commit()
+                with app.app_context():
+                    admin_users = User.query.filter_by(is_admin=True).all()
+                    for user in admin_users:
+                        if user.role != ROLE_ADMIN:
+                            user.role = ROLE_ADMIN
+                            print(f"Upgraded user '{user.username}' to admin role")
+                    db.session.commit()
             except Exception as e:
                 print(f"Admin role upgrade skipped: {e}")
 
