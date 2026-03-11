@@ -3,6 +3,8 @@ Prosno.io - Question Paper Generator
 Flask Application Factory
 """
 import os
+import tempfile
+import time
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -24,15 +26,15 @@ limiter = Limiter(
 
 def create_app(config_class=Config):
     """Application factory pattern"""
-    app = Flask(__name__)
-    app.config.from_object(config_class)
-    skip_startup_tasks = app.config.get(
-        'SKIP_STARTUP_TASKS', app.config.get('TESTING', False)
+    flask_app = Flask(__name__)
+    flask_app.config.from_object(config_class)
+    skip_startup_tasks = flask_app.config.get(
+        'SKIP_STARTUP_TASKS', flask_app.config.get('TESTING', False)
     )
 
     # Warn if SECRET_KEY not set from environment in production
     import warnings
-    if not app.debug and not os.environ.get('SECRET_KEY'):
+    if not flask_app.debug and not os.environ.get('SECRET_KEY'):
         warnings.warn(
             "SECRET_KEY not set! Using auto-generated key. "
             "Set SECRET_KEY environment variable in production.",
@@ -40,25 +42,27 @@ def create_app(config_class=Config):
         )
 
     # Initialize extensions
-    db.init_app(app)
-    login_manager.init_app(app)
-    csrf.init_app(app)
-    limiter.init_app(app)
+    db.init_app(flask_app)
+    login_manager.init_app(flask_app)
+    csrf.init_app(flask_app)
+    limiter.init_app(flask_app)
 
     # Initialize Flask-Caching (Redis if REDIS_URL set, SimpleCache fallback)
     from app.utils.cache import init_cache
-    init_cache(app)
+    init_cache(flask_app)
 
     # ProxyFix for Render (handling HTTPS headers)
     from werkzeug.middleware.proxy_fix import ProxyFix
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    flask_app.wsgi_app = ProxyFix(
+        flask_app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+    )
 
     login_manager.login_view = 'admin.login'
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
 
     # Add security headers to all responses
-    @app.after_request
+    @flask_app.after_request
     def add_security_headers(response):
         """Add security headers to prevent common attacks"""
         # Prevent clickjacking
@@ -70,7 +74,7 @@ def create_app(config_class=Config):
         # Referrer policy
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         # Content Security Policy (basic policy - adjust as needed)
-        if not app.debug:
+        if not flask_app.debug:
             response.headers['Content-Security-Policy'] = (
                 "default-src 'self'; "
                 "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
@@ -89,14 +93,14 @@ def create_app(config_class=Config):
     if supabase_url and supabase_key:
         try:
             from app.utils.supabase_auth import SupabaseAuth
-            app.config['SUPABASE_CLIENT'] = SupabaseAuth(supabase_url, supabase_key)
+            flask_app.config['SUPABASE_CLIENT'] = SupabaseAuth(supabase_url, supabase_key)
             print("Supabase Auth initialized successfully.")
         except Exception as e:
             print(f"Warning: Could not initialize Supabase Auth: {e}")
-            app.config['SUPABASE_CLIENT'] = None
+            flask_app.config['SUPABASE_CLIENT'] = None
     else:
-        app.config['SUPABASE_CLIENT'] = None
-        if not app.debug:
+        flask_app.config['SUPABASE_CLIENT'] = None
+        if not flask_app.debug:
             warnings.warn(
                 "SUPABASE_URL and SUPABASE_KEY not set. "
                 "Public user authentication will be disabled.",
@@ -112,64 +116,121 @@ def create_app(config_class=Config):
     from app.routes.bank import bank_bp
     from app.routes.moderation import moderation_bp
 
-    app.register_blueprint(main_bp)
-    app.register_blueprint(admin_bp, url_prefix='/admin')
-    app.register_blueprint(api_bp, url_prefix='/api')
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(quiz_bp)
-    app.register_blueprint(bank_bp, url_prefix='/api/v1/bank')
-    app.register_blueprint(moderation_bp, url_prefix='/api/v1/admin/bank')
+    flask_app.register_blueprint(main_bp)
+    flask_app.register_blueprint(admin_bp, url_prefix='/admin')
+    flask_app.register_blueprint(api_bp, url_prefix='/api')
+    flask_app.register_blueprint(auth_bp)
+    flask_app.register_blueprint(quiz_bp)
+    flask_app.register_blueprint(bank_bp, url_prefix='/api/v1/bank')
+    flask_app.register_blueprint(moderation_bp, url_prefix='/api/v1/admin/bank')
 
-    # Ensure output folder exists (skip during tests)
     if not skip_startup_tasks:
-        output_folder = app.config.get('OUTPUT_FOLDER', 'output')
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
-            print(f"Created output folder: {output_folder}")
+        _run_startup_tasks_once(flask_app)
 
-    # Create database tables and apply migrations for new columns
-    if not skip_startup_tasks:
-        with app.app_context():
-            db.create_all()
+    return flask_app
 
-            # Add missing columns to existing tables (migration for existing databases)
-            _apply_schema_migrations(db)
 
-            # Auto-seed if no classes exist
-            from app.models import Class, User, ROLE_ADMIN
-            if Class.query.count() == 0:
-                print("No classes found. Auto-seeding NCTB curriculum...")
-                _seed_nctb_data()
-            # Auto-create admin user if none exists
-            if User.query.filter_by(is_admin=True).count() == 0:
-                print("No admin user found. Creating default admin...")
-                _create_admin_user()
+def _run_startup_tasks_once(flask_app):
+    """Run startup tasks once per container even under multi-worker servers."""
+    lock_path = os.path.join(tempfile.gettempdir(), 'prosno_startup.lock')
+    done_path = os.path.join(tempfile.gettempdir(), 'prosno_startup.done')
+    timeout_seconds = int(os.environ.get('STARTUP_LOCK_TIMEOUT', '180'))
+    poll_interval = float(os.environ.get('STARTUP_LOCK_POLL_INTERVAL', '1'))
+    deadline = time.time() + timeout_seconds
+    lock_fd = None
 
-        # Start APScheduler background jobs (bank maintenance)
-        # Guard against Werkzeug reloader by only starting in the main process
-        import os as _os
-        _is_reloader_child = _os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
-        _reloader_active = app.debug and not _is_reloader_child
-        if not _reloader_active:
-            try:
-                from app.utils.scheduler import start_scheduler
-                start_scheduler(app)
-            except Exception as _e:
-                print(f'Warning: Could not start background scheduler: {_e}')
+    if os.path.exists(done_path):
+        return
 
-            # Auto-upgrade existing admin users to have 'admin' role (migration fix)
-            try:
-                with app.app_context():
-                    admin_users = User.query.filter_by(is_admin=True).all()
-                    for user in admin_users:
-                        if user.role != ROLE_ADMIN:
-                            user.role = ROLE_ADMIN
-                            print(f"Upgraded user '{user.username}' to admin role")
-                    db.session.commit()
-            except Exception as e:
-                print(f"Admin role upgrade skipped: {e}")
+    while True:
+        if os.path.exists(done_path):
+            return
 
-    return app
+        try:
+            lock_fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(lock_fd, str(os.getpid()).encode('ascii'))
+            break
+        except FileExistsError as exc:
+            if time.time() >= deadline:
+                raise TimeoutError(
+                    'Timed out waiting for application startup tasks to finish.'
+                ) from exc
+            time.sleep(poll_interval)
+
+    try:
+        if os.path.exists(done_path):
+            return
+        _run_startup_tasks(flask_app)
+        with open(done_path, 'w', encoding='ascii') as marker_file:
+            marker_file.write(str(os.getpid()))
+    finally:
+        if lock_fd is not None:
+            os.close(lock_fd)
+        if os.path.exists(lock_path):
+            os.remove(lock_path)
+
+
+def _run_startup_tasks(flask_app):
+    """Initialise writable folders, database state, and background jobs."""
+    output_folder = flask_app.config.get('OUTPUT_FOLDER', 'output')
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+        print(f"Created output folder: {output_folder}")
+
+    _initialise_database_with_retries(flask_app)
+    _start_background_scheduler(flask_app)
+
+
+def _initialise_database_with_retries(flask_app):
+    """Retry startup database work so deployment can survive a slow database."""
+    max_attempts = int(os.environ.get('STARTUP_DB_MAX_ATTEMPTS', '10'))
+    retry_delay = float(os.environ.get('STARTUP_DB_RETRY_DELAY', '3'))
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with flask_app.app_context():
+                db.create_all()
+                _apply_schema_migrations(db)
+
+                from app.models import Class, User, ROLE_ADMIN
+                if Class.query.count() == 0:
+                    print("No classes found. Auto-seeding NCTB curriculum...")
+                    _seed_nctb_data()
+
+                if User.query.filter_by(is_admin=True).count() == 0:
+                    print("No admin user found. Creating default admin...")
+                    _create_admin_user()
+
+                admin_users = User.query.filter_by(is_admin=True).all()
+                for user in admin_users:
+                    if user.role != ROLE_ADMIN:
+                        user.role = ROLE_ADMIN
+                        print(f"Upgraded user '{user.username}' to admin role")
+                db.session.commit()
+
+            return
+        except Exception as exc:
+            if attempt >= max_attempts:
+                raise
+            print(
+                f"Startup database attempt {attempt}/{max_attempts} failed: {exc}. "
+                f"Retrying in {retry_delay} seconds..."
+            )
+            time.sleep(retry_delay)
+
+
+def _start_background_scheduler(flask_app):
+    """Start the in-process scheduler once outside the Werkzeug reloader."""
+    _is_reloader_child = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+    _reloader_active = flask_app.debug and not _is_reloader_child
+    if _reloader_active:
+        return
+
+    try:
+        from app.utils.scheduler import start_scheduler
+        start_scheduler(flask_app)
+    except Exception as exc:
+        print(f'Warning: Could not start background scheduler: {exc}')
 
 
 def _create_admin_user():

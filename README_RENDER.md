@@ -15,6 +15,20 @@ The repository includes `Dockerfile` which:
   native requirements.
 - installs Python dependencies from `requirements.txt` (make sure `weasyprint`
   is present there).
+- starts the Flask app through Gunicorn on port 8000.
+- retries database startup work on boot so the container can survive a slow
+  Postgres service becoming ready.
+
+Coolify Notes
+-------------
+- Use the Dockerfile-based deployment path.
+- Keep the service port at `8000`.
+- Set `DATABASE_URL` and `SECRET_KEY` in Coolify.
+- If your database service starts slowly, you can tune startup retries with:
+  - `STARTUP_DB_MAX_ATTEMPTS` (default `10`)
+  - `STARTUP_DB_RETRY_DELAY` in seconds (default `3`)
+- Multi-worker Gunicorn startup is serialized inside the container so schema
+  creation, seeding, and scheduler startup only run once.
 
 Render (DigitalOcean) — Steps
 -----------------------------
