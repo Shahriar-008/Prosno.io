@@ -20,6 +20,14 @@ ALTER TABLE public.generation_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.short_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quizzes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quiz_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bank_questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teacher_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teacher_badges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.publish_prompts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.moderation_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.question_interactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teacher_library ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teacher_notifications ENABLE ROW LEVEL SECURITY;
 
 -- 2. Optional: Allow Public Read Access to content?
 -- If you want your frontend (React/JS using supabase-js) to read questions directly,
