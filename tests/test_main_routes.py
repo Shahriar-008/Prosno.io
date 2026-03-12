@@ -1,5 +1,6 @@
-from app import db
+from app import create_app, db
 from app.models import GeneratedPaper, GenerationLog, QuestionSet
+from config import TestingConfig
 
 
 def _login(client, user_id="user-1"):
@@ -50,6 +51,66 @@ def test_generate_paper_success_creates_paper_record(client, seed_catalog, monke
     assert captured["paper_config"]["title"] == "Unit Test Paper"
     assert captured["paper_config"]["marks"] == 1
     assert captured["kwargs"]["omr_style"] is True
+
+
+def test_index_is_not_throttled_by_global_defaults(tmp_path):
+    db_path = tmp_path / "ratelimit.db"
+
+    class LocalRateLimitConfig(TestingConfig):
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{db_path.as_posix()}"
+        RATELIMIT_ENABLED = True
+        SKIP_STARTUP_TASKS = True
+
+    flask_app = create_app(LocalRateLimitConfig)
+
+    with flask_app.app_context():
+        db.create_all()
+
+        from app.models import Class
+
+        db.session.add(
+            Class(
+                name="Class 8",
+                name_bn="Class 8 BN",
+                level="Secondary",
+                order=8,
+                is_active=True,
+            )
+        )
+        db.session.commit()
+
+    client = flask_app.test_client()
+
+    for _ in range(55):
+        response = client.get("/")
+        assert response.status_code == 200
+
+
+def test_healthz_returns_ok(client):
+    response = client.get("/healthz")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "ok"}
+
+
+def test_healthz_is_not_throttled(tmp_path):
+    db_path = tmp_path / "healthz-ratelimit.db"
+
+    class LocalRateLimitConfig(TestingConfig):
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{db_path.as_posix()}"
+        RATELIMIT_ENABLED = True
+        SKIP_STARTUP_TASKS = True
+
+    flask_app = create_app(LocalRateLimitConfig)
+
+    with flask_app.app_context():
+        db.create_all()
+
+    client = flask_app.test_client()
+
+    for _ in range(100):
+        response = client.get("/healthz")
+        assert response.status_code == 200
 
 
 def test_generate_paper_missing_required_fields_returns_400(client):

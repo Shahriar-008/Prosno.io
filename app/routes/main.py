@@ -45,6 +45,13 @@ def index():
     return render_template('main/index.html', classes=classes)
 
 
+@main_bp.route('/healthz')
+@limiter.exempt
+def healthz():
+    """Lightweight liveness check for container health probes."""
+    return jsonify({'status': 'ok'}), 200
+
+
 @main_bp.route('/generate', methods=['GET', 'POST'])
 def generate():
     """Question paper generation page"""
@@ -53,6 +60,7 @@ def generate():
 
 
 @main_bp.route('/get-subjects/<int:class_id>')
+@limiter.limit("60 per minute")
 def get_subjects(class_id):
     """Get subjects for a class"""
     subjects = Subject.query.filter_by(
@@ -68,6 +76,7 @@ def get_subjects(class_id):
 
 
 @main_bp.route('/get-chapters/<int:subject_id>')
+@limiter.limit("60 per minute")
 def get_chapters(subject_id):
     """Get chapters for a subject"""
     chapters = Chapter.query.filter_by(
@@ -84,6 +93,7 @@ def get_chapters(subject_id):
 
 
 @main_bp.route('/get-question-count', methods=['POST'])
+@limiter.limit("60 per minute")
 def get_question_count():
     """Get count of available questions for selected chapters"""
     data = request.get_json()
