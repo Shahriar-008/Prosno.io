@@ -23,6 +23,7 @@ const Builder = (() => {
     let _bankPage = 1;
     let _bankHasMore = false;
     let _bankData = [];
+    let _bankTargetSectionId = null;
     let _searchTimer = null;
     let _sectionSortable = null;
     let _questionSortables = {};
@@ -277,6 +278,9 @@ const Builder = (() => {
         const sec = state.sections.find(s => s.id === secId);
         if (!sec) return;
         if (sec.questions.length > 0 && !confirm(`Delete "${sec.title}" with ${sec.questions.length} questions?`)) return;
+        if (_bankTargetSectionId === secId) {
+            _bankTargetSectionId = null;
+        }
         state.sections = state.sections.filter(s => s.id !== secId);
         render();
         _initSectionSortable();
@@ -449,14 +453,18 @@ const Builder = (() => {
         const q = _bankData[bankIdx];
         if (!q) return;
 
-        // Find first matching section
-        let sec = state.sections.find(s => s.type === type);
+        // Prefer the section the user opened the bank from.
+        let sec = state.sections.find(s => s.id === _bankTargetSectionId && s.type === type);
+        if (!sec) {
+            sec = state.sections.find(s => s.type === type);
+        }
         if (!sec) {
             // Create a section for this type
             addSection(type);
             sec = state.sections.find(s => s.type === type);
         }
         if (!sec) return;
+        _bankTargetSectionId = sec.id;
 
         const question = {
             source: 'db',
@@ -479,6 +487,7 @@ const Builder = (() => {
     function openBankForSection(secId) {
         const sec = state.sections.find(s => s.id === secId);
         if (sec) {
+            _bankTargetSectionId = secId;
             document.getElementById('bankType').value = sec.type;
         }
         // On mobile, open the bank panel
