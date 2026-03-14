@@ -4,11 +4,13 @@ Main routes for Prosno.io
 from datetime import datetime, date
 from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort, session, redirect
 import os
+from sqlalchemy import or_
 
 from app import db, csrf, limiter
 from app.models import (
     Class, Subject, Chapter, Question, GeneratedPaper,
     QuestionSet, GenerationLog, ShortQuestion, CQQuestion,
+    BankQuestion,
 )
 from app.utils.document_generator import generate_paper_from_db, generate_paper_to_memory
 from app.utils.pdf_generator import generate_paper_to_memory_pdf
@@ -1186,56 +1188,95 @@ def builder_fetch_questions():
     result = {}
     total_counts = {}
     offset = (page - 1) * per_page
+    user_id = user.get('id')
+
+    def _bank_base_query(question_type):
+        query = BankQuestion.query.filter(
+            BankQuestion.chapter_id.in_(chapter_ids),
+            BankQuestion.is_active == True,
+            BankQuestion.question_type == question_type,
+        )
+        if user_id:
+            query = query.filter(
+                or_(
+                    BankQuestion.visibility == 'public',
+                    BankQuestion.teacher_id == user_id,
+                )
+            )
+        else:
+            query = query.filter(BankQuestion.visibility == 'public')
+        if difficulty:
+            query = query.filter(BankQuestion.difficulty == difficulty)
+        return query
 
     # MCQ
     if 'mcq' in question_types:
-        q = Question.query.filter(
-            Question.chapter_id.in_(chapter_ids),
-            Question.is_active == True,
-        )
+        q = _bank_base_query('MCQ')
         if search_text:
-            q = q.filter(Question.question_text.ilike(f'%{search_text}%'))
-        if difficulty:
-            q = q.filter(Question.difficulty == difficulty)
+            q = q.filter(BankQuestion.question_text.ilike(f'%{search_text}%'))
         total_counts['mcq'] = q.count()
-        mcq_rows = q.order_by(Question.chapter_id, Question.id).offset(offset).limit(per_page).all()
+        mcq_rows = q.order_by(BankQuestion.chapter_id, BankQuestion.id).offset(offset).limit(per_page).all()
         result['mcq'] = [{
             'id': r.id,
             'question_text': r.question_text,
-            'type': r.question_type,
-            'answer_options': r.answer_options,
-            'correct_answer': r.correct_answer,
+            'type': 'simple',
+            'answer_options': r.answer_options or [],
+            'correct_answer': r.correct_answer or '',
             'difficulty': r.difficulty,
             'chapter_id': r.chapter_id,
-            'chapter_name': (r.chapter.name_bn or r.chapter.name) if r.chapter else '',
+            'chapter_name': (r.chapter_ref.name_bn or r.chapter_ref.name) if r.chapter_ref else '',
+            'marks': r.marks,
+            'db_source': 'bank',
         } for r in mcq_rows]
 
     # SQ
     if 'sq' in question_types:
-        q = ShortQuestion.query.filter(
-            ShortQuestion.chapter_id.in_(chapter_ids),
-            ShortQuestion.is_active == True,
-        )
+        q = _bank_base_query('SQ')
         if search_text:
-            q = q.filter(ShortQuestion.question_text.ilike(f'%{search_text}%'))
+            q = q.filter(BankQuestion.question_text.ilike(f'%{search_text}%'))
         total_counts['sq'] = q.count()
-        sq_rows = q.order_by(ShortQuestion.chapter_id, ShortQuestion.id).offset(offset).limit(per_page).all()
-        result['sq'] = [r.to_dict() | {
-            'chapter_name': (r.chapter.name_bn or r.chapter.name) if r.chapter else '',
+        sq_rows = q.order_by(BankQuestion.chapter_id, BankQuestion.id).offset(offset).limit(per_page).all()
+        result['sq'] = [{
+            'id': r.id,
+            'question_text': r.question_text,
+            'marks': r.marks or 2,
+            'difficulty': r.difficulty,
+            'chapter_id': r.chapter_id,
+            'chapter_name': (r.chapter_ref.name_bn or r.chapter_ref.name) if r.chapter_ref else '',
+            'db_source': 'bank',
         } for r in sq_rows]
 
     # CQ
     if 'cq' in question_types:
-        q = CQQuestion.query.filter(
-            CQQuestion.chapter_id.in_(chapter_ids),
-            CQQuestion.is_active == True,
-        )
+        q = _bank_base_query('CQ')
         if search_text:
-            q = q.filter(CQQuestion.stem.ilike(f'%{search_text}%'))
+            q = q.filter(
+                or_(
+                    BankQuestion.stem.ilike(f'%{search_text}%'),
+                    BankQuestion.question_text.ilike(f'%{search_text}%'),
+                )
+            )
         total_counts['cq'] = q.count()
-        cq_rows = q.order_by(CQQuestion.chapter_id, CQQuestion.id).offset(offset).limit(per_page).all()
-        result['cq'] = [r.to_dict() | {
-            'chapter_name': (r.chapter.name_bn or r.chapter.name) if r.chapter else '',
+        cq_rows = q.order_by(BankQuestion.chapter_id, BankQuestion.id).offset(offset).limit(per_page).all()
+        result['cq'] = [{
+            'id': r.id,
+            'question_text': r.question_text or '',
+            'stem': r.stem or r.question_text or '',
+            'part_ka': r.part_ka or '',
+            'part_kha': r.part_kha or '',
+            'part_ga': r.part_ga or '',
+            'part_gha': r.part_gha or '',
+            'marks_ka': r.marks_ka or 0,
+            'marks_kha': r.marks_kha or 0,
+            'marks_ga': r.marks_ga or 0,
+            'marks_gha': r.marks_gha or 0,
+            'total_marks': (r.marks_ka or 0) + (r.marks_kha or 0) + (r.marks_ga or 0) + (r.marks_gha or 0),
+            'difficulty': r.difficulty,
+            'chapter_id': r.chapter_id,
+            'chapter_name': (r.chapter_ref.name_bn or r.chapter_ref.name) if r.chapter_ref else '',
+            'board': r.board,
+            'year': r.year,
+            'db_source': 'bank',
         } for r in cq_rows]
 
     result['total_counts'] = total_counts
@@ -1278,6 +1319,24 @@ def builder_generate():
     sq_config = None
     cq_config = None
     all_mcq_ids = []
+    user_id = user.get('id')
+
+    def _get_bank_question(question_id, question_type):
+        q = BankQuestion.query.filter(
+            BankQuestion.id == question_id,
+            BankQuestion.question_type == question_type,
+            BankQuestion.is_active == True,
+        )
+        if user_id:
+            q = q.filter(
+                or_(
+                    BankQuestion.visibility == 'public',
+                    BankQuestion.teacher_id == user_id,
+                )
+            )
+        else:
+            q = q.filter(BankQuestion.visibility == 'public')
+        return q.first()
 
     for sec in sections:
         sec_type = sec.get('type', 'mcq')
@@ -1288,6 +1347,19 @@ def builder_generate():
         if sec_type == 'mcq':
             for item in raw_questions:
                 if item.get('source') == 'db' and item.get('id'):
+                    source = item.get('db_source')
+                    if source in (None, 'bank'):
+                        bq = _get_bank_question(item['id'], 'MCQ')
+                        if bq:
+                            mcq_questions.append({
+                                'question_text': bq.question_text or '',
+                                'answer_options': bq.answer_options or [],
+                                'correct_answer': bq.correct_answer or '',
+                                'type': 'simple',
+                                'chapter_id': bq.chapter_id,
+                            })
+                            all_mcq_ids.append(bq.id)
+                            continue
                     q = Question.query.get(item['id'])
                     if q and q.is_active:
                         mcq_questions.append(q)
@@ -1306,6 +1378,15 @@ def builder_generate():
             sq_list = []
             for item in raw_questions:
                 if item.get('source') == 'db' and item.get('id'):
+                    source = item.get('db_source')
+                    if source in (None, 'bank'):
+                        bq = _get_bank_question(item['id'], 'SQ')
+                        if bq:
+                            sq_list.append({
+                                'question_text': bq.question_text or '',
+                                'marks': bq.marks or 2,
+                            })
+                            continue
                     q = ShortQuestion.query.get(item['id'])
                     if q and q.is_active:
                         sq_list.append(q.to_dict())
@@ -1325,6 +1406,25 @@ def builder_generate():
             cq_list = []
             for item in raw_questions:
                 if item.get('source') == 'db' and item.get('id'):
+                    source = item.get('db_source')
+                    if source in (None, 'bank'):
+                        bq = _get_bank_question(item['id'], 'CQ')
+                        if bq:
+                            cq_list.append({
+                                'stem': bq.stem or bq.question_text or '',
+                                'part_ka': bq.part_ka or '',
+                                'part_kha': bq.part_kha or '',
+                                'part_ga': bq.part_ga or '',
+                                'part_gha': bq.part_gha or '',
+                                'marks_ka': bq.marks_ka or 0,
+                                'marks_kha': bq.marks_kha or 0,
+                                'marks_ga': bq.marks_ga or 0,
+                                'marks_gha': bq.marks_gha or 0,
+                                'total_marks': (bq.marks_ka or 0) + (bq.marks_kha or 0) + (bq.marks_ga or 0) + (bq.marks_gha or 0),
+                                'board': bq.board,
+                                'year': bq.year,
+                            })
+                            continue
                     q = CQQuestion.query.get(item['id'])
                     if q and q.is_active:
                         cq_list.append(q.to_dict())
@@ -1375,7 +1475,13 @@ def builder_generate():
         total_q += len(cq_config['questions'])
 
     # Get chapter_ids from MCQ questions
-    chapter_ids = list({q.chapter_id for q in mcq_questions if hasattr(q, 'chapter_id')})
+    chapter_ids = set()
+    for q in mcq_questions:
+        if hasattr(q, 'chapter_id') and q.chapter_id:
+            chapter_ids.add(q.chapter_id)
+        elif isinstance(q, dict) and q.get('chapter_id'):
+            chapter_ids.add(q.get('chapter_id'))
+    chapter_ids = list(chapter_ids)
 
     paper = GeneratedPaper(
         title=paper_title,

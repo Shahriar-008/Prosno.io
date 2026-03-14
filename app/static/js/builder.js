@@ -468,6 +468,7 @@ const Builder = (() => {
 
         const question = {
             source: 'db',
+            db_source: q.db_source || 'bank',
             id: q.id,
             question_text: q.question_text || q.stem || '',
             answer_options: q.answer_options || [],
@@ -628,7 +629,7 @@ const Builder = (() => {
             marks_per_question: sec.marks_per_question,
             questions: sec.questions.map(q => {
                 if (q.source === 'db') {
-                    return { source: 'db', id: q.id };
+                    return { source: 'db', db_source: q.db_source || 'bank', id: q.id };
                 }
                 return {
                     source: 'custom',
