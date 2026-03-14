@@ -54,6 +54,10 @@
                     href="{{ url_for('main.generate') }}">
                     <i class="bi bi-plus-square-fill nav-link-icon"></i> Create
                 </a>
+                <a class="nav-link {% if request.endpoint == 'main.builder' %}active{% endif %}"
+                    href="{{ url_for('main.builder') }}">
+                    <i class="bi bi-kanban nav-link-icon"></i> Builder
+                </a>
                 <a class="nav-link {% if request.endpoint and request.endpoint.startswith('main.bank') %}active{% endif %}"
                     href="{{ url_for('main.bank_browse') }}">
                     <i class="bi bi-collection-fill nav-link-icon"></i> Bank
@@ -179,6 +183,9 @@
             </a>
             <a class="nav-mobile-link" href="{{ url_for('main.generate') }}">
                 <i class="bi bi-plus-square-fill"></i> Create
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('main.builder') }}">
+                <i class="bi bi-kanban"></i> Paper Builder
             </a>
             <a class="nav-mobile-link" href="{{ url_for('main.bank_browse') }}">
                 <i class="bi bi-collection-fill"></i> Question Bank

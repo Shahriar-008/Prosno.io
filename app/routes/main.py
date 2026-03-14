@@ -2,7 +2,7 @@
 Main routes for Prosno.io
 """
 from datetime import datetime, date
-from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort, session
+from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort, session, redirect
 import os
 
 from app import db, csrf, limiter
@@ -1146,6 +1146,267 @@ def bank_leaderboard():
     """Leaderboard page."""
     user = _require_user()
     return render_template('main/bank_leaderboard.html', user=user)
+
+
+# ── Paper Builder ─────────────────────────────────────────────
+
+
+@main_bp.route('/builder')
+def builder():
+    """Smart Paper Builder — drag & drop paper creation."""
+    user = session.get('user')
+    if not user:
+        return redirect(url_for('auth.login'))
+    classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
+    return render_template('main/builder.html', classes=classes)
+
+
+@main_bp.route('/api/builder/questions', methods=['POST'])
+@limiter.limit("60 per minute")
+def builder_fetch_questions():
+    """Fetch questions across types (MCQ, SQ, CQ) for the paper builder."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.'}), 401
+
+    data = request.get_json() or {}
+    chapter_ids = data.get('chapter_ids', [])
+    question_types = data.get('question_types', ['mcq', 'sq', 'cq'])
+    search_text = data.get('search', '').strip()
+    difficulty = data.get('difficulty', '')
+    page = max(1, data.get('page', 1))
+    per_page = min(50, data.get('per_page', 20))
+
+    if not chapter_ids:
+        return jsonify({'mcq': [], 'sq': [], 'cq': [], 'total_counts': {}})
+
+    if len(chapter_ids) > 10:
+        return jsonify({'error': 'Maximum 10 chapters per request.'}), 400
+
+    result = {}
+    total_counts = {}
+    offset = (page - 1) * per_page
+
+    # MCQ
+    if 'mcq' in question_types:
+        q = Question.query.filter(
+            Question.chapter_id.in_(chapter_ids),
+            Question.is_active == True,
+        )
+        if search_text:
+            q = q.filter(Question.question_text.ilike(f'%{search_text}%'))
+        if difficulty:
+            q = q.filter(Question.difficulty == difficulty)
+        total_counts['mcq'] = q.count()
+        mcq_rows = q.order_by(Question.chapter_id, Question.id).offset(offset).limit(per_page).all()
+        result['mcq'] = [{
+            'id': r.id,
+            'question_text': r.question_text,
+            'type': r.question_type,
+            'answer_options': r.answer_options,
+            'correct_answer': r.correct_answer,
+            'difficulty': r.difficulty,
+            'chapter_id': r.chapter_id,
+            'chapter_name': (r.chapter.name_bn or r.chapter.name) if r.chapter else '',
+        } for r in mcq_rows]
+
+    # SQ
+    if 'sq' in question_types:
+        q = ShortQuestion.query.filter(
+            ShortQuestion.chapter_id.in_(chapter_ids),
+            ShortQuestion.is_active == True,
+        )
+        if search_text:
+            q = q.filter(ShortQuestion.question_text.ilike(f'%{search_text}%'))
+        total_counts['sq'] = q.count()
+        sq_rows = q.order_by(ShortQuestion.chapter_id, ShortQuestion.id).offset(offset).limit(per_page).all()
+        result['sq'] = [r.to_dict() | {
+            'chapter_name': (r.chapter.name_bn or r.chapter.name) if r.chapter else '',
+        } for r in sq_rows]
+
+    # CQ
+    if 'cq' in question_types:
+        q = CQQuestion.query.filter(
+            CQQuestion.chapter_id.in_(chapter_ids),
+            CQQuestion.is_active == True,
+        )
+        if search_text:
+            q = q.filter(CQQuestion.stem.ilike(f'%{search_text}%'))
+        total_counts['cq'] = q.count()
+        cq_rows = q.order_by(CQQuestion.chapter_id, CQQuestion.id).offset(offset).limit(per_page).all()
+        result['cq'] = [r.to_dict() | {
+            'chapter_name': (r.chapter.name_bn or r.chapter.name) if r.chapter else '',
+        } for r in cq_rows]
+
+    result['total_counts'] = total_counts
+    return jsonify(result)
+
+
+@main_bp.route('/api/builder/generate', methods=['POST'])
+@limiter.limit("20 per minute")
+@csrf.exempt
+def builder_generate():
+    """Generate a paper from the sections-based builder JSON."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.'}), 401
+
+    _used, _limit, _remaining = _get_user_credits(user['id'])
+    if _remaining <= 0:
+        return jsonify({
+            'error': 'Daily generation limit reached.',
+            'credits_exhausted': True,
+        }), 429
+
+    data = request.get_json()
+    if not data or 'sections' not in data:
+        return jsonify({'error': 'Missing sections data.'}), 400
+
+    cfg = data.get('paper_config', {})
+    sections = data.get('sections', [])
+
+    class_id = cfg.get('class_id')
+    subject_id = cfg.get('subject_id')
+    class_obj = Class.query.get(class_id) if class_id else None
+    subject_obj = Subject.query.get(subject_id) if subject_id else None
+    paper_title = cfg.get('title', 'Question Paper')
+    time_minutes = cfg.get('time_minutes', 60)
+    omr_style = cfg.get('omr_style', True)
+
+    # Resolve questions per section
+    mcq_questions = []
+    sq_config = None
+    cq_config = None
+    all_mcq_ids = []
+
+    for sec in sections:
+        sec_type = sec.get('type', 'mcq')
+        raw_questions = sec.get('questions', [])
+        if not raw_questions:
+            continue
+
+        if sec_type == 'mcq':
+            for item in raw_questions:
+                if item.get('source') == 'db' and item.get('id'):
+                    q = Question.query.get(item['id'])
+                    if q and q.is_active:
+                        mcq_questions.append(q)
+                        all_mcq_ids.append(q.id)
+                elif item.get('source') == 'custom':
+                    mcq_questions.append({
+                        'question_text': item.get('question_text', ''),
+                        'answer_options': item.get('answer_options', []),
+                        'correct_answer': item.get('correct_answer', ''),
+                        'type': item.get('type', 'simple'),
+                        'sub_options': item.get('sub_options', []),
+                        'final_prompt': item.get('final_prompt', ''),
+                    })
+
+        elif sec_type == 'sq':
+            sq_list = []
+            for item in raw_questions:
+                if item.get('source') == 'db' and item.get('id'):
+                    q = ShortQuestion.query.get(item['id'])
+                    if q and q.is_active:
+                        sq_list.append(q.to_dict())
+                elif item.get('source') == 'custom':
+                    sq_list.append({
+                        'question_text': item.get('question_text', ''),
+                        'marks': item.get('marks', 2),
+                    })
+            if sq_list:
+                sq_config = {
+                    'questions': sq_list,
+                    'answer_count': sec.get('answer_count', len(sq_list)),
+                    'marks_per_question': sec.get('marks_per_question', 2),
+                }
+
+        elif sec_type == 'cq':
+            cq_list = []
+            for item in raw_questions:
+                if item.get('source') == 'db' and item.get('id'):
+                    q = CQQuestion.query.get(item['id'])
+                    if q and q.is_active:
+                        cq_list.append(q.to_dict())
+                elif item.get('source') == 'custom':
+                    cq_list.append(item)
+            if cq_list:
+                cq_config = {
+                    'questions': cq_list,
+                    'answer_count': sec.get('answer_count', len(cq_list)),
+                }
+
+    if not mcq_questions and not sq_config and not cq_config:
+        return jsonify({'error': 'No questions in any section.'}), 400
+
+    # Calculate total marks
+    total_marks = len(mcq_questions)
+    if sq_config:
+        total_marks += sq_config['answer_count'] * sq_config['marks_per_question']
+    if cq_config:
+        cq_m = cq_config['questions'][0].get('total_marks', 10) if cq_config['questions'] else 10
+        total_marks += cq_config['answer_count'] * cq_m
+
+    paper_config = {
+        'title': paper_title,
+        'class_name': (class_obj.name_bn or class_obj.name) if class_obj else cfg.get('class_name', ''),
+        'subject_name': (subject_obj.name_bn or subject_obj.name) if subject_obj else cfg.get('subject_name', ''),
+        'time': time_minutes,
+        'marks': total_marks,
+    }
+
+    output_folder = current_app.config.get('OUTPUT_FOLDER', 'output')
+    try:
+        student_path, teacher_path = generate_paper_from_db(
+            mcq_questions, paper_config, output_folder,
+            omr_style=omr_style,
+            sq_config=sq_config,
+            cq_config=cq_config,
+        )
+    except Exception as e:
+        current_app.logger.error(f"Builder generate error: {e}")
+        return jsonify({'error': 'Failed to generate paper.'}), 500
+
+    # Compute effective question counts
+    total_q = len(mcq_questions)
+    if sq_config:
+        total_q += len(sq_config['questions'])
+    if cq_config:
+        total_q += len(cq_config['questions'])
+
+    # Get chapter_ids from MCQ questions
+    chapter_ids = list({q.chapter_id for q in mcq_questions if hasattr(q, 'chapter_id')})
+
+    paper = GeneratedPaper(
+        title=paper_title,
+        class_id=class_id,
+        subject_id=subject_id,
+        chapter_ids=chapter_ids if chapter_ids else None,
+        question_ids=all_mcq_ids if all_mcq_ids else None,
+        question_count=total_q,
+        time_minutes=time_minutes,
+        file_path=student_path,
+        file_path_answers=teacher_path,
+        omr_style=omr_style,
+        custom_paper_config={
+            **paper_config,
+            'omr_style': omr_style,
+            'sq_config': sq_config,
+            'cq_config': cq_config,
+        } if (sq_config or cq_config) else None,
+    )
+    db.session.add(paper)
+    _log_generation(user['id'], gen_type='builder')
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'paper_id': paper.id,
+        'question_count': total_q,
+        'total_marks': total_marks,
+        'student_download': f'/download/{paper.id}/student',
+        'teacher_download': f'/download/{paper.id}/teacher',
+    })
 
 
 # ── Shareable Paper Links ─────────────────────────────────────
