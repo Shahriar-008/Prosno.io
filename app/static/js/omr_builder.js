@@ -938,6 +938,9 @@
     function renderMatrixBlock(spec) {
         const rows = spec.labels.length;
         const bubbleClass = state.config.bubble_size === 'small' ? 'small' : 'large';
+        const titleClass = spec.w <= 26
+            ? 'omr-preview-card-title omr-preview-card-title-compact'
+            : 'omr-preview-card-title';
         let cells = '';
         for (let col = 0; col < spec.cols; col += 1) {
             spec.labels.forEach(function (label) {
@@ -946,7 +949,7 @@
         }
 
         return '<div class="omr-preview-card" style="' + boxStyle(spec.x, spec.y, spec.w, spec.h) + '">' +
-            '<div class="omr-preview-card-title">' + spec.title + '</div>' +
+            '<div class="' + titleClass + '">' + spec.title + '</div>' +
             '<div class="omr-preview-matrix" style="grid-template-columns: repeat(' + spec.cols + ', 1fr); grid-template-rows: repeat(' + rows + ', 1fr);">' +
             cells +
             '</div></div>';

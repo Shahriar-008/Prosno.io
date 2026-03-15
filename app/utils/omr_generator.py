@@ -1467,6 +1467,168 @@ def _draw_registration_markers(pdf: canvas.Canvas, template: dict[str, Any] | No
         )
 
 
+def _measure_pdf_text_width_mm(text: str, font_name: str, font_size: float) -> float:
+    if not text:
+        return 0.0
+    return pdfmetrics.stringWidth(str(text), font_name, font_size) / mm
+
+
+def _wrap_pdf_text(text: str, font_name: str, font_size: float, max_width_mm: float) -> list[str]:
+    normalized = " ".join(str(text or "").split())
+    if not normalized:
+        return []
+    if max_width_mm <= 0:
+        return [normalized]
+
+    lines: list[str] = []
+    current = ""
+    for word in normalized.split(" "):
+        candidate = word if not current else f"{current} {word}"
+        if _measure_pdf_text_width_mm(candidate, font_name, font_size) <= max_width_mm:
+            current = candidate
+            continue
+
+        if current:
+            lines.append(current)
+            current = ""
+
+        if _measure_pdf_text_width_mm(word, font_name, font_size) <= max_width_mm:
+            current = word
+            continue
+
+        chunk = ""
+        for char in word:
+            next_chunk = f"{chunk}{char}"
+            if chunk and _measure_pdf_text_width_mm(next_chunk, font_name, font_size) > max_width_mm:
+                lines.append(chunk)
+                chunk = char
+            else:
+                chunk = next_chunk
+        current = chunk
+
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _fit_wrapped_pdf_text(
+    text: str,
+    font_name: str,
+    max_font_size: float,
+    min_font_size: float,
+    max_width_mm: float,
+    max_height_mm: float,
+    *,
+    leading_factor: float = 1.18,
+    max_lines: int | None = None,
+) -> tuple[list[str], float, float]:
+    min_size = min(max_font_size, min_font_size)
+    font_size = max_font_size
+
+    while font_size >= min_size - 0.001:
+        lines = _wrap_pdf_text(text, font_name, font_size, max_width_mm)
+        line_height_mm = (font_size * leading_factor) / mm
+        if lines and (max_lines is None or len(lines) <= max_lines) and (
+            len(lines) * line_height_mm <= max_height_mm + 0.001
+        ):
+            return lines, font_size, line_height_mm
+        font_size -= 0.25
+
+    line_height_mm = (min_size * leading_factor) / mm
+    lines = _wrap_pdf_text(text, font_name, min_size, max_width_mm)
+    if max_lines is not None:
+        lines = lines[:max_lines]
+    max_visible_lines = max(1, int(max_height_mm / max(line_height_mm, 0.001)))
+    return lines[:max_visible_lines], min_size, line_height_mm
+
+
+def _draw_centered_pdf_text_box(
+    pdf: canvas.Canvas,
+    *,
+    text: str,
+    x_mm: float,
+    y_top_mm: float,
+    width_mm: float,
+    height_mm: float,
+    font_name: str,
+    max_font_size: float,
+    min_font_size: float,
+    leading_factor: float = 1.18,
+    max_lines: int | None = 1,
+) -> None:
+    content = str(text or "").strip()
+    if not content:
+        return
+
+    lines, font_size, line_height_mm = _fit_wrapped_pdf_text(
+        content,
+        font_name,
+        max_font_size,
+        min_font_size,
+        width_mm,
+        height_mm,
+        leading_factor=leading_factor,
+        max_lines=max_lines,
+    )
+    if not lines:
+        return
+
+    text_height_mm = (font_size / mm) + (max(0, len(lines) - 1) * line_height_mm)
+    start_y_mm = y_top_mm + max(0.0, (height_mm - text_height_mm) / 2)
+
+    pdf.setFont(font_name, font_size)
+    center_x = _mm(x_mm + (width_mm / 2))
+    for index, line in enumerate(lines):
+        line_top_mm = start_y_mm + (index * line_height_mm)
+        pdf.drawCentredString(center_x, _top_text_baseline(line_top_mm, font_size), line)
+
+
+def _fit_instruction_groups(
+    instructions: list[str],
+    *,
+    max_width_mm: float,
+    max_height_mm: float,
+    max_font_size: float,
+    min_font_size: float,
+    leading_factor: float = 1.22,
+    group_gap_mm: float = 0.7,
+) -> tuple[list[list[str]], float, float, float]:
+    min_size = min(max_font_size, min_font_size)
+    font_size = max_font_size
+
+    while font_size >= min_size - 0.001:
+        line_height_mm = (font_size * leading_factor) / mm
+        groups = [
+            _wrap_pdf_text(
+                f"{to_bengali_numeral(index)}। {instruction}",
+                FONT_REGULAR,
+                font_size,
+                max_width_mm,
+            )
+            for index, instruction in enumerate(instructions, start=1)
+        ]
+        visible_groups = [group for group in groups if group]
+        total_height_mm = (
+            sum(len(group) * line_height_mm for group in visible_groups)
+            + max(0, len(visible_groups) - 1) * group_gap_mm
+        )
+        if visible_groups and total_height_mm <= max_height_mm + 0.001:
+            return groups, font_size, line_height_mm, group_gap_mm
+        font_size -= 0.25
+
+    line_height_mm = (min_size * leading_factor) / mm
+    groups = [
+        _wrap_pdf_text(
+            f"{to_bengali_numeral(index)}। {instruction}",
+            FONT_REGULAR,
+            min_size,
+            max_width_mm,
+        )
+        for index, instruction in enumerate(instructions, start=1)
+    ]
+    return groups, min_size, line_height_mm, group_gap_mm
+
+
 def _draw_header(
     pdf: canvas.Canvas,
     cfg: dict[str, Any],
@@ -1483,7 +1645,6 @@ def _draw_header(
     y_top_mm = float(header_box["y_mm"])
     width_mm = float(header_box["width_mm"])
     height_mm = float(header_box["height_mm"])
-    center_x_mm = x_mm + (width_mm / 2)
 
     pdf.setFillColor(accent_soft)
     pdf.rect(
@@ -1496,11 +1657,18 @@ def _draw_header(
     )
 
     pdf.setFillColor(colors.HexColor("#dc2626"))
-    pdf.setFont(FONT_BOLD, 9.5)
-    pdf.drawCentredString(
-        _mm(center_x_mm),
-        _top_text_baseline(y_top_mm + float(offsets["warning_y_mm"]), 9.5),
-        HEADER_WARNING_TEXT,
+    _draw_centered_pdf_text_box(
+        pdf,
+        text=HEADER_WARNING_TEXT,
+        x_mm=x_mm + 4,
+        y_top_mm=y_top_mm + float(offsets["warning_y_mm"]) - 0.2,
+        width_mm=width_mm - 8,
+        height_mm=4.8,
+        font_name=FONT_BOLD,
+        max_font_size=9.1,
+        min_font_size=7.0,
+        leading_factor=1.05,
+        max_lines=1,
     )
 
     _draw_top_marker_pattern(pdf, template)
@@ -1548,14 +1716,28 @@ def _draw_header(
         return
 
     gap_mm = 3.8 if len(line_specs) > 1 else 0
-    start_y_mm = copy_box["y_mm"] + max(3.0, (copy_box["height_mm"] - (gap_mm * max(0, len(line_specs) - 1))) / 2)
-    copy_center_x_mm = copy_box["x_mm"] + (copy_box["width_mm"] / 2)
+    line_box_height_mm = max(
+        2.8,
+        (copy_box["height_mm"] - (gap_mm * max(0, len(line_specs) - 1))) / len(line_specs),
+    )
+    start_y_mm = copy_box["y_mm"]
 
     pdf.setFillColor(colors.black)
     for index, (text, font_name, font_size) in enumerate(line_specs):
-        row_y_mm = start_y_mm + (index * gap_mm)
-        pdf.setFont(font_name, font_size)
-        pdf.drawCentredString(_mm(copy_center_x_mm), _top_text_baseline(row_y_mm, font_size), text)
+        row_y_mm = start_y_mm + (index * (line_box_height_mm + gap_mm))
+        _draw_centered_pdf_text_box(
+            pdf,
+            text=text,
+            x_mm=copy_box["x_mm"] + 2,
+            y_top_mm=row_y_mm,
+            width_mm=copy_box["width_mm"] - 4,
+            height_mm=line_box_height_mm,
+            font_name=font_name,
+            max_font_size=font_size,
+            min_font_size=max(6.3, font_size - 2.6),
+            leading_factor=1.08,
+            max_lines=1,
+        )
 
 
 def _draw_general_header(pdf: canvas.Canvas, cfg: dict[str, Any]) -> None:
@@ -1659,8 +1841,19 @@ def _draw_bubble_matrix_block(
     pdf.setFillColor(accent_soft)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, title_h_mm), _mm(width_mm), _mm(title_h_mm), fill=1, stroke=0)
     pdf.setFillColor(colors.black)
-    pdf.setFont(FONT_BOLD, 9)
-    pdf.drawCentredString(_mm(x_mm + width_mm / 2), _top_text_baseline(y_top_mm + 6.5, 9), title)
+    _draw_centered_pdf_text_box(
+        pdf,
+        text=title,
+        x_mm=x_mm + 1.2,
+        y_top_mm=y_top_mm + 0.7,
+        width_mm=width_mm - 2.4,
+        height_mm=title_h_mm - 1.2,
+        font_name=FONT_BOLD,
+        max_font_size=9,
+        min_font_size=6.5,
+        leading_factor=1.08,
+        max_lines=1,
+    )
 
     pdf.setFillColor(colors.white)
     pdf.rect(
@@ -1719,8 +1912,19 @@ def _draw_instructions_block(
     pdf.setFillColor(accent)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, title_h_mm), _mm(width_mm), _mm(title_h_mm), fill=1, stroke=0)
     pdf.setFillColor(colors.white)
-    pdf.setFont(FONT_BOLD, 8.5)
-    pdf.drawCentredString(_mm(x_mm + (width_mm / 2)), _top_text_baseline(y_top_mm + 5.8, 8.5), INSTRUCTIONS_TITLE)
+    _draw_centered_pdf_text_box(
+        pdf,
+        text=INSTRUCTIONS_TITLE,
+        x_mm=x_mm + 1.2,
+        y_top_mm=y_top_mm + 0.5,
+        width_mm=width_mm - 2.4,
+        height_mm=title_h_mm - 0.8,
+        font_name=FONT_BOLD,
+        max_font_size=8.5,
+        min_font_size=6.8,
+        leading_factor=1.05,
+        max_lines=1,
+    )
 
     pdf.setFillColor(accent_soft)
     pdf.rect(
@@ -1732,6 +1936,23 @@ def _draw_instructions_block(
         stroke=0,
     )
     pdf.setFillColor(colors.black)
+    groups, font_size, line_height_mm, group_gap_mm = _fit_instruction_groups(
+        cfg["instructions"],
+        max_width_mm=width_mm - 5.4,
+        max_height_mm=height_mm - title_h_mm - 3.4,
+        max_font_size=7.2,
+        min_font_size=5.5,
+    )
+    pdf.setFont(FONT_REGULAR, font_size)
+    text_y_mm = y_top_mm + title_h_mm + 2.0
+    for group in groups:
+        for line in group:
+            if text_y_mm > y_top_mm + height_mm - 2.2:
+                return
+            pdf.drawString(_mm(x_mm + 2.4), _top_text_baseline(text_y_mm, font_size), line)
+            text_y_mm += line_height_mm
+        text_y_mm += group_gap_mm
+    return
     pdf.setFont(FONT_REGULAR, 7.2)
     text_y = y_top_mm + 13
     for index, instruction in enumerate(cfg["instructions"], start=1):
@@ -1755,8 +1976,19 @@ def _draw_signature_box(
     pdf.setLineWidth(1)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, height_mm), _mm(width_mm), _mm(height_mm), fill=0, stroke=1)
     pdf.setFillColor(colors.black)
-    pdf.setFont(FONT_REGULAR, 8)
-    pdf.drawCentredString(_mm(x_mm + width_mm / 2), _top_text_baseline(y_top_mm + height_mm - 6, 8), SIGNATURE_LABEL)
+    _draw_centered_pdf_text_box(
+        pdf,
+        text=SIGNATURE_LABEL,
+        x_mm=x_mm + 2,
+        y_top_mm=y_top_mm + 4.2,
+        width_mm=width_mm - 4,
+        height_mm=height_mm - 6.4,
+        font_name=FONT_REGULAR,
+        max_font_size=8,
+        min_font_size=6,
+        leading_factor=1.12,
+        max_lines=2,
+    )
 
 
 def _draw_general_identity_section(
@@ -1803,11 +2035,18 @@ def _draw_general_answer_grid(
     stroke = colors.HexColor("#1f2937")
 
     pdf.setFillColor(colors.black)
-    pdf.setFont(FONT_BOLD, 12.5)
-    pdf.drawCentredString(
-        _mm(title_box["x_mm"] + (title_box["width_mm"] / 2)),
-        _top_text_baseline(title_box["y_mm"] + 5.5, 12.5),
-        GENERAL_ANSWER_TITLE,
+    _draw_centered_pdf_text_box(
+        pdf,
+        text=GENERAL_ANSWER_TITLE,
+        x_mm=float(title_box["x_mm"]) + 2,
+        y_top_mm=float(title_box["y_mm"]) + 0.8,
+        width_mm=float(title_box["width_mm"]) - 4,
+        height_mm=float(title_box["height_mm"]) - 1,
+        font_name=FONT_BOLD,
+        max_font_size=12.5,
+        min_font_size=10.2,
+        leading_factor=1.08,
+        max_lines=1,
     )
 
     pdf.setStrokeColor(stroke)
@@ -1906,11 +2145,18 @@ def _draw_answer_grid(
     answer_title = GENERAL_ANSWER_TITLE if cfg["sheet_variant"] == "general" else INSTITUTIONAL_ANSWER_TITLE
 
     pdf.setFillColor(colors.black)
-    pdf.setFont(FONT_BOLD, 12.5)
-    pdf.drawCentredString(
-        _mm(title_box["x_mm"] + (title_box["width_mm"] / 2)),
-        _top_text_baseline(title_box["y_mm"] + 5.5, 12.5),
-        answer_title,
+    _draw_centered_pdf_text_box(
+        pdf,
+        text=answer_title,
+        x_mm=float(title_box["x_mm"]) + 2,
+        y_top_mm=float(title_box["y_mm"]) + 0.8,
+        width_mm=float(title_box["width_mm"]) - 4,
+        height_mm=float(title_box["height_mm"]) - 1,
+        font_name=FONT_BOLD,
+        max_font_size=12.5,
+        min_font_size=10.2,
+        leading_factor=1.08,
+        max_lines=1,
     )
 
     for column_index in range(grid["columns"]):

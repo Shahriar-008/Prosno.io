@@ -213,9 +213,12 @@
     margin: 0;
     color: #09111d;
     font-family: var(--omr-print-font);
+    font-size: 17px;
     font-size: 2.22cqw;
     font-weight: 700;
     line-height: 1.08;
+    overflow-wrap: anywhere;
+    text-align: center;
 }
 
 .omr-preview-manual-copy {
@@ -231,6 +234,7 @@
     gap: 10px;
     align-items: center;
     color: #0f172a;
+    font-size: 10px;
     font-size: 1.08cqw;
     font-weight: 700;
 }
@@ -282,14 +286,19 @@
     margin: 0;
     color: #dc2626;
     font-family: var(--omr-print-font);
+    font-size: 10px;
     font-size: 1.22cqw;
     font-weight: 700;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+    text-align: center;
 }
 
 .omr-preview-header h2 {
     margin: 0;
     color: #09111d;
     font-family: var(--omr-print-font);
+    font-size: 19px;
     font-size: 2.55cqw;
     font-weight: 700;
     line-height: 1.2;
@@ -299,9 +308,12 @@
 .omr-preview-institution {
     margin: 4px 0 0;
     color: #2f3a4a;
+    font-size: 10px;
     font-size: 1.32cqw;
     font-weight: 600;
     line-height: 1.35;
+    overflow-wrap: anywhere;
+    text-align: center;
 }
 
 .omr-preview-header-manual {
@@ -315,6 +327,7 @@
     gap: 12px;
     align-items: center;
     color: #111827;
+    font-size: 10px;
     font-size: 1.3cqw;
 }
 
@@ -341,6 +354,7 @@
     margin: 0;
     color: #09111d;
     font-family: var(--omr-print-font);
+    font-size: 22px;
     font-size: 3cqw;
     font-weight: 700;
 }
@@ -348,6 +362,7 @@
 .omr-preview-general-header p {
     margin: 0.5cqw 0 0;
     color: #334155;
+    font-size: 10px;
     font-size: 1.38cqw;
     font-weight: 600;
 }
@@ -379,6 +394,7 @@
     align-items: center;
     flex: 1 1 0;
     color: #111827;
+    font-size: 10px;
     font-size: 1.35cqw;
     font-weight: 700;
 }
@@ -401,18 +417,28 @@
     align-items: center;
     justify-content: center;
     min-height: 16%;
-    padding: 4px 6px;
+    padding: 4px;
     background: var(--omr-accent-soft);
     border-bottom: 1px solid var(--omr-accent);
     color: #111827;
     font-family: var(--omr-print-font);
+    font-size: 10px;
     font-size: 1.35cqw;
     font-weight: 700;
+    line-height: 1.12;
+    overflow-wrap: anywhere;
+    text-align: center;
 }
 
 .omr-preview-instructions .omr-preview-card-title {
     background: var(--omr-accent);
     color: #fff;
+}
+
+.omr-preview-card-title-compact {
+    font-size: 8.4px;
+    font-size: 1.08cqw;
+    letter-spacing: -0.02em;
 }
 
 .omr-preview-matrix {
@@ -470,10 +496,21 @@
 
 .omr-preview-instructions ol {
     margin: 0;
-    padding: 8px 10px 10px 20px;
+    padding: 8px 8px 10px 18px;
     color: #111827;
+    font-size: 8.2px;
     font-size: 1.08cqw;
     line-height: 1.4;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    white-space: normal;
+    list-style-position: inside;
+    text-align: left;
+}
+
+.omr-preview-instructions li {
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 
 .omr-preview-instructions li + li {
@@ -487,17 +524,26 @@
     padding: 0 8px 10px;
     color: #111827;
     font-family: var(--omr-print-font);
+    font-size: 9px;
     font-size: 1.18cqw;
+    line-height: 1.18;
+    overflow-wrap: anywhere;
+    text-align: center;
 }
 
 .omr-preview-answer-title {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0 8px;
     color: #111827;
     font-family: var(--omr-print-font);
+    font-size: 13px;
     font-size: 1.72cqw;
     font-weight: 700;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    text-align: center;
 }
 
 .omr-preview-answer-frame {
@@ -533,6 +579,7 @@
     border-bottom: 1px solid var(--omr-accent);
     color: #111827;
     font-family: var(--omr-print-font);
+    font-size: 8px;
     font-size: 1.08cqw;
     font-weight: 700;
 }
@@ -579,6 +626,7 @@
     justify-content: center;
     border-right: 1px solid var(--omr-accent);
     color: #111827;
+    font-size: 8px;
     font-size: 1.05cqw;
 }
 
