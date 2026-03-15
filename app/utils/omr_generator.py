@@ -671,9 +671,6 @@ def generate_omr_pdf_to_memory(config: dict[str, Any]) -> io.BytesIO:
 
 
 def _generate_omr_pdf_with_weasyprint(cfg: dict[str, Any]) -> io.BytesIO | None:
-    if cfg["sheet_variant"] == "institutional":
-        return None
-
     try:
         from weasyprint import HTML  # type: ignore
     except Exception as exc:
@@ -694,6 +691,11 @@ def _generate_omr_pdf_with_weasyprint(cfg: dict[str, Any]) -> io.BytesIO | None:
 
 def _build_omr_html(cfg: dict[str, Any]) -> str:
     layout = _resolve_omr_layout(cfg)
+    institutional_template = (
+        _resolve_institutional_template(cfg["question_count"])
+        if cfg["sheet_variant"] == "institutional"
+        else None
+    )
     theme = THEME_COLORS[cfg["theme_color"]]
     bubble_preset = BUBBLE_SIZE_PRESETS[cfg["bubble_size"]]
     fonts_dir = Path(_FONTS_DIR).resolve()
@@ -703,13 +705,13 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
     accent = theme["hex"]
     accent_soft = _hex_to_rgba_css(accent, 0.16)
 
-    blocks = [_render_html_markers()]
+    blocks = [_render_html_markers(institutional_template)]
     if cfg["sheet_variant"] == "general":
         blocks.append(_render_html_general_header(cfg))
         blocks.append(_render_html_general_identity())
     else:
-        blocks.append(_render_html_institutional_header(cfg))
-        blocks.append(_render_html_institutional_identity(cfg, bubble_preset))
+        blocks.append(_render_html_institutional_header(cfg, institutional_template))
+        blocks.append(_render_html_institutional_identity(cfg, bubble_preset, institutional_template))
     blocks.append(_render_html_answers(cfg, layout, bubble_preset))
 
     return f"""<!DOCTYPE html>
@@ -764,61 +766,76 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         .marker.right span {{
             transform: rotate(180deg);
         }}
+        .marker-bar {{
+            background: #101010;
+        }}
         .institutional-header {{
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            align-items: center;
-            gap: 1.4mm;
-            padding: 3.4mm 6mm 4mm;
             border: 0.35mm solid {accent};
-            border-radius: 3mm;
             background: {accent_soft};
-            text-align: center;
         }}
         .institutional-copy {{
             display: flex;
-            flex: 1 1 auto;
-            width: 100%;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
+            width: 100%;
+            text-align: center;
         }}
         .institutional-warning {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
             margin: 0;
+            padding: 0 1mm;
             color: #dc2626;
-            font-size: 3.2mm;
+            font-size: 9.1pt;
             font-weight: 700;
+            line-height: 1.05;
+            text-align: center;
         }}
-        .institutional-header h1 {{
-            margin: 0;
+        .top-pattern-item {{
+            background: #101010;
+        }}
+        .top-pattern-item.circle {{
+            border: 0.45mm solid #101010;
+            border-radius: 50%;
+            background: transparent;
+        }}
+        .institutional-copy-line {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 0 1mm;
             color: #09111d;
-            font-size: 5.8mm;
-            font-weight: 700;
-            line-height: 1.18;
+            line-height: 1.08;
+            overflow: hidden;
+            text-align: center;
         }}
-        .institutional-subtitle,
-        .institutional-institution {{
-            margin: 1mm 0 0;
-            color: #2f3a4a;
-            font-size: 3.1mm;
-            font-weight: 600;
+        .institutional-copy-line.title {{
+            font-size: 11.8pt;
+            font-weight: 700;
+        }}
+        .institutional-copy-line.subtitle {{
+            font-size: 7.6pt;
+            font-weight: 700;
+        }}
+        .institutional-copy-line.institution {{
+            font-size: 7.1pt;
+            font-weight: 400;
         }}
         .manual-header {{
-            align-items: stretch;
-            justify-content: flex-start;
-            gap: 2.1mm;
-        }}
-        .manual-line {{
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 3mm;
+            display: flex;
             align-items: center;
+            gap: 2mm;
             color: #111827;
-            font-size: 3.1mm;
+            font-size: 8.4pt;
             font-weight: 700;
         }}
-        .manual-line .rule,
+        .manual-line {{
+            white-space: nowrap;
+        }}
+        .manual-header .rule,
         .general-field .rule {{
             display: block;
             height: 0.3mm;
@@ -905,6 +922,7 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         }}
         .instructions {{
             overflow: hidden;
+            background: {accent_soft};
         }}
         .instructions ol {{
             margin: 0;
@@ -915,11 +933,12 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         }}
         .signature {{
             display: flex;
-            align-items: flex-end;
+            align-items: center;
             justify-content: center;
-            padding: 0 2mm 3mm;
+            padding: 2mm;
             color: #111827;
             font-size: 2.9mm;
+            text-align: center;
         }}
         .answer-title {{
             display: flex;
@@ -1033,48 +1052,89 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
 </html>"""
 
 
-def _render_html_markers() -> str:
-    positions = [
-        ("", 2.5, 279),
-        (" right", 197.5, 279),
-        ("", 2.5, 12),
-        (" right", 197.5, 12),
-        ("", 2.5, 148),
-        (" right", 197.5, 148),
-    ]
+def _render_html_markers(template: dict[str, Any] | None) -> str:
+    parts = []
+    for marker in _get_corner_marker_specs(template):
+        side = " right" if str(marker.get("orientation", "left")).lower() == "right" else ""
+        size_mm = float(marker.get("size_mm", DEFAULT_CORNER_MARKER_SIZE_MM))
+        parts.append(
+            f'<div class="box marker{side}" style="{_html_box_style_mm(float(marker["x_mm"]), float(marker["y_mm"]), size_mm, size_mm)}"><span></span></div>'
+        )
+    for bar in _get_side_marker_bars(template):
+        parts.append(
+            f'<div class="box marker-bar" style="{_html_box_style_mm(bar["x_mm"], bar["y_mm"], bar["width_mm"], bar["height_mm"])}"></div>'
+        )
+    return "".join(parts)
+
+
+def _render_html_top_marker_pattern(template: dict[str, Any] | None) -> str:
     return "".join(
-        f'<div class="box marker{side}" style="{_html_box_style_mm(x_mm, y_mm, 10, 10)}"><span></span></div>'
-        for side, x_mm, y_mm in positions
+        f'<div class="box top-pattern-item {"circle" if str(item["shape"]) == "circle" else "square"}" style="{_html_box_style_mm(float(item["x_mm"]), float(item["y_mm"]), float(item["size_mm"]), float(item["size_mm"]))}"></div>'
+        for item in _get_top_marker_item_specs(template)
     )
 
 
-def _render_html_institutional_header(cfg: dict[str, Any]) -> str:
+def _render_html_institutional_header(cfg: dict[str, Any], template: dict[str, Any] | None) -> str:
+    if template is None:
+        return ""
+
+    header_box = template["header_box"]
+    offsets = template["header_offsets"]
+    x_mm = float(header_box["x_mm"])
+    y_mm = float(header_box["y_mm"])
+    width_mm = float(header_box["width_mm"])
+    height_mm = float(header_box["height_mm"])
+    parts = [
+        f'<div class="box institutional-header" style="{_html_box_style_mm(x_mm, y_mm, width_mm, height_mm)}"></div>',
+        f'<div class="box institutional-warning" style="{_html_box_style_mm(x_mm + 4, y_mm + float(offsets["warning_y_mm"]) - 0.2, width_mm - 8, 4.8)}">{html.escape(HEADER_WARNING_TEXT)}</div>',
+        _render_html_top_marker_pattern(template),
+    ]
+
     if cfg["header_mode"] == "manual":
-        lines = "".join(
-            f'<div class="manual-line"><strong>{label}</strong><span class="rule"></span></div>'
-            for label in MANUAL_HEADER_LABELS
-        )
-        return (
-            f'<div class="box institutional-header manual-header" style="{_html_box_style_mm(14, 10, 182, 30)}">'
-            f"{lines}</div>"
-        )
+        label_x_mm = x_mm + 5.8
+        line_end_x_mm = x_mm + width_mm - 6.2
+        manual_start_y_mm = y_mm + float(offsets["manual_line_start_y_mm"])
+        manual_gap_mm = float(offsets["manual_line_gap_mm"])
+        line_width_mm = line_end_x_mm - label_x_mm
+        for index, label in enumerate(MANUAL_HEADER_LABELS):
+            row_y_mm = manual_start_y_mm + (index * manual_gap_mm)
+            parts.append(
+                f'<div class="box manual-header" style="{_html_box_style_mm(label_x_mm, row_y_mm - 1.55, line_width_mm, 3.6)}"><strong class="manual-line">{html.escape(label)}</strong><span class="rule"></span></div>'
+            )
+        return "".join(parts)
 
     title = (cfg["header"]["title"] or "").strip()
     subtitle = (cfg["header"]["subtitle"] or "").strip()
     institution = (cfg["header"]["institution"] or "").strip()
-    copy_markup = []
+    copy_box = {
+        "x_mm": x_mm + float(offsets["copy_box_x_mm"]),
+        "y_mm": y_mm + float(offsets["copy_box_y_mm"]),
+        "width_mm": float(offsets["copy_box_width_mm"]),
+        "height_mm": float(offsets["copy_box_height_mm"]),
+    }
+    line_specs: list[tuple[str, str]] = []
     if title:
-        copy_markup.append(f"<h1>{html.escape(title)}</h1>")
+        line_specs.append((title, "title"))
     if subtitle:
-        copy_markup.append(f'<p class="institutional-subtitle">{html.escape(subtitle)}</p>')
+        line_specs.append((subtitle, "subtitle"))
     if institution:
-        copy_markup.append(f'<p class="institutional-institution">{html.escape(institution)}</p>')
-    return (
-        f'<div class="box institutional-header" style="{_html_box_style_mm(14, 10, 182, 30)}">'
-        f'<p class="institutional-warning">{HEADER_WARNING_TEXT}</p>'
-        f'<div class="institutional-copy">{"".join(copy_markup)}</div>'
-        "</div>"
+        line_specs.append((institution, "institution"))
+    if not line_specs:
+        return "".join(parts)
+
+    gap_mm = 3.8 if len(line_specs) > 1 else 0
+    line_box_height_mm = max(
+        2.8,
+        (copy_box["height_mm"] - (gap_mm * max(0, len(line_specs) - 1))) / len(line_specs),
     )
+    copy_markup = "".join(
+        f'<div class="institutional-copy-line {class_name}" style="height:{line_box_height_mm}mm;">{html.escape(text)}</div>'
+        for text, class_name in line_specs
+    )
+    parts.append(
+        f'<div class="box institutional-copy" style="{_html_box_style_mm(copy_box["x_mm"], copy_box["y_mm"], copy_box["width_mm"], copy_box["height_mm"])} gap:{gap_mm}mm;">{copy_markup}</div>'
+    )
+    return "".join(parts)
 
 
 def _render_html_general_header(cfg: dict[str, Any]) -> str:
@@ -1096,56 +1156,44 @@ def _render_html_general_header(cfg: dict[str, Any]) -> str:
     )
 
 
-def _render_html_institutional_identity(cfg: dict[str, Any], bubble_preset: dict[str, Any]) -> str:
+def _render_html_institutional_identity(
+    cfg: dict[str, Any],
+    bubble_preset: dict[str, Any],
+    template: dict[str, Any] | None,
+) -> str:
+    if template is None:
+        return ""
+
     blocks = []
-    if cfg["fields"].get("roll"):
+    identity_layout = template["identity_section_layout"]
+    for spec in identity_layout["matrix_blocks"]:
+        enabled_field = spec.get("enabled_field")
+        if enabled_field and not cfg["fields"].get(str(enabled_field)):
+            continue
         blocks.append(
             _render_html_matrix_panel(
-                title=ROLL_NUMBER_TITLE,
-                x_mm=14,
-                y_mm=52,
-                width_mm=42,
-                height_mm=82,
-                labels=list(DIGIT_LABELS),
-                columns=6,
+                title=str(spec["title"]),
+                x_mm=float(spec["x_mm"]),
+                y_mm=float(spec["y_mm"]),
+                width_mm=float(spec["width_mm"]),
+                height_mm=float(spec["height_mm"]),
+                labels=list(spec["labels"]),
+                columns=int(spec["columns"]),
                 bubble_preset=bubble_preset,
             )
         )
-    if cfg["fields"].get("subject_code"):
-        blocks.append(
-            _render_html_matrix_panel(
-                title=SUBJECT_CODE_TITLE,
-                x_mm=59,
-                y_mm=52,
-                width_mm=38,
-                height_mm=82,
-                labels=list(DIGIT_LABELS),
-                columns=3,
-                bubble_preset=bubble_preset,
-            )
-        )
-    if cfg["fields"].get("set_code"):
-        blocks.append(
-            _render_html_matrix_panel(
-                title=SET_CODE_TITLE,
-                x_mm=100,
-                y_mm=52,
-                width_mm=20,
-                height_mm=82,
-                labels=list(ANSWER_OPTION_LABELS),
-                columns=1,
-                bubble_preset=bubble_preset,
-            )
-        )
+
+    instructions_block = identity_layout["instructions_block"]
     blocks.append(
-        f'<div class="box panel instructions" style="{_html_box_style_mm(125, 52, 70, 40)}">'
+        f'<div class="box panel instructions" style="{_html_box_style_mm(float(instructions_block["x_mm"]), float(instructions_block["y_mm"]), float(instructions_block["width_mm"]), float(instructions_block["height_mm"]))}">'
         f'<div class="panel-title">{INSTRUCTIONS_TITLE}</div>'
         "<ol>"
         + "".join(f"<li>{html.escape(item)}</li>" for item in cfg["instructions"][:6])
         + "</ol></div>"
     )
+    signature_box = identity_layout["signature_box"]
     blocks.append(
-        f'<div class="box signature" style="{_html_box_style_mm(125, 97, 46, 23)}">{SIGNATURE_LABEL}</div>'
+        f'<div class="box signature" style="{_html_box_style_mm(float(signature_box["x_mm"]), float(signature_box["y_mm"]), float(signature_box["width_mm"]), float(signature_box["height_mm"]))}">{html.escape(SIGNATURE_LABEL)}</div>'
     )
     return "".join(blocks)
 
@@ -1228,11 +1276,12 @@ def _render_html_bubble(label: str) -> str:
 
 def _render_html_general_answers(layout: dict[str, Any]) -> str:
     grid = layout["answer_grid"]
+    title_box = grid.get("title_box") or {"x_mm": 40, "y_mm": grid["y_mm"] - 13, "width_mm": 130, "height_mm": 8}
     column_question_counts = grid.get("column_question_counts") or [grid["rows"]] * grid["columns"]
     frame = _get_general_answer_frame_metrics(grid)
     question_width_pct = (grid["number_width_mm"] / grid["column_width_mm"]) * 100
     html_parts = [
-        f'<div class="box answer-title" style="{_html_box_style_mm(40, grid["y_mm"] - 13, 130, 8)}">{GENERAL_ANSWER_TITLE}</div>',
+        f'<div class="box answer-title" style="{_html_box_style_mm(float(title_box["x_mm"]), float(title_box["y_mm"]), float(title_box["width_mm"]), float(title_box["height_mm"]))}">{GENERAL_ANSWER_TITLE}</div>',
         f'<div class="box general-answer-frame" style="{_html_box_style_mm(frame["x_mm"], frame["y_mm"], frame["width_mm"], frame["height_mm"])}"></div>',
     ]
     html_parts.extend(
@@ -1277,10 +1326,11 @@ def _render_html_answers(cfg: dict[str, Any], layout: dict[str, Any], bubble_pre
         return _render_html_general_answers(layout)
 
     grid = layout["answer_grid"]
+    title_box = grid.get("title_box") or {"x_mm": 40, "y_mm": grid["y_mm"] - 13, "width_mm": 130, "height_mm": 8}
     column_question_counts = grid.get("column_question_counts") or [grid["rows"]] * grid["columns"]
     title = GENERAL_ANSWER_TITLE if cfg["sheet_variant"] == "general" else INSTITUTIONAL_ANSWER_TITLE
     html_parts = [
-        f'<div class="box answer-title" style="{_html_box_style_mm(40, grid["y_mm"] - 13, 130, 8)}">{title}</div>'
+        f'<div class="box answer-title" style="{_html_box_style_mm(float(title_box["x_mm"]), float(title_box["y_mm"]), float(title_box["width_mm"]), float(title_box["height_mm"]))}">{title}</div>'
     ]
     question_width_pct = (grid["number_width_mm"] / grid["column_width_mm"]) * 100
     next_number = 1
