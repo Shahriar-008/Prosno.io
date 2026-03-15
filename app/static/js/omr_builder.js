@@ -4,17 +4,27 @@
     const boot = window.OMR_BUILDER_DATA || {};
     const defaultConfig = deepClone(boot.defaultConfig || {});
     const generalRules = Object.assign({
-        min_question_count: 10,
+        min_question_count: 1,
         max_question_count: 100,
-        supported_columns: [2, 3, 4],
-        max_question_count_by_column: { 2: 50, 3: 75, 4: 100 },
+        supported_columns: [1, 2, 3, 4],
+        max_question_count_by_column: { 1: 100, 2: 50, 3: 75, 4: 100 },
     }, boot.generalRules || {});
+    const generalAutoFlowColumn = 1;
+    const generalMaxRowsPerAutoColumn = 25;
     const layouts = boot.layouts || {};
     const themes = boot.themes || {};
     const bubbleSizes = boot.bubbleSizes || {};
     const initialTemplateId = boot.initialTemplateId || null;
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const generalColumnLayouts = {
+        1: {
+            x_mm: 52,
+            column_width_mm: 106,
+            column_gap_mm: 0,
+            header_height_mm: 8.6,
+            number_width_mm: 16.5,
+            max_row_height_mm: 13.2,
+        },
         2: {
             x_mm: 35,
             column_width_mm: 67,
@@ -52,6 +62,28 @@
     const els = {};
     const bnDigits = { 0: '০', 1: '১', 2: '২', 3: '৩', 4: '৪', 5: '৫', 6: '৬', 7: '৭', 8: '৮', 9: '৯' };
     const optionLabels = ['ক', 'খ', 'গ', 'ঘ'];
+
+    const digitLabels = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+    const omrCopy = Object.freeze({
+        warning: 'এই বক্সে কোনো দাগ দেওয়া যাবে না',
+        institutionalAnswerTitle: 'বহুনির্বাচনি অভীক্ষার উত্তরপত্র',
+        generalAnswerTitle: 'সাধারণ বহুনির্বাচনি উত্তরপত্র',
+        question: 'প্রশ্ন',
+        answer: 'উত্তর',
+        rollNumber: 'রোল নম্বর',
+        subjectCode: 'বিষয় কোড',
+        setCode: 'সেট কোড',
+        instructions: 'নির্দেশনা',
+        signature: 'কক্ষ পরিদর্শকের স্বাক্ষর',
+        institution: 'প্রতিষ্ঠান',
+        examName: 'পরীক্ষার নাম',
+        subtitle: 'উপশিরোনাম',
+        name: 'নাম',
+        className: 'শ্রেণি',
+        section: 'সেকশন',
+        subject: 'বিষয়',
+        roll: 'রোল',
+    });
 
     document.addEventListener('DOMContentLoaded', init);
 
@@ -135,7 +167,7 @@
                 }
                 state.config.sheet_variant = nextVariant;
                 if (nextVariant === 'general') {
-                    state.config.answer_columns = getMinimumCompatibleGeneralColumns(state.config.question_count);
+                    state.config.answer_columns = generalAutoFlowColumn;
                 } else {
                     state.config.question_count = getNearestPresetQuestionCount(state.config.question_count);
                 }
@@ -296,26 +328,37 @@
     }
 
     function getMinimumCompatibleGeneralColumns(questionCount) {
-        const columns = (generalRules.supported_columns || [2, 3, 4]).map(function (value) {
-            return parseInt(value, 10);
-        });
-        for (let index = 0; index < columns.length; index += 1) {
-            if (questionCount <= getGeneralColumnLimit(columns[index])) {
-                return columns[index];
-            }
-        }
-        return columns[columns.length - 1] || 4;
+        void questionCount;
+        return generalAutoFlowColumn;
     }
 
     function getCompatibleGeneralColumns(questionCount, requestedColumns) {
-        const supported = (generalRules.supported_columns || [2, 3, 4]).map(function (value) {
+        const supported = (generalRules.supported_columns || [1, 2, 3, 4]).map(function (value) {
             return parseInt(value, 10);
         });
-        const desired = supported.includes(requestedColumns) ? requestedColumns : supported[0];
+        const fallback = supported.includes(generalAutoFlowColumn) ? generalAutoFlowColumn : supported[0];
+        const desired = supported.includes(requestedColumns) ? requestedColumns : fallback;
+        if (desired === generalAutoFlowColumn) {
+            return generalAutoFlowColumn;
+        }
         if (questionCount <= getGeneralColumnLimit(desired)) {
             return desired;
         }
-        return getMinimumCompatibleGeneralColumns(questionCount);
+        return fallback;
+    }
+
+    function getGeneralDistribution(questionCount, selectedColumns) {
+        if (selectedColumns === generalAutoFlowColumn) {
+            const rows = Math.max(1, Math.min(questionCount, generalMaxRowsPerAutoColumn));
+            return {
+                columns: Math.max(1, Math.ceil(questionCount / rows)),
+                rows: rows,
+            };
+        }
+        return {
+            columns: selectedColumns,
+            rows: Math.ceil(questionCount / selectedColumns),
+        };
     }
 
     function getResolvedLayout() {
@@ -323,18 +366,17 @@
             return getInstitutionalLayout(state.config.question_count);
         }
 
-        const columns = state.config.answer_columns;
-        const spec = generalColumnLayouts[columns] || generalColumnLayouts[4];
-        const rows = Math.ceil(state.config.question_count / columns);
+        const distribution = getGeneralDistribution(state.config.question_count, state.config.answer_columns);
+        const spec = generalColumnLayouts[distribution.columns] || generalColumnLayouts[4];
         const availableRowsHeight = 270 - 102 - spec.header_height_mm;
-        const rowHeight = Math.min(spec.max_row_height_mm, availableRowsHeight / rows);
+        const rowHeight = Math.min(spec.max_row_height_mm, availableRowsHeight / distribution.rows);
         return {
             page: { width_mm: 210, height_mm: 297 },
             answer_grid: {
                 x_mm: spec.x_mm,
                 y_mm: 102,
-                columns: columns,
-                rows: rows,
+                columns: distribution.columns,
+                rows: distribution.rows,
                 column_width_mm: spec.column_width_mm,
                 column_gap_mm: spec.column_gap_mm,
                 row_height_mm: Number(rowHeight.toFixed(2)),
@@ -354,6 +396,7 @@
         state.config.header.institution = els.omrInstitutionInput.value.trim();
         state.config.header.title = els.omrTitleInput.value.trim();
         state.config.header.subtitle = els.omrSubtitleInput.value.trim();
+        const previousAnswerColumns = state.config.answer_columns;
         if (state.config.sheet_variant === 'general') {
             const enteredCount = parseInt(els.omrCustomQuestionCount.value, 10);
             if (Number.isInteger(enteredCount)) {
@@ -379,6 +422,18 @@
         }
 
         state.config = normalizeConfig(state.config);
+        if (
+            state.config.sheet_variant === 'general' &&
+            previousAnswerColumns !== generalAutoFlowColumn &&
+            previousAnswerColumns !== state.config.answer_columns &&
+            state.config.answer_columns === generalAutoFlowColumn &&
+            state.config.question_count > getGeneralColumnLimit(previousAnswerColumns)
+        ) {
+            showToast(
+                previousAnswerColumns + ' columns support up to ' + getGeneralColumnLimit(previousAnswerColumns) + ' questions, so the layout switched to Auto flow.',
+                'warning'
+            );
+        }
         if (els.omrCustomQuestionCount && state.config.sheet_variant === 'general') {
             els.omrCustomQuestionCount.value = state.config.question_count;
         }
@@ -616,7 +671,7 @@
         updateMeta();
         els.omrQuestionCountLabel.innerHTML = '<i class="bi bi-ui-checks-grid"></i> ' + state.config.question_count + ' questions';
         if (els.omrColumnCountLabel) {
-            els.omrColumnCountLabel.innerHTML = '<i class="bi bi-columns-gap"></i> ' + layout.answer_grid.columns + ' columns';
+            els.omrColumnCountLabel.innerHTML = '<i class="bi bi-columns-gap"></i> ' + getColumnCountLabel(layout.answer_grid.columns);
         }
         if (els.omrVariantLabel) {
             els.omrVariantLabel.innerHTML = state.config.sheet_variant === 'general'
@@ -625,9 +680,25 @@
         }
         if (els.omrScanStatusText) {
             els.omrScanStatusText.textContent = state.config.sheet_variant === 'general'
-                ? 'Custom question count is available on General Normal OMR.'
+                ? getGeneralStatusText(layout.answer_grid.columns)
                 : 'Preset geometry locked for reliable scanning.';
         }
+    }
+
+    function getColumnCountLabel(columnCount) {
+        if (state.config.sheet_variant === 'general' && state.config.answer_columns === generalAutoFlowColumn) {
+            return 'Auto flow · ' + columnCount + (columnCount === 1 ? ' column' : ' columns');
+        }
+        return columnCount + (columnCount === 1 ? ' column' : ' columns');
+    }
+
+    function getGeneralStatusText(renderColumns) {
+        if (state.config.answer_columns === generalAutoFlowColumn) {
+            return renderColumns === 1
+                ? 'Auto flow keeps everything in the first column until more space is needed.'
+                : 'Auto flow filled the first column first, then opened the next column.';
+        }
+        return 'Questions are balanced across your selected columns.';
     }
 
     function renderPreview(layout) {
@@ -642,10 +713,9 @@
 
         const blocks = [];
         blocks.push(renderMarkers());
-        blocks.push(state.config.sheet_variant === 'general' ? renderGeneralHeader() : renderHeader());
-        blocks.push(state.config.sheet_variant === 'general' ? renderGeneralIdentitySection() : renderIdentitySection());
-        blocks.push(renderAnswers(layout));
-        blocks.push('<div class="omr-preview-footer-badge" style="' + boxStyle(134, 276, 62, 12) + '"><i class="bi bi-check-circle-fill"></i><span>Scannable</span></div>');
+        blocks.push(state.config.sheet_variant === 'general' ? renderGeneralHeaderFixed() : renderHeaderFixed());
+        blocks.push(state.config.sheet_variant === 'general' ? renderGeneralIdentitySectionFixed() : renderIdentitySectionFixed());
+        blocks.push(renderAnswersFixed(layout));
         els.omrPreviewSheet.innerHTML = blocks.join('');
     }
 
@@ -797,6 +867,153 @@
                 '<div class="omr-preview-answer-header" style="height:' + headerPct + '%">' +
                 '<span class="question-label" style="width:' + percent(grid.number_width_mm, grid.column_width_mm) + '%">প্রশ্ন</span>' +
                 '<span class="answer-label">উত্তর</span>' +
+                '</div>' +
+                '<div class="omr-preview-answer-rows" style="height:' + rowsPct + '%">';
+
+            for (let rowIndex = 0; rowIndex < grid.rows; rowIndex += 1) {
+                const number = startNumber + rowIndex;
+                html += '<div class="omr-preview-answer-row">' +
+                    '<span class="omr-preview-qnum" style="width:' + percent(grid.number_width_mm, grid.column_width_mm) + '%">' + (number <= endNumber ? toBanglaNumber(number) : '&nbsp;') + '</span>' +
+                    '<div class="omr-preview-options">';
+                optionLabels.forEach(function (label) {
+                    html += '<span class="omr-preview-option"><span class="omr-mini-bubble ' + state.config.bubble_size + '">' + label + '</span></span>';
+                });
+                html += '</div></div>';
+            }
+
+            html += '</div></div>';
+        }
+        return html;
+    }
+
+    function renderHeaderFixed() {
+        if (state.config.header_mode === 'manual') {
+            return '<div class="omr-preview-header omr-preview-header-manual" style="' + boxStyle(14, 10, 182, 30) + '">' +
+                '<div class="omr-preview-line"><strong>' + omrCopy.institution + '</strong><span></span></div>' +
+                '<div class="omr-preview-line"><strong>' + omrCopy.examName + '</strong><span></span></div>' +
+                '<div class="omr-preview-line"><strong>' + omrCopy.subtitle + '</strong><span></span></div>' +
+                '</div>';
+        }
+
+        const copy = [];
+        if (state.config.header.title) {
+            copy.push('<h2>' + escapeHtml(state.config.header.title) + '</h2>');
+        }
+        if (state.config.header.subtitle) {
+            copy.push('<p class="omr-preview-subtitle">' + escapeHtml(state.config.header.subtitle) + '</p>');
+        }
+        if (state.config.header.institution) {
+            copy.push('<p class="omr-preview-institution">' + escapeHtml(state.config.header.institution) + '</p>');
+        }
+
+        return '<div class="omr-preview-header" style="' + boxStyle(14, 10, 182, 30) + '">' +
+            '<p class="omr-preview-warning">' + omrCopy.warning + '</p>' +
+            '<div class="omr-preview-header-copy">' + copy.join('') + '</div>' +
+            '</div>';
+    }
+
+    function renderGeneralHeaderFixed() {
+        const parts = [];
+        if (state.config.header.title) {
+            parts.push('<h2>' + escapeHtml(state.config.header.title) + '</h2>');
+        }
+        if (state.config.header.subtitle) {
+            parts.push('<p>' + escapeHtml(state.config.header.subtitle) + '</p>');
+        }
+        if (state.config.header.institution) {
+            parts.push('<p>' + escapeHtml(state.config.header.institution) + '</p>');
+        }
+        return '<div class="omr-preview-general-header" style="' + boxStyle(18, 12, 174, 20) + '">' +
+            parts.join('') +
+            '<div class="omr-preview-general-divider"></div>' +
+            '</div>';
+    }
+
+    function renderIdentitySectionFixed() {
+        const html = [];
+        if (state.config.fields.roll) {
+            html.push(renderMatrixBlock({
+                title: omrCopy.rollNumber,
+                x: 14,
+                y: 52,
+                w: 42,
+                h: 82,
+                cols: 6,
+                labels: digitLabels,
+            }));
+        }
+        if (state.config.fields.subject_code) {
+            html.push(renderMatrixBlock({
+                title: omrCopy.subjectCode,
+                x: 59,
+                y: 52,
+                w: 38,
+                h: 82,
+                cols: 3,
+                labels: digitLabels,
+            }));
+        }
+        if (state.config.fields.set_code) {
+            html.push(renderMatrixBlock({
+                title: omrCopy.setCode,
+                x: 100,
+                y: 52,
+                w: 20,
+                h: 82,
+                cols: 1,
+                labels: optionLabels,
+            }));
+        }
+
+        html.push('<div class="omr-preview-instructions" style="' + boxStyle(125, 52, 70, 40) + '">' +
+            '<div class="omr-preview-card-title">' + omrCopy.instructions + '</div>' +
+            '<ol>' + state.config.instructions.slice(0, 6).map(function (instruction) {
+                return '<li>' + escapeHtml(instruction) + '</li>';
+            }).join('') + '</ol></div>');
+        html.push('<div class="omr-preview-signature" style="' + boxStyle(125, 97, 46, 23) + '">' + omrCopy.signature + '</div>');
+        return html.join('');
+    }
+
+    function renderGeneralIdentitySectionFixed() {
+        const rows = [
+            [omrCopy.name],
+            [omrCopy.className, omrCopy.section],
+            [omrCopy.subject, omrCopy.roll],
+        ];
+        let html = '<div class="omr-preview-general-form" style="' + boxStyle(18, 40, 174, 28) + '">';
+        rows.forEach(function (row) {
+            html += '<div class="omr-preview-general-row">';
+            row.forEach(function (label) {
+                html += '<div class="omr-preview-general-field"><strong>' + escapeHtml(label) + ':</strong><span></span></div>';
+            });
+            html += '</div>';
+        });
+        html += '</div>';
+        return html;
+    }
+
+    function renderAnswersFixed(layout) {
+        const grid = layout.answer_grid;
+        const total = state.config.question_count;
+        const titleStyle = boxStyle(40, grid.y_mm - 13, 130, 8);
+        let html = '<div class="omr-preview-answer-title" style="' + titleStyle + '">' + omrCopy.institutionalAnswerTitle + '</div>';
+
+        if (state.config.sheet_variant === 'general') {
+            html = '<div class="omr-preview-answer-title" style="' + titleStyle + '">' + omrCopy.generalAnswerTitle + '</div>';
+        }
+
+        for (let columnIndex = 0; columnIndex < grid.columns; columnIndex += 1) {
+            const x = grid.x_mm + (columnIndex * (grid.column_width_mm + grid.column_gap_mm));
+            const y = grid.y_mm;
+            const height = grid.header_height_mm + (grid.rows * grid.row_height_mm);
+            const headerPct = percent(grid.header_height_mm, height);
+            const rowsPct = (100 - parseFloat(headerPct)).toFixed(4);
+            const startNumber = (columnIndex * grid.rows) + 1;
+            const endNumber = Math.min(total, startNumber + grid.rows - 1);
+            html += '<div class="omr-preview-answer-column" style="' + boxStyle(x, y, grid.column_width_mm, height) + '">' +
+                '<div class="omr-preview-answer-header" style="height:' + headerPct + '%">' +
+                '<span class="question-label" style="width:' + percent(grid.number_width_mm, grid.column_width_mm) + '%">' + omrCopy.question + '</span>' +
+                '<span class="answer-label" style="flex:1 1 0">' + omrCopy.answer + '</span>' +
                 '</div>' +
                 '<div class="omr-preview-answer-rows" style="height:' + rowsPct + '%">';
 

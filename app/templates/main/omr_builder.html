@@ -123,11 +123,18 @@
 
                     <div class="omr-option-group" id="omrGeneralLayoutControls" hidden>
                         <label class="omr-field-label" for="omrCustomQuestionCount">Number of questions</label>
-                        <input class="form-control omr-input" id="omrCustomQuestionCount" type="number" min="10" max="100" step="1">
-                        <div class="omr-field-note">Available only on General Normal OMR. Valid input: 10 to 100.</div>
+                        <input class="form-control omr-input" id="omrCustomQuestionCount" type="number" min="1" max="100" step="1">
+                        <div class="omr-field-note">Available only on General Normal OMR. Valid input: 1 to 100.</div>
 
                         <label class="omr-field-label">Columns</label>
                         <div class="omr-column-grid" id="omrColumnChoices">
+                            <button class="omr-column-card" type="button" data-answer-columns="1">
+                                <span class="omr-column-visual">
+                                    <span></span>
+                                </span>
+                                <strong>Auto flow</strong>
+                                <small>Fill the first column, then open the next only when needed.</small>
+                            </button>
                             {% for columns in [2, 3, 4] %}
                             <button class="omr-column-card" type="button" data-answer-columns="{{ columns }}">
                                 <span class="omr-column-visual">
@@ -139,7 +146,7 @@
                             </button>
                             {% endfor %}
                         </div>
-                        <div class="omr-field-note">2 columns up to 50 questions, 3 columns up to 75, 4 columns up to 100.</div>
+                        <div class="omr-field-note">Auto flow fills the first column first and opens the next only when needed. Fixed 2 columns support up to 50 questions, 3 up to 75, 4 up to 100.</div>
                     </div>
 
                     <div class="omr-option-group">

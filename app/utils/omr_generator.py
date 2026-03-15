@@ -29,11 +29,30 @@ SUPPORTED_QUESTION_COUNTS = (40, 60, 80, 100)
 SUPPORTED_BUBBLE_SIZES = ("small", "large")
 SUPPORTED_HEADER_MODES = ("digital", "manual")
 SUPPORTED_SHEET_VARIANTS = ("institutional", "general")
-SUPPORTED_GENERAL_COLUMNS = (2, 3, 4)
-GENERAL_QUESTION_COUNT_RANGE = (10, 100)
-GENERAL_MAX_QUESTIONS_BY_COLUMN = {2: 50, 3: 75, 4: 100}
+SUPPORTED_GENERAL_COLUMNS = (1, 2, 3, 4)
+GENERAL_QUESTION_COUNT_RANGE = (1, 100)
+GENERAL_AUTO_FLOW_COLUMN = 1
+GENERAL_MAX_ROWS_PER_AUTO_COLUMN = 25
+GENERAL_MAX_QUESTIONS_BY_COLUMN = {1: 100, 2: 50, 3: 75, 4: 100}
 OMR_TEMPLATE_TYPE = "exam_sheet_v1"
 ANSWER_OPTION_LABELS = ("ক", "খ", "গ", "ঘ")
+HEADER_WARNING_TEXT = "এই বক্সে কোনো দাগ দেওয়া যাবে না"
+MANUAL_HEADER_LABELS = ("প্রতিষ্ঠান", "পরীক্ষার নাম", "উপশিরোনাম")
+GENERAL_FIELD_ROWS = (
+    ("নাম",),
+    ("শ্রেণি", "সেকশন"),
+    ("বিষয়", "রোল"),
+)
+ROLL_NUMBER_TITLE = "রোল নম্বর"
+SUBJECT_CODE_TITLE = "বিষয় কোড"
+SET_CODE_TITLE = "সেট কোড"
+INSTRUCTIONS_TITLE = "নির্দেশনা"
+SIGNATURE_LABEL = "কক্ষ পরিদর্শকের স্বাক্ষর"
+QUESTION_LABEL = "প্রশ্ন"
+ANSWER_LABEL = "উত্তর"
+INSTITUTIONAL_ANSWER_TITLE = "বহুনির্বাচনি অভীক্ষার উত্তরপত্র"
+GENERAL_ANSWER_TITLE = "সাধারণ বহুনির্বাচনি উত্তরপত্র"
+DIGIT_LABELS = tuple(str(i) for i in range(10))
 
 THEME_COLORS = {
     "rose": {"label": "Rose", "hex": "#f45d74"},
@@ -111,6 +130,14 @@ LAYOUT_PRESETS = {
 }
 
 GENERAL_COLUMN_LAYOUTS = {
+    1: {
+        "x_mm": 52,
+        "column_width_mm": 106,
+        "column_gap_mm": 0,
+        "header_height_mm": 8.6,
+        "number_width_mm": 16.5,
+        "max_row_height_mm": 13.2,
+    },
     2: {
         "x_mm": 35,
         "column_width_mm": 67,
@@ -149,9 +176,9 @@ DEFAULT_OMR_CONFIG = {
     "bubble_size": "large",
     "header_mode": "digital",
     "header": {
-        "title": "Prosno Exam OMR Sheet",
-        "subtitle": "Fill the bubbles carefully and use a dark pen.",
-        "institution": "Prosno.io",
+        "title": "",
+        "subtitle": "",
+        "institution": "",
     },
     "fields": {
         "roll": True,
@@ -161,7 +188,7 @@ DEFAULT_OMR_CONFIG = {
     "instructions": [
         "একটি মাত্র বৃত্ত পূরণ করুন।",
         "কালো বা নীল কলম ব্যবহার করুন।",
-        "ভুল চিহ্ন দিলে তা সম্পূর্ণ মুছে ফেলুন।",
+        "ভুল চিহ্ন দিলে তা সম্পূর্ণভাবে মুছে ফেলুন।",
         "ভাঁজ বা দাগ ছাড়া পরিষ্কার কাগজ জমা দিন।",
     ],
 }
@@ -240,9 +267,16 @@ def get_omr_general_rules() -> dict[str, Any]:
     }
 
 
+def _resolve_general_distribution(question_count: int, answer_columns: int) -> tuple[int, int]:
+    if answer_columns == GENERAL_AUTO_FLOW_COLUMN:
+        rows = min(question_count, GENERAL_MAX_ROWS_PER_AUTO_COLUMN)
+        return max(1, math.ceil(question_count / rows)), rows
+    return answer_columns, math.ceil(question_count / answer_columns)
+
+
 def _build_general_layout(question_count: int, answer_columns: int) -> dict[str, Any]:
-    spec = GENERAL_COLUMN_LAYOUTS[answer_columns]
-    rows = math.ceil(question_count / answer_columns)
+    render_columns, rows = _resolve_general_distribution(question_count, answer_columns)
+    spec = GENERAL_COLUMN_LAYOUTS[render_columns]
     available_rows_height = GENERAL_ANSWER_GRID_BOTTOM_MM - GENERAL_ANSWER_GRID_Y_MM - spec["header_height_mm"]
     row_height_mm = min(spec["max_row_height_mm"], available_rows_height / rows)
     return {
@@ -250,7 +284,7 @@ def _build_general_layout(question_count: int, answer_columns: int) -> dict[str,
         "answer_grid": {
             "x_mm": spec["x_mm"],
             "y_mm": GENERAL_ANSWER_GRID_Y_MM,
-            "columns": answer_columns,
+            "columns": render_columns,
             "rows": rows,
             "column_width_mm": spec["column_width_mm"],
             "column_gap_mm": spec["column_gap_mm"],
@@ -299,16 +333,21 @@ def normalize_omr_template_config(raw_config: dict[str, Any] | None) -> dict[str
         raise ValueError("Question count must be one of 40, 60, 80, or 100.")
     cfg["question_count"] = question_count
 
-    answer_columns = raw_config.get("answer_columns", cfg["answer_columns"])
+    answer_columns = raw_config.get(
+        "answer_columns",
+        GENERAL_AUTO_FLOW_COLUMN if sheet_variant == "general" else cfg["answer_columns"],
+    )
     try:
         answer_columns = int(answer_columns)
     except (TypeError, ValueError) as exc:
         raise ValueError("Column count must be a number.") from exc
     if sheet_variant == "general":
         if answer_columns not in SUPPORTED_GENERAL_COLUMNS:
-            raise ValueError("General Normal OMR supports 2, 3, or 4 answer columns.")
+            raise ValueError("General Normal OMR supports auto flow plus 2, 3, or 4 answer columns.")
         max_questions = GENERAL_MAX_QUESTIONS_BY_COLUMN[answer_columns]
         if question_count > max_questions:
+            if answer_columns == GENERAL_AUTO_FLOW_COLUMN:
+                raise ValueError(f"Auto flow supports up to {max_questions} questions on General Normal OMR.")
             raise ValueError(
                 f"{answer_columns} columns support up to {max_questions} questions on General Normal OMR."
             )
@@ -389,7 +428,6 @@ def generate_omr_pdf_to_memory(config: dict[str, Any]) -> io.BytesIO:
 
     accent = colors.HexColor(theme["hex"])
     accent_soft = _blend_hex(theme["hex"], "#ffffff", 0.78)
-    accent_lighter = _blend_hex(theme["hex"], "#ffffff", 0.9)
 
     _draw_page_background(pdf)
     _draw_registration_markers(pdf)
@@ -398,9 +436,8 @@ def generate_omr_pdf_to_memory(config: dict[str, Any]) -> io.BytesIO:
         _draw_general_identity_section(pdf, accent)
     else:
         _draw_header(pdf, cfg, accent, accent_soft)
-        _draw_identity_section(pdf, cfg, accent, accent_soft, accent_lighter, bubble_preset)
+        _draw_identity_section(pdf, cfg, accent, accent_soft, bubble_preset)
     _draw_answer_grid(pdf, cfg, layout, accent, accent_soft, bubble_preset)
-    _draw_footer(pdf, accent)
 
     pdf.showPage()
     pdf.save()
@@ -437,7 +474,6 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
     bold_font = bold_path.as_uri() if bold_path.exists() else regular_font
     accent = theme["hex"]
     accent_soft = _hex_to_rgba_css(accent, 0.16)
-    accent_light = _hex_to_rgba_css(accent, 0.08)
 
     blocks = [_render_html_markers()]
     if cfg["sheet_variant"] == "general":
@@ -447,7 +483,6 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         blocks.append(_render_html_institutional_header(cfg))
         blocks.append(_render_html_institutional_identity(cfg, bubble_preset))
     blocks.append(_render_html_answers(cfg, layout, bubble_preset))
-    blocks.append(_render_html_footer())
 
     return f"""<!DOCTYPE html>
 <html lang="bn">
@@ -480,7 +515,8 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             position: relative;
             width: 210mm;
             height: 297mm;
-            background: linear-gradient(180deg, #fffdfa 0%, #fefaf5 100%);
+            background: #ffffff;
+            box-shadow: inset 0 0 0 0.35mm #e5e7eb;
         }}
         .box {{
             position: absolute;
@@ -503,16 +539,25 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         .institutional-header {{
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-start;
             align-items: center;
-            padding: 4mm 6mm;
+            gap: 1.4mm;
+            padding: 3.4mm 6mm 4mm;
             border: 0.35mm solid {accent};
             border-radius: 3mm;
-            background: linear-gradient(180deg, rgba(255,255,255,0.94), {accent_light});
+            background: {accent_soft};
             text-align: center;
         }}
+        .institutional-copy {{
+            display: flex;
+            flex: 1 1 auto;
+            width: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }}
         .institutional-warning {{
-            margin: 0 0 2mm;
+            margin: 0;
             color: #dc2626;
             font-size: 3.2mm;
             font-weight: 700;
@@ -520,18 +565,20 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         .institutional-header h1 {{
             margin: 0;
             color: #09111d;
-            font-size: 7mm;
+            font-size: 5.8mm;
             font-weight: 700;
+            line-height: 1.18;
         }}
         .institutional-subtitle,
         .institutional-institution {{
             margin: 1mm 0 0;
             color: #2f3a4a;
-            font-size: 3.5mm;
+            font-size: 3.1mm;
             font-weight: 600;
         }}
         .manual-header {{
             align-items: stretch;
+            justify-content: flex-start;
             gap: 2.1mm;
         }}
         .manual-line {{
@@ -611,6 +658,10 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             font-size: 3.1mm;
             font-weight: 700;
         }}
+        .instructions .panel-title {{
+            background: {accent};
+            color: #ffffff;
+        }}
         .matrix {{
             display: grid;
             width: 100%;
@@ -622,7 +673,7 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             justify-content: center;
             border-right: 0.25mm solid rgba(0, 0, 0, 0.08);
             border-bottom: 0.25mm solid rgba(0, 0, 0, 0.08);
-            background: linear-gradient(180deg, rgba(255,255,255,0.76), {accent_light});
+            background: #ffffff;
         }}
         .instructions {{
             overflow: hidden;
@@ -685,7 +736,7 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             grid-template-columns: repeat(4, 1fr);
             flex: 1 1 0;
             place-items: center;
-            background: linear-gradient(180deg, rgba(255,255,255,0.76), {accent_light});
+            background: #ffffff;
         }}
         .bubble {{
             display: inline-flex;
@@ -699,17 +750,6 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             color: #111827;
             font-size: {max(2.5, bubble_preset["font_size"] * 0.62):.2f}mm;
             line-height: 1;
-        }}
-        .footer-badge {{
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 0.35mm solid #16a34a;
-            border-radius: 999px;
-            background: rgba(220, 252, 231, 0.85);
-            color: #166534;
-            font-size: 3.1mm;
-            font-weight: 700;
         }}
     </style>
 </head>
@@ -740,37 +780,45 @@ def _render_html_institutional_header(cfg: dict[str, Any]) -> str:
     if cfg["header_mode"] == "manual":
         lines = "".join(
             f'<div class="manual-line"><strong>{label}</strong><span class="rule"></span></div>'
-            for label in ("প্রতিষ্ঠান", "পরীক্ষার নাম", "উপশিরোনাম")
+            for label in MANUAL_HEADER_LABELS
         )
         return (
             f'<div class="box institutional-header manual-header" style="{_html_box_style_mm(14, 10, 182, 30)}">'
             f"{lines}</div>"
         )
 
-    title = html.escape(cfg["header"]["title"] or "OMR Sheet")
-    subtitle = html.escape(cfg["header"]["subtitle"] or "")
-    institution = html.escape(cfg["header"]["institution"] or "")
+    title = (cfg["header"]["title"] or "").strip()
+    subtitle = (cfg["header"]["subtitle"] or "").strip()
+    institution = (cfg["header"]["institution"] or "").strip()
+    copy_markup = []
+    if title:
+        copy_markup.append(f"<h1>{html.escape(title)}</h1>")
+    if subtitle:
+        copy_markup.append(f'<p class="institutional-subtitle">{html.escape(subtitle)}</p>')
+    if institution:
+        copy_markup.append(f'<p class="institutional-institution">{html.escape(institution)}</p>')
     return (
         f'<div class="box institutional-header" style="{_html_box_style_mm(14, 10, 182, 30)}">'
-        '<p class="institutional-warning">এই বক্সে কোনও দাগ দেওয়া যাবে না</p>'
-        f"<h1>{title}</h1>"
-        f'<p class="institutional-subtitle">{subtitle}</p>'
-        f'<p class="institutional-institution">{institution}</p>'
+        f'<p class="institutional-warning">{HEADER_WARNING_TEXT}</p>'
+        f'<div class="institutional-copy">{"".join(copy_markup)}</div>'
         "</div>"
     )
 
 
 def _render_html_general_header(cfg: dict[str, Any]) -> str:
-    title = html.escape(cfg["header"]["title"] or "সাধারণ OMR উত্তরপত্র")
-    subtitle = html.escape(cfg["header"]["subtitle"] or "")
-    institution = html.escape(cfg["header"]["institution"] or "")
-    subtitle_markup = f"<p>{subtitle}</p>" if subtitle else ""
-    institution_markup = f"<p>{institution}</p>" if institution else ""
+    title = (cfg["header"]["title"] or "").strip()
+    subtitle = (cfg["header"]["subtitle"] or "").strip()
+    institution = (cfg["header"]["institution"] or "").strip()
+    parts = []
+    if title:
+        parts.append(f"<h1>{html.escape(title)}</h1>")
+    if subtitle:
+        parts.append(f"<p>{html.escape(subtitle)}</p>")
+    if institution:
+        parts.append(f"<p>{html.escape(institution)}</p>")
     return (
         f'<div class="box general-header" style="{_html_box_style_mm(18, 12, 174, 20)}">'
-        f"<h1>{title}</h1>"
-        f"{subtitle_markup}"
-        f"{institution_markup}"
+        f'{"".join(parts)}'
         '<div class="general-divider"></div>'
         "</div>"
     )
@@ -781,12 +829,12 @@ def _render_html_institutional_identity(cfg: dict[str, Any], bubble_preset: dict
     if cfg["fields"].get("roll"):
         blocks.append(
             _render_html_matrix_panel(
-                title="রোল নম্বর",
+                title=ROLL_NUMBER_TITLE,
                 x_mm=14,
                 y_mm=52,
                 width_mm=42,
                 height_mm=82,
-                labels=[str(i) for i in range(10)],
+                labels=list(DIGIT_LABELS),
                 columns=6,
                 bubble_preset=bubble_preset,
             )
@@ -794,12 +842,12 @@ def _render_html_institutional_identity(cfg: dict[str, Any], bubble_preset: dict
     if cfg["fields"].get("subject_code"):
         blocks.append(
             _render_html_matrix_panel(
-                title="বিষয় কোড",
+                title=SUBJECT_CODE_TITLE,
                 x_mm=59,
                 y_mm=52,
                 width_mm=38,
                 height_mm=82,
-                labels=[str(i) for i in range(10)],
+                labels=list(DIGIT_LABELS),
                 columns=3,
                 bubble_preset=bubble_preset,
             )
@@ -807,7 +855,7 @@ def _render_html_institutional_identity(cfg: dict[str, Any], bubble_preset: dict
     if cfg["fields"].get("set_code"):
         blocks.append(
             _render_html_matrix_panel(
-                title="সেট কোড",
+                title=SET_CODE_TITLE,
                 x_mm=100,
                 y_mm=52,
                 width_mm=20,
@@ -819,25 +867,20 @@ def _render_html_institutional_identity(cfg: dict[str, Any], bubble_preset: dict
         )
     blocks.append(
         f'<div class="box panel instructions" style="{_html_box_style_mm(125, 52, 70, 40)}">'
-        '<div class="panel-title">নির্দেশনা</div>'
+        f'<div class="panel-title">{INSTRUCTIONS_TITLE}</div>'
         "<ol>"
         + "".join(f"<li>{html.escape(item)}</li>" for item in cfg["instructions"][:6])
         + "</ol></div>"
     )
     blocks.append(
-        f'<div class="box signature" style="{_html_box_style_mm(125, 97, 46, 23)}">কক্ষ পরিদর্শকের স্বাক্ষর</div>'
+        f'<div class="box signature" style="{_html_box_style_mm(125, 97, 46, 23)}">{SIGNATURE_LABEL}</div>'
     )
     return "".join(blocks)
 
 
 def _render_html_general_identity() -> str:
-    rows = [
-        ["নাম"],
-        ["শ্রেণি", "সেকশন"],
-        ["বিষয়", "রোল"],
-    ]
     rows_markup = []
-    for row in rows:
+    for row in GENERAL_FIELD_ROWS:
         fields = "".join(
             f'<div class="general-field"><strong>{label} :</strong><span class="rule"></span></div>'
             for label in row
@@ -860,6 +903,7 @@ def _render_html_matrix_panel(
     columns: int,
     bubble_preset: dict[str, Any],
 ) -> str:
+    del bubble_preset
     rows = len(labels)
     cells = []
     for _ in range(columns):
@@ -875,20 +919,15 @@ def _render_html_matrix_panel(
 
 
 def _render_html_answers(cfg: dict[str, Any], layout: dict[str, Any], bubble_preset: dict[str, Any]) -> str:
+    del bubble_preset
     grid = layout["answer_grid"]
     total = cfg["question_count"]
-    title = "সাধারণ বহুনির্বাচনি উত্তরপত্র" if cfg["sheet_variant"] == "general" else "বহুনির্বাচনি অভীক্ষার উত্তরপত্র"
+    title = GENERAL_ANSWER_TITLE if cfg["sheet_variant"] == "general" else INSTITUTIONAL_ANSWER_TITLE
     html_parts = [
         f'<div class="box answer-title" style="{_html_box_style_mm(40, grid["y_mm"] - 13, 130, 8)}">{title}</div>'
     ]
     total_height = grid["header_height_mm"] + (grid["rows"] * grid["row_height_mm"])
     question_width_pct = (grid["number_width_mm"] / grid["column_width_mm"]) * 100
-
-    pdf.setFillColor(colors.white)
-    pdf.rect(_mm(39), _top_to_bottom(grid["y_mm"] - 11.5, 9), _mm(132), _mm(9), fill=1, stroke=0)
-    pdf.setFillColor(colors.black)
-    pdf.setFont(FONT_BOLD, 12.5)
-    pdf.drawCentredString(_mm(105), _top_text_baseline(grid["y_mm"] - 8.5, 12.5), answer_title)
 
     for column_index in range(grid["columns"]):
         start_number = (column_index * grid["rows"]) + 1
@@ -911,8 +950,8 @@ def _render_html_answers(cfg: dict[str, Any], layout: dict[str, Any], bubble_pre
         html_parts.append(
             f'<div class="box answer-column" style="{_html_box_style_mm(x_mm, grid["y_mm"], grid["column_width_mm"], total_height)}">'
             f'<div class="answer-header" style="height:{grid["header_height_mm"]}mm">'
-            f'<span class="question-head" style="width:{question_width_pct:.4f}%">প্রশ্ন</span>'
-            '<span style="flex:1 1 0">উত্তর</span>'
+            f'<span class="question-head" style="width:{question_width_pct:.4f}%">{QUESTION_LABEL}</span>'
+            f'<span style="flex:1 1 0">{ANSWER_LABEL}</span>'
             '</div>'
             f'<div class="answer-rows" style="height:{grid["rows"] * grid["row_height_mm"]}mm; grid-template-rows: repeat({grid["rows"]}, {grid["row_height_mm"]}mm);">'
             f"{''.join(rows_markup)}</div></div>"
@@ -920,14 +959,8 @@ def _render_html_answers(cfg: dict[str, Any], layout: dict[str, Any], bubble_pre
     return "".join(html_parts)
 
 
-def _render_html_footer() -> str:
-    return f'<div class="box footer-badge" style="{_html_box_style_mm(134, 276, 62, 12)}">Scannable OMR</div>'
-
-
 def _html_box_style_mm(x_mm: float, y_mm: float, width_mm: float, height_mm: float) -> str:
-    return (
-        f"left:{x_mm}mm;top:{y_mm}mm;width:{width_mm}mm;height:{height_mm}mm;"
-    )
+    return f"left:{x_mm}mm;top:{y_mm}mm;width:{width_mm}mm;height:{height_mm}mm;"
 
 
 def _draw_page_background(pdf: canvas.Canvas) -> None:
@@ -953,8 +986,12 @@ def _draw_registration_markers(pdf: canvas.Canvas) -> None:
         pdf.rect(_mm(x_mm), y, _mm(10), _mm(10), fill=1, stroke=0)
         pdf.setStrokeColor(colors.white)
         pdf.setLineWidth(1.4)
-        pdf.line(_mm(x_mm + 2.6), y + _mm(2.6), _mm(x_mm + 7.4), y + _mm(2.6))
-        pdf.line(_mm(x_mm + 2.6), y + _mm(2.6), _mm(x_mm + 2.6), y + _mm(7.4))
+        if x_mm < (PAGE_WIDTH_MM / 2):
+            pdf.line(_mm(x_mm + 2.6), y + _mm(2.6), _mm(x_mm + 7.4), y + _mm(2.6))
+            pdf.line(_mm(x_mm + 2.6), y + _mm(2.6), _mm(x_mm + 2.6), y + _mm(7.4))
+        else:
+            pdf.line(_mm(x_mm + 2.6), y + _mm(7.4), _mm(x_mm + 7.4), y + _mm(7.4))
+            pdf.line(_mm(x_mm + 7.4), y + _mm(2.6), _mm(x_mm + 7.4), y + _mm(7.4))
 
 
 def _draw_header(
@@ -971,43 +1008,55 @@ def _draw_header(
     pdf.setFillColor(accent_soft)
     pdf.setStrokeColor(accent)
     pdf.setLineWidth(1.2)
-    pdf.roundRect(_mm(x_mm), _top_to_bottom(y_top_mm, height_mm), _mm(width_mm), _mm(height_mm), _mm(2.5), fill=1, stroke=1)
+    pdf.roundRect(
+        _mm(x_mm),
+        _top_to_bottom(y_top_mm, height_mm),
+        _mm(width_mm),
+        _mm(height_mm),
+        _mm(2.5),
+        fill=1,
+        stroke=1,
+    )
 
     if cfg["header_mode"] == "digital":
+        title = (cfg["header"]["title"] or "").strip()
+        subtitle = (cfg["header"]["subtitle"] or "").strip()
+        institution = (cfg["header"]["institution"] or "").strip()
+
         pdf.setFillColor(colors.HexColor("#dc2626"))
         pdf.setFont(FONT_BOLD, 10)
-        pdf.drawCentredString(_mm(105), _top_text_baseline(15.8, 10), "এই বক্সে কোনও দাগ দেওয়া যাবে না")
+        pdf.drawCentredString(_mm(105), _top_text_baseline(15.8, 10), HEADER_WARNING_TEXT)
 
         pdf.setFillColor(colors.black)
-        pdf.setFont(FONT_BOLD, 18)
-        pdf.drawCentredString(_mm(105), _top_text_baseline(22.8, 18), cfg["header"]["title"] or "OMR Sheet")
-        pdf.setFont(FONT_BOLD, 10.5)
-        pdf.drawCentredString(_mm(105), _top_text_baseline(28.8, 10.5), cfg["header"]["subtitle"] or "")
-        pdf.setFont(FONT_REGULAR, 9)
-        pdf.drawCentredString(_mm(105), _top_text_baseline(34.5, 9), cfg["header"]["institution"] or "")
-    else:
-        labels = (
-            ("প্রতিষ্ঠান", 15.5),
-            ("পরীক্ষার নাম", 23.3),
-            ("উপশিরোনাম", 31.1),
-        )
-        pdf.setFillColor(colors.HexColor("#0f172a"))
-        pdf.setFont(FONT_BOLD, 9.5)
-        for label, y_top in labels:
-            pdf.drawString(_mm(22), _top_text_baseline(y_top, 9.5), label)
-            pdf.setStrokeColor(accent)
-            pdf.setLineWidth(1)
-            pdf.line(_mm(48), _top_text_baseline(y_top - 0.7, 0), _mm(184), _top_text_baseline(y_top - 0.7, 0))
+        if title:
+            pdf.setFont(FONT_BOLD, 15.5)
+            pdf.drawCentredString(_mm(105), _top_text_baseline(23.4, 15.5), title)
+        if subtitle:
+            pdf.setFont(FONT_BOLD, 9.4)
+            pdf.drawCentredString(_mm(105), _top_text_baseline(29.2, 9.4), subtitle)
+        if institution:
+            pdf.setFont(FONT_REGULAR, 8.5)
+            pdf.drawCentredString(_mm(105), _top_text_baseline(34.2, 8.5), institution)
+        return
+
+    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.setFont(FONT_BOLD, 9.5)
+    for label, y_top in zip(MANUAL_HEADER_LABELS, (15.5, 23.3, 31.1)):
+        pdf.drawString(_mm(22), _top_text_baseline(y_top, 9.5), label)
+        pdf.setStrokeColor(accent)
+        pdf.setLineWidth(1)
+        pdf.line(_mm(48), _top_text_baseline(y_top - 0.7, 0), _mm(184), _top_text_baseline(y_top - 0.7, 0))
 
 
 def _draw_general_header(pdf: canvas.Canvas, cfg: dict[str, Any]) -> None:
-    title = cfg["header"]["title"] or "সাধারণ OMR উত্তরপত্র"
-    subtitle = cfg["header"]["subtitle"] or ""
-    institution = cfg["header"]["institution"] or ""
+    title = (cfg["header"]["title"] or "").strip()
+    subtitle = (cfg["header"]["subtitle"] or "").strip()
+    institution = (cfg["header"]["institution"] or "").strip()
 
     pdf.setFillColor(colors.black)
-    pdf.setFont(FONT_BOLD, 15)
-    pdf.drawCentredString(_mm(105), _top_text_baseline(17.5, 15), title)
+    if title:
+        pdf.setFont(FONT_BOLD, 15)
+        pdf.drawCentredString(_mm(105), _top_text_baseline(17.5, 15), title)
     if subtitle:
         pdf.setFont(FONT_REGULAR, 9)
         pdf.drawCentredString(_mm(105), _top_text_baseline(23.8, 9), subtitle)
@@ -1025,32 +1074,31 @@ def _draw_identity_section(
     cfg: dict[str, Any],
     accent: colors.Color,
     accent_soft: colors.Color,
-    accent_lighter: colors.Color,
     bubble_preset: dict[str, Any],
 ) -> None:
     start_y_top = 52
     block_specs = []
     if cfg["fields"].get("roll"):
         block_specs.append({
-            "title": "রোল নম্বর",
+            "title": ROLL_NUMBER_TITLE,
             "x_mm": 14,
             "width_mm": 42,
-            "labels": [str(i) for i in range(10)],
+            "labels": list(DIGIT_LABELS),
             "columns": 6,
             "rows": 10,
         })
     if cfg["fields"].get("subject_code"):
         block_specs.append({
-            "title": "বিষয় কোড",
+            "title": SUBJECT_CODE_TITLE,
             "x_mm": 59,
             "width_mm": 38,
-            "labels": [str(i) for i in range(10)],
+            "labels": list(DIGIT_LABELS),
             "columns": 3,
             "rows": 10,
         })
     if cfg["fields"].get("set_code"):
         block_specs.append({
-            "title": "সেট কোড",
+            "title": SET_CODE_TITLE,
             "x_mm": 100,
             "width_mm": 20,
             "labels": list(ANSWER_OPTION_LABELS),
@@ -1071,7 +1119,6 @@ def _draw_identity_section(
             rows=spec["rows"],
             accent=accent,
             accent_soft=accent_soft,
-            accent_lighter=accent_lighter,
             bubble_preset=bubble_preset,
         )
 
@@ -1108,7 +1155,6 @@ def _draw_bubble_matrix_block(
     rows: int,
     accent: colors.Color,
     accent_soft: colors.Color,
-    accent_lighter: colors.Color,
     bubble_preset: dict[str, Any],
 ) -> None:
     title_h_mm = 9.5
@@ -1126,7 +1172,7 @@ def _draw_bubble_matrix_block(
     pdf.setFont(FONT_BOLD, 9)
     pdf.drawCentredString(_mm(x_mm + width_mm / 2), _top_text_baseline(y_top_mm + 6.5, 9), title)
 
-    pdf.setFillColor(accent_lighter)
+    pdf.setFillColor(colors.white)
     pdf.rect(
         _mm(x_mm),
         _top_to_bottom(y_top_mm + title_h_mm, content_h_mm),
@@ -1138,7 +1184,12 @@ def _draw_bubble_matrix_block(
 
     for col_index in range(1, columns):
         line_x = x_mm + (col_w_mm * col_index)
-        pdf.line(_mm(line_x), _top_to_bottom(y_top_mm + title_h_mm, content_h_mm), _mm(line_x), _top_to_bottom(y_top_mm + title_h_mm, 0))
+        pdf.line(
+            _mm(line_x),
+            _top_to_bottom(y_top_mm + title_h_mm, content_h_mm),
+            _mm(line_x),
+            _top_to_bottom(y_top_mm + title_h_mm, 0),
+        )
     for row_index in range(1, rows):
         line_y_top = y_top_mm + title_h_mm + (row_h_mm * row_index)
         pdf.line(_mm(x_mm), _top_to_bottom(line_y_top, 0), _mm(x_mm + width_mm), _top_to_bottom(line_y_top, 0))
@@ -1179,10 +1230,17 @@ def _draw_instructions_block(
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, title_h_mm), _mm(width_mm), _mm(title_h_mm), fill=1, stroke=0)
     pdf.setFillColor(colors.white)
     pdf.setFont(FONT_BOLD, 8.5)
-    pdf.drawCentredString(_mm(x_mm + (width_mm / 2)), _top_text_baseline(y_top_mm + 5.8, 8.5), "নির্দেশনা")
+    pdf.drawCentredString(_mm(x_mm + (width_mm / 2)), _top_text_baseline(y_top_mm + 5.8, 8.5), INSTRUCTIONS_TITLE)
 
     pdf.setFillColor(accent_soft)
-    pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm + title_h_mm, height_mm - title_h_mm), _mm(width_mm), _mm(height_mm - title_h_mm), fill=1, stroke=0)
+    pdf.rect(
+        _mm(x_mm),
+        _top_to_bottom(y_top_mm + title_h_mm, height_mm - title_h_mm),
+        _mm(width_mm),
+        _mm(height_mm - title_h_mm),
+        fill=1,
+        stroke=0,
+    )
     pdf.setFillColor(colors.black)
     pdf.setFont(FONT_REGULAR, 7.2)
     text_y = y_top_mm + 13
@@ -1208,7 +1266,7 @@ def _draw_signature_box(
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, height_mm), _mm(width_mm), _mm(height_mm), fill=0, stroke=1)
     pdf.setFillColor(colors.black)
     pdf.setFont(FONT_REGULAR, 8)
-    pdf.drawCentredString(_mm(x_mm + width_mm / 2), _top_text_baseline(y_top_mm + height_mm - 6, 8), "কক্ষ পরিদর্শকের স্বাক্ষর")
+    pdf.drawCentredString(_mm(x_mm + width_mm / 2), _top_text_baseline(y_top_mm + height_mm - 6, 8), SIGNATURE_LABEL)
 
 
 def _draw_general_identity_section(
@@ -1255,11 +1313,11 @@ def _draw_answer_grid(
     number = 1
     header_label_font = 8.5 if grid["columns"] <= 3 else 7.3
     question_font = 7.9 if grid["columns"] <= 3 else 6.8
-    answer_title = "সাধারণ বহুনির্বাচনি উত্তরপত্র" if cfg["sheet_variant"] == "general" else "বহুনির্বাচনি অভীক্ষার উত্তরপত্র"
+    answer_title = GENERAL_ANSWER_TITLE if cfg["sheet_variant"] == "general" else INSTITUTIONAL_ANSWER_TITLE
 
     pdf.setFillColor(colors.black)
     pdf.setFont(FONT_BOLD, 12.5)
-    pdf.drawCentredString(_mm(105), _top_text_baseline(grid["y_mm"] - 8.5, 12.5), "বহুনির্বাচনি অভীক্ষার উত্তরপত্র")
+    pdf.drawCentredString(_mm(105), _top_text_baseline(grid["y_mm"] - 8.5, 12.5), answer_title)
 
     for column_index in range(grid["columns"]):
         column_x = grid["x_mm"] + (column_index * (grid["column_width_mm"] + grid["column_gap_mm"]))
@@ -1314,8 +1372,16 @@ def _draw_answer_column(
     pdf.line(_mm(x_mm + number_width_mm), _top_to_bottom(y_top_mm, total_h_mm), _mm(x_mm + number_width_mm), _top_to_bottom(y_top_mm, 0))
     pdf.setFillColor(colors.black)
     pdf.setFont(FONT_BOLD, header_label_font)
-    pdf.drawCentredString(_mm(x_mm + (number_width_mm / 2)), _top_text_baseline(y_top_mm + (header_height_mm * 0.66), header_label_font), "প্রশ্ন")
-    pdf.drawCentredString(_mm(x_mm + number_width_mm + (answer_width_mm / 2)), _top_text_baseline(y_top_mm + (header_height_mm * 0.66), header_label_font), "উত্তর")
+    pdf.drawCentredString(
+        _mm(x_mm + (number_width_mm / 2)),
+        _top_text_baseline(y_top_mm + (header_height_mm * 0.66), header_label_font),
+        QUESTION_LABEL,
+    )
+    pdf.drawCentredString(
+        _mm(x_mm + number_width_mm + (answer_width_mm / 2)),
+        _top_text_baseline(y_top_mm + (header_height_mm * 0.66), header_label_font),
+        ANSWER_LABEL,
+    )
 
     for row_index in range(rows):
         current_number = start_number + row_index
@@ -1367,15 +1433,6 @@ def _draw_label_bubble(
     pdf.setFillColor(colors.black)
     pdf.setFont(FONT_REGULAR, font_size)
     pdf.drawCentredString(center_x, center_y - (font_size * 0.18), label)
-
-
-def _draw_footer(pdf: canvas.Canvas, accent: colors.Color) -> None:
-    pdf.setStrokeColor(accent)
-    pdf.setLineWidth(1)
-    pdf.roundRect(_mm(134), _top_to_bottom(276, 12), _mm(62), _mm(12), _mm(1.5), fill=0, stroke=1)
-    pdf.setFillColor(colors.HexColor("#059669"))
-    pdf.setFont(FONT_BOLD, 8.8)
-    pdf.drawCentredString(_mm(165), _top_text_baseline(283.3, 8.8), "This OMR is scannable.")
 
 
 def _blend_hex(hex_a: str, hex_b: str, ratio_b: float) -> colors.Color:
