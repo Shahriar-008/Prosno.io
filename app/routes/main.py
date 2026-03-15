@@ -1,6 +1,7 @@
 """
 Main routes for Prosno.io
 """
+import re
 from datetime import datetime, date
 from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort, session, redirect, url_for
 import os
@@ -9,10 +10,18 @@ from sqlalchemy import or_
 from app import db, csrf, limiter
 from app.models import (
     Class, Subject, Chapter, Question, GeneratedPaper,
-    QuestionSet, GenerationLog, ShortQuestion, CQQuestion,
+    QuestionSet, GenerationLog, ShortQuestion, CQQuestion, OmrTemplate,
     BankQuestion,
 )
 from app.utils.document_generator import generate_paper_from_db, generate_paper_to_memory
+from app.utils.omr_generator import (
+    generate_omr_pdf_to_memory,
+    get_default_omr_config,
+    get_omr_bubble_size_options,
+    get_omr_layout_presets,
+    get_omr_theme_options,
+    normalize_omr_template_config,
+)
 from app.utils.pdf_generator import generate_paper_to_memory_pdf
 
 main_bp = Blueprint('main', __name__)
@@ -21,6 +30,7 @@ main_bp = Blueprint('main', __name__)
 MAX_QUESTIONS_PER_PAPER = 50       # Max questions allowed in one paper
 MAX_CHAPTERS_PER_REQUEST = 5       # Max chapters that can be queried at once
 DAILY_GENERATION_LIMIT = 10        # Max papers a logged-in user can generate per day
+OMR_TEMPLATE_NAME_MAX_LEN = 200
 
 
 def _format_sitemap_lastmod(value):
@@ -927,6 +937,197 @@ def _require_user():
     return session.get('user')
 
 
+def _normalize_omr_template_name(value):
+    """Normalize and validate an OMR template name."""
+    name = str(value or '').strip()
+    if not name:
+        raise ValueError('Template name is required.')
+    if len(name) > OMR_TEMPLATE_NAME_MAX_LEN:
+        raise ValueError(
+            f'Template name must be {OMR_TEMPLATE_NAME_MAX_LEN} characters or less.'
+        )
+    return name
+
+
+def _slugify_omr_filename(name):
+    """Convert a template name into a safe PDF filename."""
+    slug = re.sub(r'[^A-Za-z0-9]+', '-', str(name or '').strip()).strip('-').lower()
+    return slug or 'omr-template'
+
+
+def _get_user_omr_template_or_404(template_id, user_id):
+    """Fetch an OMR template owned by the given user or return None."""
+    return OmrTemplate.query.filter_by(id=template_id, user_id=user_id).first()
+
+
+def _serialize_omr_template(template):
+    """Return the public JSON payload for an OMR template."""
+    return template.to_dict()
+
+
+@main_bp.route('/omr-builder')
+def omr_builder():
+    """Standalone OMR template builder."""
+    user = _require_user()
+    if not user:
+        return redirect(url_for('auth.login', next='/omr-builder'))
+
+    return render_template(
+        'main/omr_builder.html',
+        omr_default_config=get_default_omr_config(),
+        omr_layout_presets=get_omr_layout_presets(),
+        omr_theme_options=get_omr_theme_options(),
+        omr_bubble_sizes=get_omr_bubble_size_options(),
+        initial_template_id=request.args.get('template', type=int),
+    )
+
+
+@main_bp.route('/api/omr/templates')
+@limiter.limit("60 per minute")
+def list_omr_templates():
+    """List the current user's saved OMR templates."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    templates = OmrTemplate.query.filter_by(user_id=user['id']).order_by(
+        OmrTemplate.updated_at.desc()
+    ).all()
+    return jsonify({
+        'templates': [_serialize_omr_template(template) for template in templates],
+    })
+
+
+@main_bp.route('/api/omr/templates', methods=['POST'])
+@limiter.limit("30 per minute")
+def create_omr_template():
+    """Create a new private OMR template."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    data = request.get_json() or {}
+    try:
+        name = _normalize_omr_template_name(data.get('name'))
+        config_json = normalize_omr_template_config(data.get('config_json'))
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    template = OmrTemplate(
+        user_id=user['id'],
+        name=name,
+        config_json=config_json,
+        question_count=config_json['question_count'],
+    )
+    db.session.add(template)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'template': _serialize_omr_template(template),
+    })
+
+
+@main_bp.route('/api/omr/templates/<int:template_id>')
+@limiter.limit("60 per minute")
+def get_omr_template(template_id):
+    """Fetch a single OMR template owned by the current user."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    template = _get_user_omr_template_or_404(template_id, user['id'])
+    if not template:
+        return jsonify({'error': 'OMR template not found.'}), 404
+
+    return jsonify({'template': _serialize_omr_template(template)})
+
+
+@main_bp.route('/api/omr/templates/<int:template_id>', methods=['PUT'])
+@limiter.limit("30 per minute")
+def update_omr_template(template_id):
+    """Update an existing OMR template."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    template = _get_user_omr_template_or_404(template_id, user['id'])
+    if not template:
+        return jsonify({'error': 'OMR template not found.'}), 404
+
+    data = request.get_json() or {}
+    try:
+        name = _normalize_omr_template_name(data.get('name', template.name))
+        config_json = normalize_omr_template_config(
+            data.get('config_json', template.config_json)
+        )
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    template.name = name
+    template.config_json = config_json
+    template.question_count = config_json['question_count']
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'template': _serialize_omr_template(template),
+    })
+
+
+@main_bp.route('/api/omr/templates/<int:template_id>/delete', methods=['POST'])
+@limiter.limit("30 per minute")
+def delete_omr_template(template_id):
+    """Delete an existing OMR template."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    template = _get_user_omr_template_or_404(template_id, user['id'])
+    if not template:
+        return jsonify({'error': 'OMR template not found.'}), 404
+
+    db.session.delete(template)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@main_bp.route('/api/omr/render', methods=['POST'])
+@limiter.limit("20 per minute")
+def render_omr_template_pdf():
+    """Render an OMR template as a PDF."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    data = request.get_json() or {}
+    try:
+        name = _normalize_omr_template_name(data.get('name') or 'OMR Template')
+        config_json = normalize_omr_template_config(data.get('config_json'))
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    template_id = data.get('template_id')
+    try:
+        template_id = int(template_id) if template_id else None
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Template id must be a number.'}), 400
+    if template_id:
+        template = _get_user_omr_template_or_404(template_id, user['id'])
+        if template:
+            template.download_count = (template.download_count or 0) + 1
+            db.session.commit()
+
+    pdf_buffer = generate_omr_pdf_to_memory(config_json)
+    filename = _slugify_omr_filename(name) + '.pdf'
+    return send_file(
+        pdf_buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
 @main_bp.route('/save-question-set', methods=['POST'])
 @limiter.limit("30 per minute")
 def save_question_set():
@@ -1072,6 +1273,9 @@ def dashboard():
     sets = QuestionSet.query.filter_by(user_id=user['id']).order_by(
         QuestionSet.updated_at.desc()
     ).all()
+    omr_templates = OmrTemplate.query.filter_by(user_id=user['id']).order_by(
+        OmrTemplate.updated_at.desc()
+    ).all()
     
     # Credit / usage data
     credit_used, credit_limit, credit_remaining = _get_user_credits(user['id'])
@@ -1079,6 +1283,7 @@ def dashboard():
     return render_template(
         'main/dashboard.html',
         question_sets=sets,
+        omr_templates=omr_templates,
         credit_used=credit_used,
         credit_limit=credit_limit,
         credit_remaining=credit_remaining,

@@ -384,9 +384,14 @@ def _apply_schema_migrations(db):
         return  # Skip if already applied in this process
     
     from sqlalchemy import text, inspect
+    from app.models import OmrTemplate
     
     try:
         inspector = inspect(db.engine)
+
+        if 'omr_templates' not in inspector.get_table_names():
+            OmrTemplate.__table__.create(bind=db.engine, checkfirst=True)
+            inspector = inspect(db.engine)
         
         # Define migrations: (table_name, column_name, column_definition)
         migrations = [
@@ -403,6 +408,7 @@ def _apply_schema_migrations(db):
             ('generated_papers', 'custom_questions_json', "JSON"),
             ('generated_papers', 'custom_paper_config', "JSON"),
             ('generated_papers', 'omr_style', "BOOLEAN DEFAULT TRUE"),
+            ('omr_templates', 'download_count', "INTEGER DEFAULT 0"),
             # QuestionSet sharing migrations
             ('question_sets', 'share_token', "VARCHAR(16)"),
             ('question_sets', 'is_shared', "BOOLEAN DEFAULT FALSE"),
