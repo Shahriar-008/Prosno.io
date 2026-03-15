@@ -13,6 +13,7 @@
     const generalMaxRowsPerAutoColumn = 25;
     const generalAnswerMarkerBandHeightMm = 5.2;
     const layouts = boot.layouts || {};
+    const institutionalTemplates = boot.institutionalTemplates || {};
     const themes = boot.themes || {};
     const bubbleSizes = boot.bubbleSizes || {};
     const initialTemplateId = boot.initialTemplateId || null;
@@ -308,11 +309,23 @@
     }
 
     function getInstitutionalLayout(questionCount) {
+        const template = getInstitutionalTemplate(questionCount);
+        if (template && template.answer_section_layout) {
+            return {
+                page: template.print_dimensions || { width_mm: 210, height_mm: 297 },
+                answer_grid: deepClone(template.answer_section_layout),
+            };
+        }
         return layouts[String(questionCount)] || layouts[questionCount] || layouts[String(defaultConfig.question_count)] || layouts[defaultConfig.question_count];
     }
 
+    function getInstitutionalTemplate(questionCount) {
+        return institutionalTemplates[String(questionCount)] || institutionalTemplates[questionCount] || null;
+    }
+
     function getNearestPresetQuestionCount(questionCount) {
-        const presets = Object.keys(layouts)
+        const source = Object.keys(institutionalTemplates).length ? institutionalTemplates : layouts;
+        const presets = Object.keys(source)
             .map(function (key) { return parseInt(key, 10); })
             .filter(Number.isInteger)
             .sort(function (a, b) { return a - b; });
@@ -389,6 +402,7 @@
         return {
             page: { width_mm: 210, height_mm: 297 },
             answer_grid: {
+                title_box: { x_mm: 40, y_mm: 89, width_mm: 130, height_mm: 8 },
                 x_mm: spec.x_mm,
                 y_mm: 102,
                 columns: distribution.columns,
@@ -723,31 +737,107 @@
         const accentHex = theme.hex;
         const soft = hexToRgba(accentHex, 0.16);
         const lighter = hexToRgba(accentHex, 0.08);
+        const institutionalTemplate = state.config.sheet_variant === 'institutional'
+            ? getInstitutionalTemplate(state.config.question_count)
+            : null;
 
         els.omrPreviewSheet.style.setProperty('--omr-accent', accentHex);
         els.omrPreviewSheet.style.setProperty('--omr-accent-soft', soft);
         els.omrPreviewSheet.style.setProperty('--omr-accent-light', lighter);
 
         const blocks = [];
-        blocks.push(renderMarkers());
-        blocks.push(state.config.sheet_variant === 'general' ? renderGeneralHeaderFixed() : renderHeaderFixed());
-        blocks.push(state.config.sheet_variant === 'general' ? renderGeneralIdentitySectionFixed() : renderIdentitySectionFixed());
+        blocks.push(renderMarkers(institutionalTemplate));
+        blocks.push(state.config.sheet_variant === 'general' ? renderGeneralHeaderFixed() : renderHeaderFixed(institutionalTemplate));
+        blocks.push(state.config.sheet_variant === 'general' ? renderGeneralIdentitySectionFixed() : renderIdentitySectionFixed(institutionalTemplate));
         blocks.push(renderAnswersFixed(layout));
         els.omrPreviewSheet.innerHTML = blocks.join('');
     }
 
-    function renderMarkers() {
-        const positions = [
-            ['tl', 2.5, 279],
-            ['tr', 197.5, 279],
-            ['bl', 2.5, 12],
-            ['br', 197.5, 12],
-            ['ml', 2.5, 148],
-            ['mr', 197.5, 148],
-        ];
-        return positions.map(function (item) {
-            return '<div class="omr-preview-marker omr-preview-marker-' + item[0] + '" style="' + boxStyle(item[1], item[2], 10, 10) + '"><span></span></div>';
+    function renderMarkers(template) {
+        const markers = getCornerMarkers(template).map(renderCornerMarker).join('');
+        if (!template || !Array.isArray(template.side_markers)) {
+            return markers;
+        }
+        return markers + getSideMarkerBars(template).map(function (bar) {
+            return '<div class="omr-preview-side-bar" style="' + boxStyle(bar.x_mm, bar.y_mm, bar.width_mm, bar.height_mm) + '"></div>';
         }).join('');
+    }
+
+    function getCornerMarkers(template) {
+        if (!template || !template.corner_markers) {
+            return [
+                { x_mm: 2.5, y_mm: 279, size_mm: 10, orientation: 'left' },
+                { x_mm: 197.5, y_mm: 279, size_mm: 10, orientation: 'right' },
+                { x_mm: 2.5, y_mm: 12, size_mm: 10, orientation: 'left' },
+                { x_mm: 197.5, y_mm: 12, size_mm: 10, orientation: 'right' },
+                { x_mm: 2.5, y_mm: 148, size_mm: 10, orientation: 'left' },
+                { x_mm: 197.5, y_mm: 148, size_mm: 10, orientation: 'right' },
+            ];
+        }
+        return [
+            template.corner_markers.top_left,
+            template.corner_markers.top_right,
+            template.corner_markers.bottom_left,
+            template.corner_markers.bottom_right,
+        ];
+    }
+
+    function renderCornerMarker(marker) {
+        const orientationClass = marker.orientation === 'right' ? ' omr-preview-marker-right' : '';
+        return '<div class="omr-preview-marker' + orientationClass + '" style="' + boxStyle(marker.x_mm, marker.y_mm, marker.size_mm, marker.size_mm) + '"><span></span></div>';
+    }
+
+    function getSideMarkerBars(template) {
+        if (!template || !Array.isArray(template.side_markers)) {
+            return [];
+        }
+
+        const bars = [];
+        template.side_markers.forEach(function (stack) {
+            const count = parseInt(stack.bars, 10) || 0;
+            const barHeight = parseFloat(stack.bar_height_mm) || 0;
+            const gap = parseFloat(stack.gap_mm) || 0;
+            for (let index = 0; index < count; index += 1) {
+                bars.push({
+                    x_mm: parseFloat(stack.x_mm) || 0,
+                    y_mm: (parseFloat(stack.y_mm) || 0) + (index * (barHeight + gap)),
+                    width_mm: parseFloat(stack.bar_width_mm) || 0,
+                    height_mm: barHeight,
+                });
+            }
+        });
+        return bars;
+    }
+
+    function getTopMarkerItems(template) {
+        if (!template || !template.top_marker_pattern || !Array.isArray(template.top_marker_pattern.items)) {
+            return [];
+        }
+
+        const headerBox = template.header_box || { y_mm: 10 };
+        const pattern = template.top_marker_pattern;
+        const squareSize = parseFloat(pattern.square_size_mm) || 3.5;
+        const circleSize = parseFloat(pattern.circle_diameter_mm) || 4.7;
+        const gap = parseFloat(pattern.gap_mm) || 1;
+        const rowY = (parseFloat(headerBox.y_mm) || 0) + (parseFloat(pattern.y_mm) || 0);
+        const rowCenterY = rowY + (Math.max(squareSize, circleSize) / 2);
+        const widths = pattern.items.map(function (item) {
+            return item.shape === 'circle' ? circleSize : squareSize;
+        });
+        const totalWidth = widths.reduce(function (sum, width) { return sum + width; }, 0) + (Math.max(0, widths.length - 1) * gap);
+        let cursorX = (parseFloat(pattern.center_x_mm) || 105) - (totalWidth / 2);
+
+        return pattern.items.map(function (item, index) {
+            const size = widths[index];
+            const spec = {
+                shape: item.shape || 'square',
+                x_mm: cursorX,
+                y_mm: rowCenterY - (size / 2),
+                size_mm: size,
+            };
+            cursorX += size + gap;
+            return spec;
+        });
     }
 
     function renderHeader() {
@@ -851,7 +941,7 @@
         let cells = '';
         for (let col = 0; col < spec.cols; col += 1) {
             spec.labels.forEach(function (label) {
-                cells += '<div class="omr-preview-matrix-cell"><span class="omr-mini-bubble ' + bubbleClass + '">' + escapeHtml(label) + '</span></div>';
+                cells += '<div class="omr-preview-matrix-cell">' + renderPreviewBubble(formatBubbleLabel(label), bubbleClass) + '</div>';
             });
         }
 
@@ -875,7 +965,7 @@
         for (let columnIndex = 0; columnIndex < grid.columns; columnIndex += 1) {
             const x = grid.x_mm + (columnIndex * (grid.column_width_mm + grid.column_gap_mm));
             const y = grid.y_mm;
-            const height = grid.header_height_mm + (grid.rows * grid.row_height_mm);
+            const height = grid.header_height_mm + (actualRows * grid.row_height_mm);
             const headerPct = percent(grid.header_height_mm, height);
             const rowsPct = (100 - parseFloat(headerPct)).toFixed(4);
             const startNumber = (columnIndex * grid.rows) + 1;
@@ -903,18 +993,48 @@
         return html;
     }
 
-    function renderHeaderFixed() {
+    function renderHeaderFixed(template) {
+        if (!template) {
+            return '';
+        }
+
+        const headerBox = template.header_box || { x_mm: 13, y_mm: 10, width_mm: 184, height_mm: 30 };
+        const headerOffsets = template.header_offsets || {};
+        const warningBox = {
+            x_mm: headerBox.x_mm + 4,
+            y_mm: headerBox.y_mm + (parseFloat(headerOffsets.warning_y_mm) || 3.2),
+            width_mm: headerBox.width_mm - 8,
+            height_mm: 4.4,
+        };
+        let html = '<div class="omr-preview-header-band" style="' + boxStyle(headerBox.x_mm, headerBox.y_mm, headerBox.width_mm, headerBox.height_mm) + '"></div>';
+        html += '<div class="omr-preview-warning omr-preview-warning-band" style="' + boxStyle(warningBox.x_mm, warningBox.y_mm, warningBox.width_mm, warningBox.height_mm) + '">' + omrCopy.warning + '</div>';
+
+        getTopMarkerItems(template).forEach(function (item) {
+            const itemClass = item.shape === 'circle'
+                ? 'omr-preview-top-marker-item omr-preview-top-marker-circle'
+                : 'omr-preview-top-marker-item omr-preview-top-marker-square';
+            html += '<div class="' + itemClass + '" style="' + boxStyle(item.x_mm, item.y_mm, item.size_mm, item.size_mm) + '"></div>';
+        });
+
+        const copyBox = {
+            x_mm: headerBox.x_mm + (parseFloat(headerOffsets.copy_box_x_mm) || 24),
+            y_mm: headerBox.y_mm + (parseFloat(headerOffsets.copy_box_y_mm) || 15.2),
+            width_mm: parseFloat(headerOffsets.copy_box_width_mm) || 157,
+            height_mm: parseFloat(headerOffsets.copy_box_height_mm) || 11.8,
+        };
+
         if (state.config.header_mode === 'manual') {
-            return '<div class="omr-preview-header omr-preview-header-manual" style="' + boxStyle(14, 10, 182, 30) + '">' +
-                '<div class="omr-preview-line"><strong>' + omrCopy.institution + '</strong><span></span></div>' +
-                '<div class="omr-preview-line"><strong>' + omrCopy.examName + '</strong><span></span></div>' +
-                '<div class="omr-preview-line"><strong>' + omrCopy.subtitle + '</strong><span></span></div>' +
+            html += '<div class="omr-preview-manual-copy" style="' + boxStyle(copyBox.x_mm, copyBox.y_mm, copyBox.width_mm, copyBox.height_mm) + '">' +
+                '<div class="omr-preview-manual-line"><strong>' + omrCopy.institution + '</strong><span></span></div>' +
+                '<div class="omr-preview-manual-line"><strong>' + omrCopy.examName + '</strong><span></span></div>' +
+                '<div class="omr-preview-manual-line"><strong>' + omrCopy.subtitle + '</strong><span></span></div>' +
                 '</div>';
+            return html;
         }
 
         const copy = [];
         if (state.config.header.title) {
-            copy.push('<h2>' + escapeHtml(state.config.header.title) + '</h2>');
+            copy.push('<h2 class="omr-preview-header-title">' + escapeHtml(state.config.header.title) + '</h2>');
         }
         if (state.config.header.subtitle) {
             copy.push('<p class="omr-preview-subtitle">' + escapeHtml(state.config.header.subtitle) + '</p>');
@@ -922,11 +1042,10 @@
         if (state.config.header.institution) {
             copy.push('<p class="omr-preview-institution">' + escapeHtml(state.config.header.institution) + '</p>');
         }
-
-        return '<div class="omr-preview-header" style="' + boxStyle(14, 10, 182, 30) + '">' +
-            '<p class="omr-preview-warning">' + omrCopy.warning + '</p>' +
-            '<div class="omr-preview-header-copy">' + copy.join('') + '</div>' +
-            '</div>';
+        if (copy.length) {
+            html += '<div class="omr-preview-header-copy-box" style="' + boxStyle(copyBox.x_mm, copyBox.y_mm, copyBox.width_mm, copyBox.height_mm) + '">' + copy.join('') + '</div>';
+        }
+        return html;
     }
 
     function renderGeneralHeaderFixed() {
@@ -946,48 +1065,41 @@
             '</div>';
     }
 
-    function renderIdentitySectionFixed() {
-        const html = [];
-        if (state.config.fields.roll) {
-            html.push(renderMatrixBlock({
-                title: omrCopy.rollNumber,
-                x: 14,
-                y: 52,
-                w: 42,
-                h: 82,
-                cols: 6,
-                labels: digitLabels,
-            }));
-        }
-        if (state.config.fields.subject_code) {
-            html.push(renderMatrixBlock({
-                title: omrCopy.subjectCode,
-                x: 59,
-                y: 52,
-                w: 38,
-                h: 82,
-                cols: 3,
-                labels: digitLabels,
-            }));
-        }
-        if (state.config.fields.set_code) {
-            html.push(renderMatrixBlock({
-                title: omrCopy.setCode,
-                x: 100,
-                y: 52,
-                w: 20,
-                h: 82,
-                cols: 1,
-                labels: optionLabels,
-            }));
+    function renderIdentitySectionFixed(template) {
+        if (!template || !template.identity_section_layout) {
+            return '';
         }
 
-        html.push('<div class="omr-preview-instructions" style="' + boxStyle(125, 52, 70, 40) + '">' +
-            '<div class="omr-preview-card-title">' + omrCopy.instructions + '</div>' +
-            '<ol>' + state.config.instructions.slice(0, 6).map(function (instruction) {
-                return '<li>' + escapeHtml(instruction) + '</li>';
-            }).join('') + '</ol></div>');
-        html.push('<div class="omr-preview-signature" style="' + boxStyle(125, 97, 46, 23) + '">' + omrCopy.signature + '</div>');
+        const html = [];
+        (template.identity_section_layout.matrix_blocks || []).forEach(function (block) {
+            if (block.enabled_field && !state.config.fields[block.enabled_field]) {
+                return;
+            }
+            html.push(renderMatrixBlock({
+                title: block.key === 'class_track' ? omrCopy.className : block.title,
+                x: block.x_mm,
+                y: block.y_mm,
+                w: block.width_mm,
+                h: block.height_mm,
+                cols: block.columns,
+                labels: block.labels,
+            }));
+        });
+
+        if (template.identity_section_layout.instructions_block) {
+            const instructionsBlock = template.identity_section_layout.instructions_block;
+            html.push('<div class="omr-preview-instructions" style="' + boxStyle(instructionsBlock.x_mm, instructionsBlock.y_mm, instructionsBlock.width_mm, instructionsBlock.height_mm) + '">' +
+                '<div class="omr-preview-card-title">' + omrCopy.instructions + '</div>' +
+                '<ol>' + state.config.instructions.slice(0, 6).map(function (instruction) {
+                    return '<li>' + escapeHtml(instruction) + '</li>';
+                }).join('') + '</ol></div>');
+        }
+
+        if (template.identity_section_layout.signature_box) {
+            const signatureBox = template.identity_section_layout.signature_box;
+            html.push('<div class="omr-preview-signature" style="' + boxStyle(signatureBox.x_mm, signatureBox.y_mm, signatureBox.width_mm, signatureBox.height_mm) + '">' + omrCopy.signature + '</div>');
+        }
+
         return html.join('');
     }
 
@@ -1015,17 +1127,21 @@
         }
 
         const grid = layout.answer_grid;
-        const titleStyle = boxStyle(40, grid.y_mm - 13, 130, 8);
+        const columnQuestionCounts = grid.column_question_counts || new Array(grid.columns).fill(grid.rows);
+        const titleBox = grid.title_box || { x_mm: 40, y_mm: grid.y_mm - 13, width_mm: 130, height_mm: 8 };
+        const titleStyle = boxStyle(titleBox.x_mm, titleBox.y_mm, titleBox.width_mm, titleBox.height_mm);
         let html = '<div class="omr-preview-answer-title" style="' + titleStyle + '">' + omrCopy.institutionalAnswerTitle + '</div>';
+        let nextNumber = 1;
 
         for (let columnIndex = 0; columnIndex < grid.columns; columnIndex += 1) {
             const x = grid.x_mm + (columnIndex * (grid.column_width_mm + grid.column_gap_mm));
             const y = grid.y_mm;
-            const height = grid.header_height_mm + (grid.rows * grid.row_height_mm);
+            const actualRows = parseInt(columnQuestionCounts[columnIndex], 10) || grid.rows;
+            const height = grid.header_height_mm + (actualRows * grid.row_height_mm);
             const headerPct = percent(grid.header_height_mm, height);
             const rowsPct = (100 - parseFloat(headerPct)).toFixed(4);
-            const startNumber = (columnIndex * grid.rows) + 1;
-            const endNumber = startNumber + grid.rows - 1;
+            const startNumber = nextNumber;
+            const endNumber = startNumber + actualRows - 1;
             html += '<div class="omr-preview-answer-column" style="' + boxStyle(x, y, grid.column_width_mm, height) + '">' +
                 '<div class="omr-preview-answer-header" style="height:' + headerPct + '%">' +
                 '<span class="question-label" style="width:' + percent(grid.number_width_mm, grid.column_width_mm) + '%">' + omrCopy.question + '</span>' +
@@ -1033,18 +1149,19 @@
                 '</div>' +
                 '<div class="omr-preview-answer-rows" style="height:' + rowsPct + '%">';
 
-            for (let rowIndex = 0; rowIndex < grid.rows; rowIndex += 1) {
+            for (let rowIndex = 0; rowIndex < actualRows; rowIndex += 1) {
                 const number = startNumber + rowIndex;
                 html += '<div class="omr-preview-answer-row">' +
                     '<span class="omr-preview-qnum" style="width:' + percent(grid.number_width_mm, grid.column_width_mm) + '%">' + toBanglaNumber(number) + '</span>' +
                     '<div class="omr-preview-options">';
                 optionLabels.forEach(function (label) {
-                    html += '<span class="omr-preview-option"><span class="omr-mini-bubble ' + state.config.bubble_size + '">' + label + '</span></span>';
+                    html += '<span class="omr-preview-option">' + renderPreviewBubble(label, state.config.bubble_size) + '</span>';
                 });
                 html += '</div></div>';
             }
 
             html += '</div></div>';
+            nextNumber += actualRows;
         }
         return html;
     }
@@ -1052,7 +1169,8 @@
     function renderGeneralAnswersFixed(layout) {
         const grid = layout.answer_grid;
         const columnQuestionCounts = grid.column_question_counts || new Array(grid.columns).fill(grid.rows);
-        const titleStyle = boxStyle(40, grid.y_mm - 13, 130, 8);
+        const titleBox = grid.title_box || { x_mm: 40, y_mm: grid.y_mm - 13, width_mm: 130, height_mm: 8 };
+        const titleStyle = boxStyle(titleBox.x_mm, titleBox.y_mm, titleBox.width_mm, titleBox.height_mm);
         const frame = getGeneralAnswerFrameMetrics(grid);
         let html = '<div class="omr-preview-answer-title" style="' + titleStyle + '">' + omrCopy.generalAnswerTitle + '</div>';
         let nextNumber = 1;
@@ -1083,7 +1201,7 @@
                     '<span class="omr-preview-qnum" style="width:' + percent(grid.number_width_mm, grid.column_width_mm) + '%">' + toBanglaNumber(number) + '</span>' +
                     '<div class="omr-preview-options">';
                 optionLabels.forEach(function (label) {
-                    html += '<span class="omr-preview-option"><span class="omr-mini-bubble ' + state.config.bubble_size + '">' + label + '</span></span>';
+                    html += '<span class="omr-preview-option">' + renderPreviewBubble(label, state.config.bubble_size) + '</span>';
                 });
                 html += '</div></div>';
             }
@@ -1092,6 +1210,15 @@
             nextNumber += actualRows;
         }
         return html;
+    }
+
+    function renderPreviewBubble(label, bubbleClass) {
+        return '<span class="omr-mini-bubble ' + bubbleClass + '"><span class="omr-bubble-label">' + escapeHtml(label) + '</span></span>';
+    }
+
+    function formatBubbleLabel(label) {
+        const text = String(label == null ? '' : label);
+        return /^\d+$/.test(text) ? toBanglaNumber(text) : text;
     }
 
     function getGeneralAnswerFrameMetrics(grid) {

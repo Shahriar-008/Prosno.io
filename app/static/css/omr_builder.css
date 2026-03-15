@@ -148,6 +148,10 @@
 }
 
 .omr-preview-marker,
+.omr-preview-header-band,
+.omr-preview-warning-band,
+.omr-preview-header-copy-box,
+.omr-preview-manual-copy,
 .omr-preview-header,
 .omr-preview-general-header,
 .omr-preview-general-form,
@@ -158,7 +162,9 @@
 .omr-preview-answer-marker,
 .omr-preview-answer-column,
 .omr-preview-answer-title,
-.omr-preview-footer-badge {
+.omr-preview-footer-badge,
+.omr-preview-top-marker-item,
+.omr-preview-side-bar {
     position: absolute;
 }
 
@@ -178,8 +184,76 @@
 
 .omr-preview-marker-tr span,
 .omr-preview-marker-mr span,
-.omr-preview-marker-br span {
+.omr-preview-marker-br span,
+.omr-preview-marker-right span {
     transform: rotate(180deg);
+}
+
+.omr-preview-header-band {
+    background: var(--omr-accent-soft);
+}
+
+.omr-preview-warning-band {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.omr-preview-header-copy-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.34cqw;
+    text-align: center;
+}
+
+.omr-preview-header-title {
+    margin: 0;
+    color: #09111d;
+    font-family: var(--omr-print-font);
+    font-size: 2.22cqw;
+    font-weight: 700;
+    line-height: 1.08;
+}
+
+.omr-preview-manual-copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.48cqw;
+}
+
+.omr-preview-manual-line {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: center;
+    color: #0f172a;
+    font-size: 1.08cqw;
+    font-weight: 700;
+}
+
+.omr-preview-manual-line span {
+    display: block;
+    height: 1px;
+    background: var(--omr-accent);
+}
+
+.omr-preview-top-marker-circle {
+    border: 1.3px solid #111827;
+    border-radius: 50%;
+    background: #fff;
+}
+
+.omr-preview-top-marker-square,
+.omr-preview-side-bar {
+    background: #111827;
+}
+
+.omr-preview-side-bar {
+    border-radius: 1px;
 }
 
 .omr-preview-header {
@@ -360,6 +434,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    overflow: hidden;
     width: 16px;
     height: 16px;
     border: 1.5px solid var(--omr-accent);
@@ -370,6 +446,15 @@
     font-size: 0.85rem;
     font-weight: 700;
     line-height: 1;
+}
+
+.omr-bubble-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    transform: translate(0.04em, 0.08em);
 }
 
 .omr-mini-bubble.small {

@@ -7,7 +7,6 @@ import copy
 import html
 import io
 import logging
-import math
 import os
 from pathlib import Path
 from typing import Any
@@ -53,6 +52,8 @@ ANSWER_LABEL = "উত্তর"
 INSTITUTIONAL_ANSWER_TITLE = "বহুনির্বাচনি অভীক্ষার উত্তরপত্র"
 GENERAL_ANSWER_TITLE = "সাধারণ বহুনির্বাচনি উত্তরপত্র"
 DIGIT_LABELS = tuple(str(i) for i in range(10))
+CLASS_TITLE = "\u09b6\u09cd\u09b0\u09c7\u09a3\u09bf"
+CLASS_LABELS = tuple(str(i) for i in range(6, 13))
 
 THEME_COLORS = {
     "rose": {"label": "Rose", "hex": "#f45d74"},
@@ -70,63 +71,257 @@ BUBBLE_SIZE_PRESETS = {
     "large": {"label": "Large", "diameter_mm": 4.8, "font_size": 6.0},
 }
 
+DEFAULT_CORNER_MARKER_SIZE_MM = 10
+DEFAULT_CORNER_MARKERS = {
+    "top_left": {"x_mm": 2.5, "y_mm": 12, "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM, "orientation": "left"},
+    "top_right": {"x_mm": 197.5, "y_mm": 12, "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM, "orientation": "right"},
+    "bottom_left": {"x_mm": 2.5, "y_mm": 279, "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM, "orientation": "left"},
+    "bottom_right": {"x_mm": 197.5, "y_mm": 279, "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM, "orientation": "right"},
+}
+DEFAULT_HEADER_BOX = {"x_mm": 13, "y_mm": 10, "width_mm": 184, "height_mm": 30}
+DEFAULT_HEADER_OFFSETS = {
+    "warning_y_mm": 3.2,
+    "pattern_y_mm": 8.9,
+    "pattern_center_x_mm": 105,
+    "copy_box_x_mm": 24,
+    "copy_box_y_mm": 15.2,
+    "copy_box_width_mm": 157,
+    "copy_box_height_mm": 11.8,
+    "manual_label_width_mm": 27,
+    "manual_line_start_y_mm": 16.2,
+    "manual_line_gap_mm": 4.8,
+}
+DEFAULT_TOP_PATTERN_STYLE = {
+    "square_size_mm": 3.5,
+    "circle_diameter_mm": 4.7,
+    "gap_mm": 1.05,
+}
+DEFAULT_ANSWER_TITLE_BOX = {"x_mm": 42, "width_mm": 126, "height_mm": 8}
+DEFAULT_ANSWER_GRID_X_MM = 13
+DEFAULT_ANSWER_GRID_COLUMN_WIDTH_MM = 43
+DEFAULT_ANSWER_GRID_GAP_MM = 4
+DEFAULT_ANSWER_GRID_NUMBER_WIDTH_MM = 9.4
+DEFAULT_SIDE_MARKER_STACK = {
+    "bars": 4,
+    "bar_width_mm": 6.6,
+    "bar_height_mm": 3.2,
+    "gap_mm": 0.9,
+    "left_x_mm": 0.8,
+    "right_x_mm": 202.6,
+}
+
+
+def _expand_top_marker_pattern(pattern: str) -> list[dict[str, Any]]:
+    items = []
+    for token in pattern.lower():
+        if token in {" ", "-", "|"}:
+            continue
+        if token == "o":
+            items.append({"shape": "circle", "filled": False})
+        elif token == "b":
+            items.append({"shape": "square", "filled": True})
+        else:
+            raise ValueError(f"Unsupported top marker token: {token}")
+    return items
+
+
+def _build_side_marker_stacks(y_mm: float) -> list[dict[str, Any]]:
+    return [
+        {
+            "side": "left",
+            "x_mm": DEFAULT_SIDE_MARKER_STACK["left_x_mm"],
+            "y_mm": y_mm,
+            "bars": DEFAULT_SIDE_MARKER_STACK["bars"],
+            "bar_width_mm": DEFAULT_SIDE_MARKER_STACK["bar_width_mm"],
+            "bar_height_mm": DEFAULT_SIDE_MARKER_STACK["bar_height_mm"],
+            "gap_mm": DEFAULT_SIDE_MARKER_STACK["gap_mm"],
+        },
+        {
+            "side": "right",
+            "x_mm": DEFAULT_SIDE_MARKER_STACK["right_x_mm"],
+            "y_mm": y_mm,
+            "bars": DEFAULT_SIDE_MARKER_STACK["bars"],
+            "bar_width_mm": DEFAULT_SIDE_MARKER_STACK["bar_width_mm"],
+            "bar_height_mm": DEFAULT_SIDE_MARKER_STACK["bar_height_mm"],
+            "gap_mm": DEFAULT_SIDE_MARKER_STACK["gap_mm"],
+        },
+    ]
+
+
+def _build_identity_section_layout() -> dict[str, Any]:
+    return {
+        "matrix_blocks": [
+            {
+                "key": "class_track",
+                "title": CLASS_TITLE,
+                "x_mm": 13,
+                "y_mm": 52,
+                "width_mm": 24,
+                "height_mm": 82,
+                "columns": 1,
+                "labels": list(CLASS_LABELS),
+            },
+            {
+                "key": "roll",
+                "enabled_field": "roll",
+                "title": ROLL_NUMBER_TITLE,
+                "x_mm": 40,
+                "y_mm": 52,
+                "width_mm": 50,
+                "height_mm": 82,
+                "columns": 6,
+                "labels": list(DIGIT_LABELS),
+            },
+            {
+                "key": "subject_code",
+                "enabled_field": "subject_code",
+                "title": SUBJECT_CODE_TITLE,
+                "x_mm": 93,
+                "y_mm": 52,
+                "width_mm": 26,
+                "height_mm": 82,
+                "columns": 3,
+                "labels": list(DIGIT_LABELS),
+            },
+            {
+                "key": "set_code",
+                "enabled_field": "set_code",
+                "title": SET_CODE_TITLE,
+                "x_mm": 122,
+                "y_mm": 52,
+                "width_mm": 24,
+                "height_mm": 82,
+                "columns": 1,
+                "labels": list(ANSWER_OPTION_LABELS),
+            },
+        ],
+        "instructions_block": {"x_mm": 149, "y_mm": 52, "width_mm": 48, "height_mm": 33},
+        "signature_box": {"x_mm": 149, "y_mm": 93, "width_mm": 48, "height_mm": 22},
+    }
+
+
+def _build_institutional_template(
+    *,
+    question_count: int,
+    pattern: str,
+    answer_y_mm: float,
+    header_height_mm: float,
+    row_height_mm: float,
+    questions_per_column: list[int],
+    side_marker_y_mm: float,
+    title_y_mm: float,
+    header_offsets: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    if not questions_per_column:
+        raise ValueError("Institutional templates require at least one answer column.")
+
+    resolved_header_offsets = copy.deepcopy(DEFAULT_HEADER_OFFSETS)
+    if header_offsets:
+        resolved_header_offsets.update(header_offsets)
+
+    columns = len(questions_per_column)
+    rows = max(questions_per_column)
+
+    return {
+        "question_count": question_count,
+        "print_dimensions": {"width_mm": PAGE_WIDTH_MM, "height_mm": PAGE_HEIGHT_MM},
+        "left_corner_marker": copy.deepcopy(DEFAULT_CORNER_MARKERS["top_left"]),
+        "right_corner_marker": copy.deepcopy(DEFAULT_CORNER_MARKERS["top_right"]),
+        "corner_markers": copy.deepcopy(DEFAULT_CORNER_MARKERS),
+        "top_marker_pattern": {
+            "pattern": pattern,
+            "items": _expand_top_marker_pattern(pattern),
+            "y_mm": resolved_header_offsets["pattern_y_mm"],
+            "center_x_mm": resolved_header_offsets["pattern_center_x_mm"],
+            "square_size_mm": DEFAULT_TOP_PATTERN_STYLE["square_size_mm"],
+            "circle_diameter_mm": DEFAULT_TOP_PATTERN_STYLE["circle_diameter_mm"],
+            "gap_mm": DEFAULT_TOP_PATTERN_STYLE["gap_mm"],
+        },
+        "side_markers": _build_side_marker_stacks(side_marker_y_mm),
+        "header_box": copy.deepcopy(DEFAULT_HEADER_BOX),
+        "header_offsets": resolved_header_offsets,
+        "identity_section_layout": _build_identity_section_layout(),
+        "answer_section_layout": {
+            "title_box": {
+                "x_mm": DEFAULT_ANSWER_TITLE_BOX["x_mm"],
+                "y_mm": title_y_mm,
+                "width_mm": DEFAULT_ANSWER_TITLE_BOX["width_mm"],
+                "height_mm": DEFAULT_ANSWER_TITLE_BOX["height_mm"],
+            },
+            "x_mm": DEFAULT_ANSWER_GRID_X_MM,
+            "y_mm": answer_y_mm,
+            "columns": columns,
+            "rows": rows,
+            "column_width_mm": DEFAULT_ANSWER_GRID_COLUMN_WIDTH_MM,
+            "column_gap_mm": DEFAULT_ANSWER_GRID_GAP_MM,
+            "row_height_mm": row_height_mm,
+            "header_height_mm": header_height_mm,
+            "number_width_mm": DEFAULT_ANSWER_GRID_NUMBER_WIDTH_MM,
+            "column_question_counts": list(questions_per_column),
+        },
+        "row_column_distribution": {
+            "columns": columns,
+            "questions_per_column": list(questions_per_column),
+            "rows": rows,
+        },
+    }
+
+
+# Edit these institutional presets to change marker patterns, offsets, and answer flow.
+INSTITUTIONAL_TEMPLATE_PRESETS = {
+    40: _build_institutional_template(
+        question_count=40,
+        pattern="obbb oobbb obo oobb",
+        answer_y_mm=150,
+        header_height_mm=7.0,
+        row_height_mm=12.7,
+        questions_per_column=[10, 10, 10, 10],
+        side_marker_y_mm=160,
+        title_y_mm=137,
+        header_offsets={"pattern_y_mm": 8.8},
+    ),
+    60: _build_institutional_template(
+        question_count=60,
+        pattern="obbb obb obb obobbbb",
+        answer_y_mm=150,
+        header_height_mm=6.9,
+        row_height_mm=8.55,
+        questions_per_column=[15, 15, 15, 15],
+        side_marker_y_mm=165,
+        title_y_mm=137,
+        header_offsets={"pattern_y_mm": 8.85},
+    ),
+    80: _build_institutional_template(
+        question_count=80,
+        pattern="bbob bobo bboo bbbobb",
+        answer_y_mm=149,
+        header_height_mm=6.8,
+        row_height_mm=6.35,
+        questions_per_column=[20, 20, 20, 20],
+        side_marker_y_mm=170,
+        title_y_mm=136,
+        header_offsets={"pattern_y_mm": 8.9},
+    ),
+    100: _build_institutional_template(
+        question_count=100,
+        pattern="obbb obbbb obo oobbb",
+        answer_y_mm=149,
+        header_height_mm=6.6,
+        row_height_mm=5.24,
+        questions_per_column=[25, 25, 25, 25],
+        side_marker_y_mm=175,
+        title_y_mm=136,
+        header_offsets={"pattern_y_mm": 8.95},
+    ),
+}
+
+
 LAYOUT_PRESETS = {
-    40: {
-        "page": {"width_mm": PAGE_WIDTH_MM, "height_mm": PAGE_HEIGHT_MM},
-        "answer_grid": {
-            "x_mm": 14,
-            "y_mm": 156,
-            "columns": 2,
-            "rows": 20,
-            "column_width_mm": 88,
-            "column_gap_mm": 6,
-            "row_height_mm": 6.6,
-            "header_height_mm": 8,
-            "number_width_mm": 13,
-        },
-    },
-    60: {
-        "page": {"width_mm": PAGE_WIDTH_MM, "height_mm": PAGE_HEIGHT_MM},
-        "answer_grid": {
-            "x_mm": 10,
-            "y_mm": 152,
-            "columns": 3,
-            "rows": 20,
-            "column_width_mm": 59,
-            "column_gap_mm": 4,
-            "row_height_mm": 6.4,
-            "header_height_mm": 7.6,
-            "number_width_mm": 11.5,
-        },
-    },
-    80: {
-        "page": {"width_mm": PAGE_WIDTH_MM, "height_mm": PAGE_HEIGHT_MM},
-        "answer_grid": {
-            "x_mm": 7,
-            "y_mm": 152,
-            "columns": 4,
-            "rows": 20,
-            "column_width_mm": 45.5,
-            "column_gap_mm": 3,
-            "row_height_mm": 6.2,
-            "header_height_mm": 7.2,
-            "number_width_mm": 9.8,
-        },
-    },
-    100: {
-        "page": {"width_mm": PAGE_WIDTH_MM, "height_mm": PAGE_HEIGHT_MM},
-        "answer_grid": {
-            "x_mm": 7,
-            "y_mm": 146,
-            "columns": 4,
-            "rows": 25,
-            "column_width_mm": 45.5,
-            "column_gap_mm": 3,
-            "row_height_mm": 5.45,
-            "header_height_mm": 6.6,
-            "number_width_mm": 9.8,
-        },
-    },
+    question_count: {
+        "page": copy.deepcopy(template["print_dimensions"]),
+        "answer_grid": copy.deepcopy(template["answer_section_layout"]),
+    }
+    for question_count, template in INSTITUTIONAL_TEMPLATE_PRESETS.items()
 }
 
 GENERAL_COLUMN_LAYOUTS = {
@@ -248,6 +443,11 @@ def get_omr_layout_presets() -> dict[int, dict[str, Any]]:
     return copy.deepcopy(LAYOUT_PRESETS)
 
 
+def get_omr_template_presets() -> dict[int, dict[str, Any]]:
+    """Return the institutional template definitions used by preview and PDF rendering."""
+    return copy.deepcopy(INSTITUTIONAL_TEMPLATE_PRESETS)
+
+
 def get_omr_theme_options() -> dict[str, dict[str, str]]:
     """Return the available print-safe theme colors."""
     return copy.deepcopy(THEME_COLORS)
@@ -296,6 +496,7 @@ def _build_general_layout(question_count: int, answer_columns: int) -> dict[str,
     return {
         "page": {"width_mm": PAGE_WIDTH_MM, "height_mm": PAGE_HEIGHT_MM},
         "answer_grid": {
+            "title_box": {"x_mm": 40, "y_mm": GENERAL_ANSWER_GRID_Y_MM - 13, "width_mm": 130, "height_mm": 8},
             "x_mm": spec["x_mm"],
             "y_mm": GENERAL_ANSWER_GRID_Y_MM,
             "columns": render_columns,
@@ -308,6 +509,10 @@ def _build_general_layout(question_count: int, answer_columns: int) -> dict[str,
             "column_question_counts": column_question_counts,
         },
     }
+
+
+def _resolve_institutional_template(question_count: int) -> dict[str, Any]:
+    return copy.deepcopy(INSTITUTIONAL_TEMPLATE_PRESETS[question_count])
 
 
 def _resolve_omr_layout(cfg: dict[str, Any]) -> dict[str, Any]:
@@ -438,6 +643,11 @@ def generate_omr_pdf_to_memory(config: dict[str, Any]) -> io.BytesIO:
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
     layout = _resolve_omr_layout(cfg)
+    institutional_template = (
+        _resolve_institutional_template(cfg["question_count"])
+        if cfg["sheet_variant"] == "institutional"
+        else None
+    )
     theme = THEME_COLORS[cfg["theme_color"]]
     bubble_preset = BUBBLE_SIZE_PRESETS[cfg["bubble_size"]]
 
@@ -445,14 +655,14 @@ def generate_omr_pdf_to_memory(config: dict[str, Any]) -> io.BytesIO:
     accent_soft = _blend_hex(theme["hex"], "#ffffff", 0.78)
 
     _draw_page_background(pdf)
-    _draw_registration_markers(pdf)
+    _draw_registration_markers(pdf, institutional_template)
     if cfg["sheet_variant"] == "general":
         _draw_general_header(pdf, cfg)
         _draw_general_identity_section(pdf, accent)
     else:
-        _draw_header(pdf, cfg, accent, accent_soft)
-        _draw_identity_section(pdf, cfg, accent, accent_soft, bubble_preset)
-    _draw_answer_grid(pdf, cfg, layout, accent, accent_soft, bubble_preset)
+        _draw_header(pdf, cfg, institutional_template, accent, accent_soft)
+        _draw_identity_section(pdf, cfg, institutional_template, accent, accent_soft, bubble_preset)
+    _draw_answer_grid(pdf, cfg, layout, institutional_template, accent, accent_soft, bubble_preset)
 
     pdf.showPage()
     pdf.save()
@@ -461,6 +671,9 @@ def generate_omr_pdf_to_memory(config: dict[str, Any]) -> io.BytesIO:
 
 
 def _generate_omr_pdf_with_weasyprint(cfg: dict[str, Any]) -> io.BytesIO | None:
+    if cfg["sheet_variant"] == "institutional":
+        return None
+
     try:
         from weasyprint import HTML  # type: ignore
     except Exception as exc:
@@ -791,6 +1004,8 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            position: relative;
+            overflow: hidden;
             width: {bubble_preset["diameter_mm"]}mm;
             height: {bubble_preset["diameter_mm"]}mm;
             border: 0.35mm solid {accent};
@@ -799,6 +1014,14 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             color: #111827;
             font-size: {max(2.5, bubble_preset["font_size"] * 0.62):.2f}mm;
             line-height: 1;
+        }}
+        .bubble-label {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            transform: translate(0.04em, 0.08em);
         }}
     </style>
 </head>
@@ -958,7 +1181,7 @@ def _render_html_matrix_panel(
     for _ in range(columns):
         for label in labels:
             display = to_bengali_numeral(label) if label.isdigit() else label
-            cells.append(f'<div class="matrix-cell"><span class="bubble">{html.escape(display)}</span></div>')
+            cells.append(f'<div class="matrix-cell">{_render_html_bubble(display)}</div>')
     return (
         f'<div class="box panel" style="{_html_box_style_mm(x_mm, y_mm, width_mm, height_mm)}">'
         f'<div class="panel-title">{html.escape(title)}</div>'
@@ -999,6 +1222,10 @@ def _get_general_answer_marker_specs(frame: dict[str, float]) -> list[dict[str, 
     ]
 
 
+def _render_html_bubble(label: str) -> str:
+    return f'<span class="bubble"><span class="bubble-label">{html.escape(label)}</span></span>'
+
+
 def _render_html_general_answers(layout: dict[str, Any]) -> str:
     grid = layout["answer_grid"]
     column_question_counts = grid.get("column_question_counts") or [grid["rows"]] * grid["columns"]
@@ -1024,7 +1251,7 @@ def _render_html_general_answers(layout: dict[str, Any]) -> str:
         for row_index in range(actual_rows):
             number = next_number + row_index
             option_markup = "".join(
-                f'<span class="answer-option"><span class="bubble">{html.escape(label)}</span></span>'
+                f'<span class="answer-option">{_render_html_bubble(label)}</span>'
                 for label in ANSWER_OPTION_LABELS
             )
             rows_markup.append(
@@ -1066,7 +1293,7 @@ def _render_html_answers(cfg: dict[str, Any], layout: dict[str, Any], bubble_pre
             number = next_number + row_index
             qnum = to_bengali_numeral(number)
             option_markup = "".join(
-                f'<span class="answer-option"><span class="bubble">{html.escape(label)}</span></span>'
+                f'<span class="answer-option">{_render_html_bubble(label)}</span>'
                 for label in ANSWER_OPTION_LABELS
             )
             rows_markup.append(
@@ -1096,6 +1323,123 @@ def _html_box_style_mm(x_mm: float, y_mm: float, width_mm: float, height_mm: flo
     return f"left:{x_mm}mm;top:{y_mm}mm;width:{width_mm}mm;height:{height_mm}mm;"
 
 
+def _get_corner_marker_specs(template: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not template:
+        return [
+            {"x_mm": 2.5, "y_mm": 279, "size_mm": 10, "orientation": "left"},
+            {"x_mm": 197.5, "y_mm": 279, "size_mm": 10, "orientation": "right"},
+            {"x_mm": 2.5, "y_mm": 12, "size_mm": 10, "orientation": "left"},
+            {"x_mm": 197.5, "y_mm": 12, "size_mm": 10, "orientation": "right"},
+            {"x_mm": 2.5, "y_mm": 148, "size_mm": 10, "orientation": "left"},
+            {"x_mm": 197.5, "y_mm": 148, "size_mm": 10, "orientation": "right"},
+        ]
+
+    corners = template.get("corner_markers") or DEFAULT_CORNER_MARKERS
+    return [
+        copy.deepcopy(corners["top_left"]),
+        copy.deepcopy(corners["top_right"]),
+        copy.deepcopy(corners["bottom_left"]),
+        copy.deepcopy(corners["bottom_right"]),
+    ]
+
+
+def _get_side_marker_bars(template: dict[str, Any] | None) -> list[dict[str, float]]:
+    if not template:
+        return []
+
+    bars: list[dict[str, float]] = []
+    for stack in template.get("side_markers", []):
+        for index in range(int(stack.get("bars", 0))):
+            bars.append(
+                {
+                    "x_mm": float(stack["x_mm"]),
+                    "y_mm": float(stack["y_mm"]) + (index * (float(stack["bar_height_mm"]) + float(stack["gap_mm"]))),
+                    "width_mm": float(stack["bar_width_mm"]),
+                    "height_mm": float(stack["bar_height_mm"]),
+                }
+            )
+    return bars
+
+
+def _get_top_marker_item_specs(template: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not template:
+        return []
+
+    pattern = template.get("top_marker_pattern") or {}
+    items = pattern.get("items") or []
+    if not items:
+        return []
+
+    square_size_mm = float(pattern.get("square_size_mm", DEFAULT_TOP_PATTERN_STYLE["square_size_mm"]))
+    circle_diameter_mm = float(pattern.get("circle_diameter_mm", DEFAULT_TOP_PATTERN_STYLE["circle_diameter_mm"]))
+    gap_mm = float(pattern.get("gap_mm", DEFAULT_TOP_PATTERN_STYLE["gap_mm"]))
+    row_y_mm = float(template["header_box"]["y_mm"]) + float(pattern.get("y_mm", DEFAULT_HEADER_OFFSETS["pattern_y_mm"]))
+    row_center_y_mm = row_y_mm + (max(square_size_mm, circle_diameter_mm) / 2)
+
+    item_widths = [
+        circle_diameter_mm if item.get("shape") == "circle" else square_size_mm
+        for item in items
+    ]
+    total_width_mm = sum(item_widths) + (max(0, len(items) - 1) * gap_mm)
+    cursor_x_mm = float(pattern.get("center_x_mm", 105)) - (total_width_mm / 2)
+
+    specs = []
+    for item, item_width_mm in zip(items, item_widths):
+        specs.append(
+            {
+                "shape": item.get("shape", "square"),
+                "filled": bool(item.get("filled", False)),
+                "x_mm": cursor_x_mm,
+                "y_mm": row_center_y_mm - (item_width_mm / 2),
+                "size_mm": item_width_mm,
+            }
+        )
+        cursor_x_mm += item_width_mm + gap_mm
+    return specs
+
+
+def _draw_corner_marker(pdf: canvas.Canvas, marker: dict[str, Any]) -> None:
+    x_mm = float(marker["x_mm"])
+    y_top_mm = float(marker["y_mm"])
+    size_mm = float(marker.get("size_mm", DEFAULT_CORNER_MARKER_SIZE_MM))
+    orientation = str(marker.get("orientation", "left")).lower()
+    y = _top_to_bottom(y_top_mm, size_mm)
+
+    pdf.setFillColor(colors.black)
+    pdf.rect(_mm(x_mm), y, _mm(size_mm), _mm(size_mm), fill=1, stroke=0)
+    pdf.setStrokeColor(colors.white)
+    pdf.setLineWidth(1.4)
+
+    inset_start = 2.6
+    inset_end = size_mm - 2.6
+    if orientation == "right":
+        pdf.line(_mm(x_mm + inset_start), y + _mm(inset_end), _mm(x_mm + inset_end), y + _mm(inset_end))
+        pdf.line(_mm(x_mm + inset_end), y + _mm(inset_start), _mm(x_mm + inset_end), y + _mm(inset_end))
+        return
+
+    pdf.line(_mm(x_mm + inset_start), y + _mm(inset_start), _mm(x_mm + inset_end), y + _mm(inset_start))
+    pdf.line(_mm(x_mm + inset_start), y + _mm(inset_start), _mm(x_mm + inset_start), y + _mm(inset_end))
+
+
+def _draw_top_marker_pattern(pdf: canvas.Canvas, template: dict[str, Any] | None) -> None:
+    for item in _get_top_marker_item_specs(template):
+        x_mm = float(item["x_mm"])
+        y_mm = float(item["y_mm"])
+        size_mm = float(item["size_mm"])
+        shape = str(item["shape"])
+
+        if shape == "circle":
+            center_x = _mm(x_mm + (size_mm / 2))
+            center_y = _top_to_center(y_mm + (size_mm / 2))
+            pdf.setStrokeColor(colors.black)
+            pdf.setLineWidth(0.6)
+            pdf.circle(center_x, center_y, _mm(size_mm / 2), stroke=1, fill=0)
+            continue
+
+        pdf.setFillColor(colors.black)
+        pdf.rect(_mm(x_mm), _top_to_bottom(y_mm, size_mm), _mm(size_mm), _mm(size_mm), fill=1, stroke=0)
+
+
 def _draw_page_background(pdf: canvas.Canvas) -> None:
     pdf.setFillColor(colors.white)
     pdf.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
@@ -1104,81 +1448,114 @@ def _draw_page_background(pdf: canvas.Canvas) -> None:
     pdf.rect(_mm(4), _mm(4), _mm(202), _mm(289), fill=0, stroke=1)
 
 
-def _draw_registration_markers(pdf: canvas.Canvas) -> None:
-    marker_positions = [
-        (2.5, 279),
-        (197.5, 279),
-        (2.5, 12),
-        (197.5, 12),
-        (2.5, 148),
-        (197.5, 148),
-    ]
-    for x_mm, y_top_mm in marker_positions:
-        y = _top_to_bottom(y_top_mm, 10)
-        pdf.setFillColor(colors.black)
-        pdf.rect(_mm(x_mm), y, _mm(10), _mm(10), fill=1, stroke=0)
-        pdf.setStrokeColor(colors.white)
-        pdf.setLineWidth(1.4)
-        if x_mm < (PAGE_WIDTH_MM / 2):
-            pdf.line(_mm(x_mm + 2.6), y + _mm(2.6), _mm(x_mm + 7.4), y + _mm(2.6))
-            pdf.line(_mm(x_mm + 2.6), y + _mm(2.6), _mm(x_mm + 2.6), y + _mm(7.4))
-        else:
-            pdf.line(_mm(x_mm + 2.6), y + _mm(7.4), _mm(x_mm + 7.4), y + _mm(7.4))
-            pdf.line(_mm(x_mm + 7.4), y + _mm(2.6), _mm(x_mm + 7.4), y + _mm(7.4))
+def _draw_registration_markers(pdf: canvas.Canvas, template: dict[str, Any] | None) -> None:
+    for marker in _get_corner_marker_specs(template):
+        _draw_corner_marker(pdf, marker)
+
+    if not template:
+        return
+
+    pdf.setFillColor(colors.black)
+    for bar in _get_side_marker_bars(template):
+        pdf.rect(
+            _mm(bar["x_mm"]),
+            _top_to_bottom(bar["y_mm"], bar["height_mm"]),
+            _mm(bar["width_mm"]),
+            _mm(bar["height_mm"]),
+            fill=1,
+            stroke=0,
+        )
 
 
 def _draw_header(
     pdf: canvas.Canvas,
     cfg: dict[str, Any],
+    template: dict[str, Any] | None,
     accent: colors.Color,
     accent_soft: colors.Color,
 ) -> None:
-    x_mm = 14
-    y_top_mm = 10
-    width_mm = 182
-    height_mm = 30
+    if template is None:
+        return
+
+    header_box = template["header_box"]
+    offsets = template["header_offsets"]
+    x_mm = float(header_box["x_mm"])
+    y_top_mm = float(header_box["y_mm"])
+    width_mm = float(header_box["width_mm"])
+    height_mm = float(header_box["height_mm"])
+    center_x_mm = x_mm + (width_mm / 2)
 
     pdf.setFillColor(accent_soft)
-    pdf.setStrokeColor(accent)
-    pdf.setLineWidth(1.2)
-    pdf.roundRect(
+    pdf.rect(
         _mm(x_mm),
         _top_to_bottom(y_top_mm, height_mm),
         _mm(width_mm),
         _mm(height_mm),
-        _mm(2.5),
         fill=1,
-        stroke=1,
+        stroke=0,
     )
 
-    if cfg["header_mode"] == "digital":
-        title = (cfg["header"]["title"] or "").strip()
-        subtitle = (cfg["header"]["subtitle"] or "").strip()
-        institution = (cfg["header"]["institution"] or "").strip()
+    pdf.setFillColor(colors.HexColor("#dc2626"))
+    pdf.setFont(FONT_BOLD, 9.5)
+    pdf.drawCentredString(
+        _mm(center_x_mm),
+        _top_text_baseline(y_top_mm + float(offsets["warning_y_mm"]), 9.5),
+        HEADER_WARNING_TEXT,
+    )
 
-        pdf.setFillColor(colors.HexColor("#dc2626"))
-        pdf.setFont(FONT_BOLD, 10)
-        pdf.drawCentredString(_mm(105), _top_text_baseline(15.8, 10), HEADER_WARNING_TEXT)
+    _draw_top_marker_pattern(pdf, template)
 
-        pdf.setFillColor(colors.black)
-        if title:
-            pdf.setFont(FONT_BOLD, 15.5)
-            pdf.drawCentredString(_mm(105), _top_text_baseline(23.4, 15.5), title)
-        if subtitle:
-            pdf.setFont(FONT_BOLD, 9.4)
-            pdf.drawCentredString(_mm(105), _top_text_baseline(29.2, 9.4), subtitle)
-        if institution:
-            pdf.setFont(FONT_REGULAR, 8.5)
-            pdf.drawCentredString(_mm(105), _top_text_baseline(34.2, 8.5), institution)
+    if cfg["header_mode"] == "manual":
+        label_x_mm = x_mm + 5.8
+        line_start_x_mm = label_x_mm + float(offsets["manual_label_width_mm"])
+        line_end_x_mm = x_mm + width_mm - 6.2
+        manual_start_y_mm = y_top_mm + float(offsets["manual_line_start_y_mm"])
+        manual_gap_mm = float(offsets["manual_line_gap_mm"])
+
+        pdf.setFillColor(colors.HexColor("#0f172a"))
+        pdf.setFont(FONT_BOLD, 8.4)
+        pdf.setStrokeColor(accent)
+        pdf.setLineWidth(0.9)
+        for index, label in enumerate(MANUAL_HEADER_LABELS):
+            row_y_mm = manual_start_y_mm + (index * manual_gap_mm)
+            pdf.drawString(_mm(label_x_mm), _top_text_baseline(row_y_mm, 8.4), label)
+            pdf.line(
+                _mm(line_start_x_mm),
+                _top_to_bottom(row_y_mm - 0.3, 0),
+                _mm(line_end_x_mm),
+                _top_to_bottom(row_y_mm - 0.3, 0),
+            )
         return
 
-    pdf.setFillColor(colors.HexColor("#0f172a"))
-    pdf.setFont(FONT_BOLD, 9.5)
-    for label, y_top in zip(MANUAL_HEADER_LABELS, (15.5, 23.3, 31.1)):
-        pdf.drawString(_mm(22), _top_text_baseline(y_top, 9.5), label)
-        pdf.setStrokeColor(accent)
-        pdf.setLineWidth(1)
-        pdf.line(_mm(48), _top_text_baseline(y_top - 0.7, 0), _mm(184), _top_text_baseline(y_top - 0.7, 0))
+    copy_box = {
+        "x_mm": x_mm + float(offsets["copy_box_x_mm"]),
+        "y_mm": y_top_mm + float(offsets["copy_box_y_mm"]),
+        "width_mm": float(offsets["copy_box_width_mm"]),
+        "height_mm": float(offsets["copy_box_height_mm"]),
+    }
+    line_specs = []
+    title = (cfg["header"]["title"] or "").strip()
+    subtitle = (cfg["header"]["subtitle"] or "").strip()
+    institution = (cfg["header"]["institution"] or "").strip()
+    if title:
+        line_specs.append((title, FONT_BOLD, 11.8))
+    if subtitle:
+        line_specs.append((subtitle, FONT_BOLD, 7.6))
+    if institution:
+        line_specs.append((institution, FONT_REGULAR, 7.1))
+
+    if not line_specs:
+        return
+
+    gap_mm = 3.8 if len(line_specs) > 1 else 0
+    start_y_mm = copy_box["y_mm"] + max(3.0, (copy_box["height_mm"] - (gap_mm * max(0, len(line_specs) - 1))) / 2)
+    copy_center_x_mm = copy_box["x_mm"] + (copy_box["width_mm"] / 2)
+
+    pdf.setFillColor(colors.black)
+    for index, (text, font_name, font_size) in enumerate(line_specs):
+        row_y_mm = start_y_mm + (index * gap_mm)
+        pdf.setFont(font_name, font_size)
+        pdf.drawCentredString(_mm(copy_center_x_mm), _top_text_baseline(row_y_mm, font_size), text)
 
 
 def _draw_general_header(pdf: canvas.Canvas, cfg: dict[str, Any]) -> None:
@@ -1205,72 +1582,52 @@ def _draw_general_header(pdf: canvas.Canvas, cfg: dict[str, Any]) -> None:
 def _draw_identity_section(
     pdf: canvas.Canvas,
     cfg: dict[str, Any],
+    template: dict[str, Any] | None,
     accent: colors.Color,
     accent_soft: colors.Color,
     bubble_preset: dict[str, Any],
 ) -> None:
-    start_y_top = 52
-    block_specs = []
-    if cfg["fields"].get("roll"):
-        block_specs.append({
-            "title": ROLL_NUMBER_TITLE,
-            "x_mm": 14,
-            "width_mm": 42,
-            "labels": list(DIGIT_LABELS),
-            "columns": 6,
-            "rows": 10,
-        })
-    if cfg["fields"].get("subject_code"):
-        block_specs.append({
-            "title": SUBJECT_CODE_TITLE,
-            "x_mm": 59,
-            "width_mm": 38,
-            "labels": list(DIGIT_LABELS),
-            "columns": 3,
-            "rows": 10,
-        })
-    if cfg["fields"].get("set_code"):
-        block_specs.append({
-            "title": SET_CODE_TITLE,
-            "x_mm": 100,
-            "width_mm": 20,
-            "labels": list(ANSWER_OPTION_LABELS),
-            "columns": 1,
-            "rows": 4,
-        })
+    if template is None:
+        return
 
-    for spec in block_specs:
+    identity_layout = template["identity_section_layout"]
+    for spec in identity_layout["matrix_blocks"]:
+        enabled_field = spec.get("enabled_field")
+        if enabled_field and not cfg["fields"].get(str(enabled_field)):
+            continue
         _draw_bubble_matrix_block(
             pdf,
-            x_mm=spec["x_mm"],
-            y_top_mm=start_y_top,
-            width_mm=spec["width_mm"],
-            height_mm=82,
-            title=spec["title"],
-            labels=spec["labels"],
-            columns=spec["columns"],
-            rows=spec["rows"],
+            x_mm=float(spec["x_mm"]),
+            y_top_mm=float(spec["y_mm"]),
+            width_mm=float(spec["width_mm"]),
+            height_mm=float(spec["height_mm"]),
+            title=str(spec["title"]),
+            labels=list(spec["labels"]),
+            columns=int(spec["columns"]),
+            rows=len(spec["labels"]),
             accent=accent,
             accent_soft=accent_soft,
             bubble_preset=bubble_preset,
         )
 
+    instructions_block = identity_layout["instructions_block"]
     _draw_instructions_block(
         pdf,
-        x_mm=125,
-        y_top_mm=start_y_top,
-        width_mm=70,
-        height_mm=40,
+        x_mm=float(instructions_block["x_mm"]),
+        y_top_mm=float(instructions_block["y_mm"]),
+        width_mm=float(instructions_block["width_mm"]),
+        height_mm=float(instructions_block["height_mm"]),
         cfg=cfg,
         accent=accent,
         accent_soft=accent_soft,
     )
+    signature_box = identity_layout["signature_box"]
     _draw_signature_box(
         pdf,
-        x_mm=125,
-        y_top_mm=start_y_top + 45,
-        width_mm=46,
-        height_mm=23,
+        x_mm=float(signature_box["x_mm"]),
+        y_top_mm=float(signature_box["y_mm"]),
+        width_mm=float(signature_box["width_mm"]),
+        height_mm=float(signature_box["height_mm"]),
         accent=accent,
     )
 
@@ -1439,6 +1796,7 @@ def _draw_general_answer_grid(
     bubble_preset: dict[str, Any],
 ) -> None:
     grid = layout["answer_grid"]
+    title_box = grid.get("title_box") or {"x_mm": 40, "y_mm": grid["y_mm"] - 13, "width_mm": 130, "height_mm": 8}
     frame = _get_general_answer_frame_metrics(grid)
     column_question_counts = grid.get("column_question_counts") or [grid["rows"]] * grid["columns"]
     question_font = 7.9 if grid["columns"] <= 3 else 6.8
@@ -1446,7 +1804,11 @@ def _draw_general_answer_grid(
 
     pdf.setFillColor(colors.black)
     pdf.setFont(FONT_BOLD, 12.5)
-    pdf.drawCentredString(_mm(105), _top_text_baseline(grid["y_mm"] - 8.5, 12.5), GENERAL_ANSWER_TITLE)
+    pdf.drawCentredString(
+        _mm(title_box["x_mm"] + (title_box["width_mm"] / 2)),
+        _top_text_baseline(title_box["y_mm"] + 5.5, 12.5),
+        GENERAL_ANSWER_TITLE,
+    )
 
     pdf.setStrokeColor(stroke)
     pdf.setLineWidth(1.35)
@@ -1526,6 +1888,7 @@ def _draw_answer_grid(
     pdf: canvas.Canvas,
     cfg: dict[str, Any],
     layout: dict[str, Any],
+    template: dict[str, Any] | None,
     accent: colors.Color,
     accent_soft: colors.Color,
     bubble_preset: dict[str, Any],
@@ -1535,6 +1898,7 @@ def _draw_answer_grid(
         return
 
     grid = layout["answer_grid"]
+    title_box = grid.get("title_box") or {"x_mm": 40, "y_mm": grid["y_mm"] - 13, "width_mm": 130, "height_mm": 8}
     column_question_counts = grid.get("column_question_counts") or [grid["rows"]] * grid["columns"]
     number = 1
     header_label_font = 8.5 if grid["columns"] <= 3 else 7.3
@@ -1543,7 +1907,11 @@ def _draw_answer_grid(
 
     pdf.setFillColor(colors.black)
     pdf.setFont(FONT_BOLD, 12.5)
-    pdf.drawCentredString(_mm(105), _top_text_baseline(grid["y_mm"] - 8.5, 12.5), answer_title)
+    pdf.drawCentredString(
+        _mm(title_box["x_mm"] + (title_box["width_mm"] / 2)),
+        _top_text_baseline(title_box["y_mm"] + 5.5, 12.5),
+        answer_title,
+    )
 
     for column_index in range(grid["columns"]):
         column_x = grid["x_mm"] + (column_index * (grid["column_width_mm"] + grid["column_gap_mm"]))

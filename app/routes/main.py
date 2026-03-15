@@ -20,6 +20,7 @@ from app.utils.omr_generator import (
     get_omr_bubble_size_options,
     get_omr_general_rules,
     get_omr_layout_presets,
+    get_omr_template_presets,
     get_omr_theme_options,
     normalize_omr_template_config,
 )
@@ -978,6 +979,7 @@ def omr_builder():
         omr_default_config=get_default_omr_config(),
         omr_general_rules=get_omr_general_rules(),
         omr_layout_presets=get_omr_layout_presets(),
+        omr_template_presets=get_omr_template_presets(),
         omr_theme_options=get_omr_theme_options(),
         omr_bubble_sizes=get_omr_bubble_size_options(),
         initial_template_id=request.args.get('template', type=int),

@@ -1,6 +1,6 @@
 from app import create_app, db
 from app.models import GeneratedPaper, GenerationLog, OmrTemplate, QuestionSet
-from app.utils.omr_generator import _build_general_layout, get_default_omr_config
+from app.utils.omr_generator import _build_general_layout, get_default_omr_config, get_omr_template_presets
 from config import TestingConfig
 
 
@@ -449,6 +449,19 @@ def test_general_fixed_column_layout_balances_question_counts():
     assert layout["answer_grid"]["columns"] == 2
     assert layout["answer_grid"]["rows"] == 9
     assert layout["answer_grid"]["column_question_counts"] == [9, 8]
+
+
+def test_institutional_template_presets_are_count_specific():
+    templates = get_omr_template_presets()
+
+    assert templates[40]["answer_section_layout"]["columns"] == 4
+    assert templates[40]["answer_section_layout"]["column_question_counts"] == [10, 10, 10, 10]
+    assert templates[60]["answer_section_layout"]["column_question_counts"] == [15, 15, 15, 15]
+    assert templates[80]["answer_section_layout"]["column_question_counts"] == [20, 20, 20, 20]
+    assert templates[100]["answer_section_layout"]["column_question_counts"] == [25, 25, 25, 25]
+    assert templates[40]["top_marker_pattern"]["pattern"] != templates[60]["top_marker_pattern"]["pattern"]
+    assert templates[60]["top_marker_pattern"]["pattern"] != templates[80]["top_marker_pattern"]["pattern"]
+    assert templates[40]["side_markers"][0]["y_mm"] != templates[100]["side_markers"][0]["y_mm"]
 
 
 def test_create_general_omr_template_rejects_incompatible_column_count(client):
