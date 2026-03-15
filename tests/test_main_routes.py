@@ -405,6 +405,33 @@ def test_create_omr_template_rejects_invalid_question_count(client):
     assert "Question count" in response.get_json()["error"]
 
 
+def test_create_general_omr_template_accepts_custom_question_count(client):
+    _login(client, user_id="general-omr-user")
+    payload = _valid_omr_payload(question_count=37)
+    payload["config_json"]["sheet_variant"] = "general"
+    payload["config_json"]["answer_columns"] = 2
+
+    response = client.post("/api/omr/templates", json=payload)
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["template"]["question_count"] == 37
+    assert body["template"]["config_json"]["sheet_variant"] == "general"
+    assert body["template"]["config_json"]["answer_columns"] == 2
+
+
+def test_create_general_omr_template_rejects_incompatible_column_count(client):
+    _login(client, user_id="general-invalid-user")
+    payload = _valid_omr_payload(question_count=80)
+    payload["config_json"]["sheet_variant"] = "general"
+    payload["config_json"]["answer_columns"] = 3
+
+    response = client.post("/api/omr/templates", json=payload)
+
+    assert response.status_code == 400
+    assert "columns support up to" in response.get_json()["error"]
+
+
 def test_create_omr_template_rejects_invalid_config_shape(client):
     _login(client)
 
@@ -443,6 +470,19 @@ def test_render_omr_pdf_returns_pdf_for_supported_presets(client):
         assert response.status_code == 200
         assert response.mimetype == "application/pdf"
         assert len(response.data) > 1000
+
+
+def test_render_general_omr_pdf_returns_pdf(client):
+    _login(client, user_id="pdf-general-user")
+    payload = _valid_omr_payload(question_count=48)
+    payload["config_json"]["sheet_variant"] = "general"
+    payload["config_json"]["answer_columns"] = 2
+
+    response = client.post("/api/omr/render", json=payload)
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+    assert len(response.data) > 1000
 
 
 def test_render_omr_pdf_accepts_bengali_header(client):

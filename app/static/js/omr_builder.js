@@ -3,11 +3,43 @@
 
     const boot = window.OMR_BUILDER_DATA || {};
     const defaultConfig = deepClone(boot.defaultConfig || {});
+    const generalRules = Object.assign({
+        min_question_count: 10,
+        max_question_count: 100,
+        supported_columns: [2, 3, 4],
+        max_question_count_by_column: { 2: 50, 3: 75, 4: 100 },
+    }, boot.generalRules || {});
     const layouts = boot.layouts || {};
     const themes = boot.themes || {};
     const bubbleSizes = boot.bubbleSizes || {};
     const initialTemplateId = boot.initialTemplateId || null;
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const generalColumnLayouts = {
+        2: {
+            x_mm: 35,
+            column_width_mm: 67,
+            column_gap_mm: 6,
+            header_height_mm: 8.2,
+            number_width_mm: 13.2,
+            max_row_height_mm: 10.2,
+        },
+        3: {
+            x_mm: 25,
+            column_width_mm: 50,
+            column_gap_mm: 5,
+            header_height_mm: 7.6,
+            number_width_mm: 11,
+            max_row_height_mm: 8.4,
+        },
+        4: {
+            x_mm: 13,
+            column_width_mm: 43,
+            column_gap_mm: 4,
+            header_height_mm: 7.1,
+            number_width_mm: 9.4,
+            max_row_height_mm: 6.45,
+        },
+    };
 
     const state = {
         templateId: null,
@@ -41,9 +73,12 @@
             'omrTemplateName',
             'omrTemplateSelect',
             'omrTemplateMeta',
+            'omrVariantLabel',
             'omrQuestionCountLabel',
+            'omrColumnCountLabel',
             'omrPreviewSheet',
             'omrScanStatus',
+            'omrScanStatusText',
             'omrDownloadBtn',
             'omrNewTemplateBtn',
             'omrSaveTemplateBtn',
@@ -53,9 +88,15 @@
             'omrInstitutionInput',
             'omrTitleInput',
             'omrSubtitleInput',
+            'omrCustomQuestionCount',
             'omrFieldRoll',
             'omrFieldSetCode',
             'omrFieldSubjectCode',
+            'omrPresetLayoutControls',
+            'omrGeneralLayoutControls',
+            'omrHeaderModeGroup',
+            'omrFieldsPanel',
+            'omrInstructionsPanel',
         ];
         ids.forEach(function (id) {
             els[id] = document.getElementById(id);
@@ -73,18 +114,58 @@
             els.omrInstitutionInput,
             els.omrTitleInput,
             els.omrSubtitleInput,
+            els.omrCustomQuestionCount,
             els.omrFieldRoll,
             els.omrFieldSetCode,
             els.omrFieldSubjectCode,
             ...els.instructions,
         ].forEach(function (element) {
+            if (!element) {
+                return;
+            }
             element.addEventListener('input', syncFromControls);
             element.addEventListener('change', syncFromControls);
+        });
+
+        document.querySelectorAll('[data-sheet-variant]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const nextVariant = button.dataset.sheetVariant;
+                if (state.config.sheet_variant === nextVariant) {
+                    return;
+                }
+                state.config.sheet_variant = nextVariant;
+                if (nextVariant === 'general') {
+                    state.config.answer_columns = getMinimumCompatibleGeneralColumns(state.config.question_count);
+                } else {
+                    state.config.question_count = getNearestPresetQuestionCount(state.config.question_count);
+                }
+                state.config = normalizeConfig(state.config);
+                applyStateToControls();
+                markDirty();
+                render();
+            });
         });
 
         document.querySelectorAll('[data-question-count]').forEach(function (button) {
             button.addEventListener('click', function () {
                 state.config.question_count = parseInt(button.dataset.questionCount, 10);
+                state.config = normalizeConfig(state.config);
+                applyStateToControls();
+                markDirty();
+                render();
+            });
+        });
+
+        document.querySelectorAll('[data-answer-columns]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const columns = parseInt(button.dataset.answerColumns, 10);
+                const maxQuestions = getGeneralColumnLimit(columns);
+                if (state.config.question_count > maxQuestions) {
+                    showToast(columns + ' columns support up to ' + maxQuestions + ' questions on General Normal OMR.', 'warning');
+                    return;
+                }
+                state.config.answer_columns = columns;
+                state.config = normalizeConfig(state.config);
                 applyStateToControls();
                 markDirty();
                 render();
@@ -137,7 +218,7 @@
 
     function resetToDefault(clearSelection) {
         state.templateId = null;
-        state.config = deepClone(defaultConfig);
+        state.config = normalizeConfig(deepClone(defaultConfig));
         state.name = `OMR Template ${state.config.question_count}`;
         state.dirty = false;
         if (clearSelection) {
@@ -154,6 +235,115 @@
         return JSON.parse(JSON.stringify(value));
     }
 
+    function normalizeConfig(rawConfig) {
+        const next = rawConfig && typeof rawConfig === 'object' ? rawConfig : {};
+        const config = deepClone(defaultConfig);
+
+        config.template_type = defaultConfig.template_type;
+        config.sheet_variant = next.sheet_variant === 'general' ? 'general' : 'institutional';
+        config.question_count = parseInteger(next.question_count, defaultConfig.question_count);
+        config.answer_columns = parseInteger(next.answer_columns, defaultConfig.answer_columns || 4);
+        config.theme_color = next.theme_color || config.theme_color;
+        config.bubble_size = next.bubble_size || config.bubble_size;
+        config.header_mode = next.header_mode || config.header_mode;
+        config.header = Object.assign({}, config.header, next.header || {});
+        config.fields = Object.assign({}, config.fields, next.fields || {});
+        config.instructions = Array.isArray(next.instructions) ? next.instructions.slice(0, 6) : config.instructions;
+
+        if (config.sheet_variant === 'general') {
+            config.question_count = clamp(
+                config.question_count,
+                generalRules.min_question_count,
+                generalRules.max_question_count
+            );
+            config.answer_columns = getCompatibleGeneralColumns(config.question_count, config.answer_columns);
+        } else {
+            config.question_count = getNearestPresetQuestionCount(config.question_count);
+            config.answer_columns = getInstitutionalLayout(config.question_count).answer_grid.columns;
+        }
+
+        return config;
+    }
+
+    function parseInteger(value, fallback) {
+        const parsed = parseInt(value, 10);
+        return Number.isInteger(parsed) ? parsed : fallback;
+    }
+
+    function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+    }
+
+    function getInstitutionalLayout(questionCount) {
+        return layouts[String(questionCount)] || layouts[questionCount] || layouts[String(defaultConfig.question_count)] || layouts[defaultConfig.question_count];
+    }
+
+    function getNearestPresetQuestionCount(questionCount) {
+        const presets = Object.keys(layouts)
+            .map(function (key) { return parseInt(key, 10); })
+            .filter(Number.isInteger)
+            .sort(function (a, b) { return a - b; });
+        if (!presets.length) {
+            return questionCount;
+        }
+        return presets.reduce(function (closest, preset) {
+            return Math.abs(preset - questionCount) < Math.abs(closest - questionCount) ? preset : closest;
+        }, presets[0]);
+    }
+
+    function getGeneralColumnLimit(columns) {
+        return parseInteger(generalRules.max_question_count_by_column[columns], generalRules.max_question_count);
+    }
+
+    function getMinimumCompatibleGeneralColumns(questionCount) {
+        const columns = (generalRules.supported_columns || [2, 3, 4]).map(function (value) {
+            return parseInt(value, 10);
+        });
+        for (let index = 0; index < columns.length; index += 1) {
+            if (questionCount <= getGeneralColumnLimit(columns[index])) {
+                return columns[index];
+            }
+        }
+        return columns[columns.length - 1] || 4;
+    }
+
+    function getCompatibleGeneralColumns(questionCount, requestedColumns) {
+        const supported = (generalRules.supported_columns || [2, 3, 4]).map(function (value) {
+            return parseInt(value, 10);
+        });
+        const desired = supported.includes(requestedColumns) ? requestedColumns : supported[0];
+        if (questionCount <= getGeneralColumnLimit(desired)) {
+            return desired;
+        }
+        return getMinimumCompatibleGeneralColumns(questionCount);
+    }
+
+    function getResolvedLayout() {
+        if (state.config.sheet_variant !== 'general') {
+            return getInstitutionalLayout(state.config.question_count);
+        }
+
+        const columns = state.config.answer_columns;
+        const spec = generalColumnLayouts[columns] || generalColumnLayouts[4];
+        const rows = Math.ceil(state.config.question_count / columns);
+        const availableRowsHeight = 270 - 102 - spec.header_height_mm;
+        const rowHeight = Math.min(spec.max_row_height_mm, availableRowsHeight / rows);
+        return {
+            page: { width_mm: 210, height_mm: 297 },
+            answer_grid: {
+                x_mm: spec.x_mm,
+                y_mm: 102,
+                columns: columns,
+                rows: rows,
+                column_width_mm: spec.column_width_mm,
+                column_gap_mm: spec.column_gap_mm,
+                row_height_mm: Number(rowHeight.toFixed(2)),
+                header_height_mm: spec.header_height_mm,
+                number_width_mm: spec.number_width_mm,
+            },
+        };
+    }
+
     function markDirty() {
         state.dirty = true;
         updateMeta();
@@ -164,6 +354,12 @@
         state.config.header.institution = els.omrInstitutionInput.value.trim();
         state.config.header.title = els.omrTitleInput.value.trim();
         state.config.header.subtitle = els.omrSubtitleInput.value.trim();
+        if (state.config.sheet_variant === 'general') {
+            const enteredCount = parseInt(els.omrCustomQuestionCount.value, 10);
+            if (Number.isInteger(enteredCount)) {
+                state.config.question_count = enteredCount;
+            }
+        }
         state.config.fields.roll = els.omrFieldRoll.checked;
         state.config.fields.set_code = els.omrFieldSetCode.checked;
         state.config.fields.subject_code = els.omrFieldSubjectCode.checked;
@@ -182,15 +378,23 @@
             state.config.instructions = deepClone(defaultConfig.instructions || []);
         }
 
+        state.config = normalizeConfig(state.config);
+        if (els.omrCustomQuestionCount && state.config.sheet_variant === 'general') {
+            els.omrCustomQuestionCount.value = state.config.question_count;
+        }
         markDirty();
         render();
     }
 
     function applyStateToControls() {
+        state.config = normalizeConfig(state.config);
         els.omrTemplateName.value = state.name || '';
         els.omrInstitutionInput.value = state.config.header.institution || '';
         els.omrTitleInput.value = state.config.header.title || '';
         els.omrSubtitleInput.value = state.config.header.subtitle || '';
+        if (els.omrCustomQuestionCount) {
+            els.omrCustomQuestionCount.value = state.config.question_count;
+        }
         els.omrFieldRoll.checked = !!state.config.fields.roll;
         els.omrFieldSetCode.checked = !!state.config.fields.set_code;
         els.omrFieldSubjectCode.checked = !!state.config.fields.subject_code;
@@ -199,10 +403,29 @@
             input.value = state.config.instructions[index] || '';
         });
 
+        setActiveState('[data-sheet-variant]', 'sheetVariant', state.config.sheet_variant);
         setActiveState('[data-question-count]', 'questionCount', String(state.config.question_count));
+        setActiveState('[data-answer-columns]', 'answerColumns', String(state.config.answer_columns));
         setActiveState('[data-bubble-size]', 'bubbleSize', state.config.bubble_size);
         setActiveState('[data-header-mode]', 'headerMode', state.config.header_mode);
         setActiveState('[data-theme-color]', 'themeColor', state.config.theme_color);
+
+        const isGeneral = state.config.sheet_variant === 'general';
+        if (els.omrPresetLayoutControls) {
+            els.omrPresetLayoutControls.hidden = isGeneral;
+        }
+        if (els.omrGeneralLayoutControls) {
+            els.omrGeneralLayoutControls.hidden = !isGeneral;
+        }
+        if (els.omrHeaderModeGroup) {
+            els.omrHeaderModeGroup.hidden = isGeneral;
+        }
+        if (els.omrFieldsPanel) {
+            els.omrFieldsPanel.hidden = isGeneral;
+        }
+        if (els.omrInstructionsPanel) {
+            els.omrInstructionsPanel.hidden = isGeneral;
+        }
 
         if (state.templateId) {
             els.omrTemplateSelect.value = String(state.templateId);
@@ -259,7 +482,7 @@
             const template = data.template;
             state.templateId = template.id;
             state.name = template.name;
-            state.config = deepClone(template.config_json);
+            state.config = normalizeConfig(template.config_json);
             state.dirty = false;
             applyStateToControls();
             render();
@@ -293,7 +516,7 @@
             }
             state.templateId = data.template.id;
             state.name = data.template.name;
-            state.config = deepClone(data.template.config_json);
+            state.config = normalizeConfig(data.template.config_json);
             state.dirty = false;
             await loadTemplates();
             applyStateToControls();
@@ -388,14 +611,27 @@
     }
 
     function render() {
-        renderPreview();
+        const layout = getResolvedLayout();
+        renderPreview(layout);
         updateMeta();
         els.omrQuestionCountLabel.innerHTML = '<i class="bi bi-ui-checks-grid"></i> ' + state.config.question_count + ' questions';
+        if (els.omrColumnCountLabel) {
+            els.omrColumnCountLabel.innerHTML = '<i class="bi bi-columns-gap"></i> ' + layout.answer_grid.columns + ' columns';
+        }
+        if (els.omrVariantLabel) {
+            els.omrVariantLabel.innerHTML = state.config.sheet_variant === 'general'
+                ? '<i class="bi bi-grid-1x2"></i> General normal'
+                : '<i class="bi bi-grid-1x2"></i> Institutional preset';
+        }
+        if (els.omrScanStatusText) {
+            els.omrScanStatusText.textContent = state.config.sheet_variant === 'general'
+                ? 'Custom question count is available on General Normal OMR.'
+                : 'Preset geometry locked for reliable scanning.';
+        }
     }
 
-    function renderPreview() {
+    function renderPreview(layout) {
         const theme = themes[state.config.theme_color] || { hex: '#f45d74' };
-        const layout = layouts[String(state.config.question_count)] || layouts[state.config.question_count];
         const accentHex = theme.hex;
         const soft = hexToRgba(accentHex, 0.16);
         const lighter = hexToRgba(accentHex, 0.08);
@@ -406,8 +642,8 @@
 
         const blocks = [];
         blocks.push(renderMarkers());
-        blocks.push(renderHeader());
-        blocks.push(renderIdentitySection());
+        blocks.push(state.config.sheet_variant === 'general' ? renderGeneralHeader() : renderHeader());
+        blocks.push(state.config.sheet_variant === 'general' ? renderGeneralIdentitySection() : renderIdentitySection());
         blocks.push(renderAnswers(layout));
         blocks.push('<div class="omr-preview-footer-badge" style="' + boxStyle(134, 276, 62, 12) + '"><i class="bi bi-check-circle-fill"></i><span>Scannable</span></div>');
         els.omrPreviewSheet.innerHTML = blocks.join('');
@@ -441,6 +677,21 @@
             '<h2>' + escapeHtml(state.config.header.title || 'OMR Sheet') + '</h2>' +
             '<p class="omr-preview-subtitle">' + escapeHtml(state.config.header.subtitle || '') + '</p>' +
             '<p class="omr-preview-institution">' + escapeHtml(state.config.header.institution || '') + '</p>' +
+            '</div>';
+    }
+
+    function renderGeneralHeader() {
+        const subtitle = state.config.header.subtitle
+            ? '<p>' + escapeHtml(state.config.header.subtitle) + '</p>'
+            : '';
+        const institution = state.config.header.institution
+            ? '<p>' + escapeHtml(state.config.header.institution) + '</p>'
+            : '';
+        return '<div class="omr-preview-general-header" style="' + boxStyle(18, 12, 174, 20) + '">' +
+            '<h2>' + escapeHtml(state.config.header.title || 'সাধারণ OMR উত্তরপত্র') + '</h2>' +
+            subtitle +
+            institution +
+            '<div class="omr-preview-general-divider"></div>' +
             '</div>';
     }
 
@@ -489,6 +740,24 @@
         return html.join('');
     }
 
+    function renderGeneralIdentitySection() {
+        const rows = [
+            ['নাম'],
+            ['শ্রেণি', 'সেকশন'],
+            ['বিষয়', 'রোল'],
+        ];
+        let html = '<div class="omr-preview-general-form" style="' + boxStyle(18, 40, 174, 28) + '">';
+        rows.forEach(function (row) {
+            html += '<div class="omr-preview-general-row">';
+            row.forEach(function (label) {
+                html += '<div class="omr-preview-general-field"><strong>' + escapeHtml(label) + ':</strong><span></span></div>';
+            });
+            html += '</div>';
+        });
+        html += '</div>';
+        return html;
+    }
+
     function renderMatrixBlock(spec) {
         const rows = spec.labels.length;
         const bubbleClass = state.config.bubble_size === 'small' ? 'small' : 'large';
@@ -511,6 +780,10 @@
         const total = state.config.question_count;
         const titleStyle = boxStyle(40, grid.y_mm - 13, 130, 8);
         let html = '<div class="omr-preview-answer-title" style="' + titleStyle + '">বহুনির্বাচনি অভীক্ষার উত্তরপত্র</div>';
+
+        if (state.config.sheet_variant === 'general') {
+            html = '<div class="omr-preview-answer-title" style="' + titleStyle + '">সাধারণ বহুনির্বাচনি উত্তরপত্র</div>';
+        }
 
         for (let columnIndex = 0; columnIndex < grid.columns; columnIndex += 1) {
             const x = grid.x_mm + (columnIndex * (grid.column_width_mm + grid.column_gap_mm));

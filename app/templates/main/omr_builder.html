@@ -14,7 +14,7 @@
             <div>
                 <span class="omr-builder-kicker">Scannable OMR Builder</span>
                 <h1>Design a print-ready answer sheet without touching the layout math.</h1>
-                <p>Choose a tested preset, customize the header and exam details, preview the final page live, then save it privately to your Prosno.io account.</p>
+                <p>Switch between institutional presets and General Normal OMR, customize the header and exam details, preview the final page live, then save it privately to your Prosno.io account.</p>
             </div>
             <div class="omr-hero-actions">
                 <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-light">
@@ -30,8 +30,10 @@
             <div class="omr-preview-column">
                 <div class="omr-preview-topbar">
                     <span class="omr-preview-chip"><i class="bi bi-file-earmark"></i> A4 portrait</span>
+                    <span class="omr-preview-chip" id="omrVariantLabel"><i class="bi bi-grid-1x2"></i> Institutional preset</span>
                     <span class="omr-preview-chip"><i class="bi bi-aspect-ratio"></i> Fixed scan markers</span>
                     <span class="omr-preview-chip" id="omrQuestionCountLabel"><i class="bi bi-ui-checks-grid"></i> 100 questions</span>
+                    <span class="omr-preview-chip" id="omrColumnCountLabel"><i class="bi bi-columns-gap"></i> 4 columns</span>
                 </div>
 
                 <div class="omr-stage-frame">
@@ -40,7 +42,7 @@
 
                 <div class="omr-scan-status" id="omrScanStatus">
                     <span class="omr-scan-dot"></span>
-                    <span>Preset geometry locked for reliable scanning.</span>
+                    <span id="omrScanStatusText">Preset geometry locked for reliable scanning.</span>
                 </div>
             </div>
 
@@ -80,14 +82,64 @@
                     <div class="omr-panel-head">
                         <div>
                             <span class="omr-panel-kicker">Layout</span>
-                            <h2>Choose a tested preset</h2>
+                            <h2>Choose the OMR format</h2>
                         </div>
                     </div>
 
-                    <div class="omr-pill-grid" id="omrCountPills">
-                        {% for count in [40, 60, 80, 100] %}
-                        <button class="omr-pill" type="button" data-question-count="{{ count }}">{{ count }}</button>
-                        {% endfor %}
+                    <div class="omr-option-group">
+                        <label class="omr-field-label">Sheet type</label>
+                        <div class="omr-template-card-grid" id="omrVariantChoices">
+                            <button class="omr-template-card" type="button" data-sheet-variant="institutional">
+                                <span class="omr-template-card-preview omr-template-card-preview-institutional">
+                                    <span class="preview-band"></span>
+                                    <span class="preview-grid preview-grid-four">
+                                        <span></span><span></span><span></span><span></span>
+                                    </span>
+                                </span>
+                                <strong>Institutional</strong>
+                                <small>Fixed presets with scan-safe student info blocks.</small>
+                            </button>
+                            <button class="omr-template-card" type="button" data-sheet-variant="general">
+                                <span class="omr-template-card-preview omr-template-card-preview-general">
+                                    <span class="preview-lines"></span>
+                                    <span class="preview-grid preview-grid-two">
+                                        <span></span><span></span>
+                                    </span>
+                                </span>
+                                <strong>General Normal</strong>
+                                <small>Custom question count with column selection.</small>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="omr-option-group" id="omrPresetLayoutControls">
+                        <label class="omr-field-label">Question preset</label>
+                        <div class="omr-pill-grid" id="omrCountPills">
+                            {% for count in [40, 60, 80, 100] %}
+                            <button class="omr-pill" type="button" data-question-count="{{ count }}">{{ count }}</button>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="omr-option-group" id="omrGeneralLayoutControls" hidden>
+                        <label class="omr-field-label" for="omrCustomQuestionCount">Number of questions</label>
+                        <input class="form-control omr-input" id="omrCustomQuestionCount" type="number" min="10" max="100" step="1">
+                        <div class="omr-field-note">Available only on General Normal OMR. Valid input: 10 to 100.</div>
+
+                        <label class="omr-field-label">Columns</label>
+                        <div class="omr-column-grid" id="omrColumnChoices">
+                            {% for columns in [2, 3, 4] %}
+                            <button class="omr-column-card" type="button" data-answer-columns="{{ columns }}">
+                                <span class="omr-column-visual">
+                                    {% for _ in range(columns) %}
+                                    <span></span>
+                                    {% endfor %}
+                                </span>
+                                <strong>{{ columns }} columns</strong>
+                            </button>
+                            {% endfor %}
+                        </div>
+                        <div class="omr-field-note">2 columns up to 50 questions, 3 columns up to 75, 4 columns up to 100.</div>
                     </div>
 
                     <div class="omr-option-group">
@@ -99,7 +151,7 @@
                         </div>
                     </div>
 
-                    <div class="omr-option-group">
+                    <div class="omr-option-group" id="omrHeaderModeGroup">
                         <label class="omr-field-label">Header mode</label>
                         <div class="omr-inline-choice" id="omrHeaderModeChoices">
                             <button class="omr-segment" type="button" data-header-mode="digital">Digital</button>
@@ -141,7 +193,7 @@
                     <input class="form-control omr-input" id="omrSubtitleInput" type="text" maxlength="120">
                 </div>
 
-                <div class="omr-panel">
+                <div class="omr-panel" id="omrFieldsPanel">
                     <div class="omr-panel-head">
                         <div>
                             <span class="omr-panel-kicker">Fields</span>
@@ -172,7 +224,7 @@
                     </label>
                 </div>
 
-                <div class="omr-panel">
+                <div class="omr-panel" id="omrInstructionsPanel">
                     <div class="omr-panel-head">
                         <div>
                             <span class="omr-panel-kicker">Instructions</span>
@@ -195,6 +247,7 @@
 <script>
     window.OMR_BUILDER_DATA = {{ {
         'defaultConfig': omr_default_config,
+        'generalRules': omr_general_rules,
         'layouts': omr_layout_presets,
         'themes': omr_theme_options,
         'bubbleSizes': omr_bubble_sizes,
