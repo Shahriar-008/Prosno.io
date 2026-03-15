@@ -1,11 +1,21 @@
 from app import create_app, db
-from app.models import GeneratedPaper, GenerationLog, QuestionSet
+from app.models import GeneratedPaper, GenerationLog, OmrTemplate, QuestionSet
+from app.utils.omr_generator import get_default_omr_config
 from config import TestingConfig
 
 
 def _login(client, user_id="user-1"):
     with client.session_transaction() as session:
         session["user"] = {"id": user_id, "email": "user@example.com"}
+
+
+def _valid_omr_payload(question_count=100):
+    config = get_default_omr_config()
+    config["question_count"] = question_count
+    return {
+        "name": f"OMR {question_count}",
+        "config_json": config,
+    }
 
 
 def test_generate_paper_success_creates_paper_record(client, seed_catalog, monkeypatch):
@@ -341,3 +351,133 @@ def test_save_question_set_db_source_enriches_full_question_data(client, seed_ca
         assert saved.questions_json[0]["question_text"] == "2 + 2 = ?"
         assert saved.questions_json[0]["correct_answer"] == "4"
         assert saved.questions_json[0]["answer_options"] == ["1", "2", "3", "4"]
+
+
+def test_omr_builder_requires_login(client):
+    response = client.get("/omr-builder")
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_create_omr_template_requires_login(client):
+    response = client.post("/api/omr/templates", json=_valid_omr_payload())
+
+    assert response.status_code == 401
+    assert response.get_json()["login_required"] is True
+
+
+def test_create_and_fetch_omr_template_success(client):
+    _login(client, user_id="omr-user")
+
+    response = client.post("/api/omr/templates", json=_valid_omr_payload(question_count=80))
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    template_id = body["template"]["id"]
+
+    list_response = client.get("/api/omr/templates")
+    assert list_response.status_code == 200
+    assert any(item["id"] == template_id for item in list_response.get_json()["templates"])
+
+    get_response = client.get(f"/api/omr/templates/{template_id}")
+    assert get_response.status_code == 200
+    template = get_response.get_json()["template"]
+    assert template["name"] == "OMR 80"
+    assert template["question_count"] == 80
+    assert template["config_json"]["template_type"] == "exam_sheet_v1"
+
+    with client.application.app_context():
+        saved = OmrTemplate.query.get(template_id)
+        assert saved is not None
+        assert saved.user_id == "omr-user"
+
+
+def test_create_omr_template_rejects_invalid_question_count(client):
+    _login(client)
+    payload = _valid_omr_payload()
+    payload["config_json"]["question_count"] = 55
+
+    response = client.post("/api/omr/templates", json=payload)
+
+    assert response.status_code == 400
+    assert "Question count" in response.get_json()["error"]
+
+
+def test_create_omr_template_rejects_invalid_config_shape(client):
+    _login(client)
+
+    response = client.post("/api/omr/templates", json={"name": "Broken", "config_json": []})
+
+    assert response.status_code == 400
+    assert "JSON object" in response.get_json()["error"]
+
+
+def test_omr_template_owner_is_enforced(client):
+    _login(client, user_id="owner-user")
+    create_response = client.post("/api/omr/templates", json=_valid_omr_payload(question_count=60))
+    template_id = create_response.get_json()["template"]["id"]
+
+    _login(client, user_id="other-user")
+
+    get_response = client.get(f"/api/omr/templates/{template_id}")
+    assert get_response.status_code == 404
+
+    update_response = client.put(
+        f"/api/omr/templates/{template_id}",
+        json=_valid_omr_payload(question_count=40),
+    )
+    assert update_response.status_code == 404
+
+    delete_response = client.post(f"/api/omr/templates/{template_id}/delete")
+    assert delete_response.status_code == 404
+
+
+def test_render_omr_pdf_returns_pdf_for_supported_presets(client):
+    _login(client, user_id="pdf-user")
+
+    for question_count in (40, 60, 80, 100):
+        response = client.post("/api/omr/render", json=_valid_omr_payload(question_count=question_count))
+
+        assert response.status_code == 200
+        assert response.mimetype == "application/pdf"
+        assert len(response.data) > 1000
+
+
+def test_render_omr_pdf_accepts_bengali_header(client):
+    _login(client, user_id="pdf-bn-user")
+    payload = _valid_omr_payload(question_count=40)
+    payload["name"] = "বাংলা ওএমআর"
+    payload["config_json"]["header"]["title"] = "বহুনির্বাচনি পরীক্ষা"
+    payload["config_json"]["header"]["subtitle"] = "শুধু একটি বৃত্ত পূরণ করুন"
+    payload["config_json"]["header"]["institution"] = "প্রশ্ন ডট আইও"
+
+    response = client.post("/api/omr/render", json=payload)
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+    assert len(response.data) > 1000
+
+
+def test_dashboard_lists_saved_omr_templates(client):
+    _login(client, user_id="dashboard-user")
+
+    with client.application.app_context():
+        db.session.add(
+            OmrTemplate(
+                user_id="dashboard-user",
+                name="Board OMR",
+                config_json=get_default_omr_config(),
+                question_count=100,
+                download_count=2,
+            )
+        )
+        db.session.commit()
+
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "Saved OMR Templates" in html
+    assert "Board OMR" in html

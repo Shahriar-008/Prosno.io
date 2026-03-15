@@ -75,6 +75,10 @@
                     href="{{ url_for('main.builder') }}">
                     <i class="bi bi-kanban nav-link-icon"></i> Builder
                 </a>
+                <a class="nav-link {% if request.endpoint == 'main.omr_builder' %}active{% endif %}"
+                    href="{{ url_for('main.omr_builder') }}">
+                    <i class="bi bi-grid-3x3-gap-fill nav-link-icon"></i> OMR
+                </a>
                 <a class="nav-link {% if request.endpoint and request.endpoint.startswith('main.bank') %}active{% endif %}"
                     href="{{ url_for('main.bank_browse') }}">
                     <i class="bi bi-collection-fill nav-link-icon"></i> Bank
@@ -203,6 +207,9 @@
             </a>
             <a class="nav-mobile-link" href="{{ url_for('main.builder') }}">
                 <i class="bi bi-kanban"></i> Paper Builder
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('main.omr_builder') }}">
+                <i class="bi bi-grid-3x3-gap-fill"></i> OMR Builder
             </a>
             <a class="nav-mobile-link" href="{{ url_for('main.bank_browse') }}">
                 <i class="bi bi-collection-fill"></i> Question Bank

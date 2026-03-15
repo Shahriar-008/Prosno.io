@@ -1114,11 +1114,16 @@ def render_omr_template_pdf():
         return jsonify({'error': 'Template id must be a number.'}), 400
     if template_id:
         template = _get_user_omr_template_or_404(template_id, user['id'])
-        if template:
-            template.download_count = (template.download_count or 0) + 1
-            db.session.commit()
+        if not template:
+            return jsonify({'error': 'OMR template not found.'}), 404
+        template.download_count = (template.download_count or 0) + 1
+        db.session.commit()
 
-    pdf_buffer = generate_omr_pdf_to_memory(config_json)
+    try:
+        pdf_buffer = generate_omr_pdf_to_memory(config_json)
+    except Exception as exc:
+        current_app.logger.error(f'OMR render failed: {exc}')
+        return jsonify({'error': 'Failed to generate OMR PDF.'}), 500
     filename = _slugify_omr_filename(name) + '.pdf'
     return send_file(
         pdf_buffer,

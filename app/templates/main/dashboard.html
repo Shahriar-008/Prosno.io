@@ -11,11 +11,16 @@
                     <div class="d-flex justify-content-between align-items-center mb-4">
                         <div>
                             <h1><i class="bi bi-grid-1x2"></i> My Dashboard</h1>
-                            <p class="text-muted mb-0">Your saved question sets</p>
+                            <p class="text-muted mb-0">Your saved question sets and OMR templates</p>
                         </div>
-                        <a href="{{ url_for('main.generate') }}" class="btn btn-primary">
-                            <i class="bi bi-plus-circle me-1"></i> Create New
-                        </a>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="{{ url_for('main.generate') }}" class="btn btn-primary">
+                                <i class="bi bi-plus-circle me-1"></i> New Paper
+                            </a>
+                            <a href="{{ url_for('main.omr_builder') }}" class="btn btn-outline-primary">
+                                <i class="bi bi-grid-3x3-gap-fill me-1"></i> New OMR
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -64,114 +69,215 @@
                     </div>
                 </div>
 
-                {% if question_sets|length == 0 %}
-                <!-- Empty State -->
+                {% set has_question_sets = question_sets|length > 0 %}
+                {% set has_omr_templates = omr_templates|length > 0 %}
+
+                {% if not has_question_sets and not has_omr_templates %}
                 <div class="empty-state text-center py-5">
                     <div class="empty-icon mb-3">
                         <i class="bi bi-bookmark-star"
                             style="font-size: 4rem; color: var(--primary-color, #6366f1); opacity: 0.5;"></i>
                     </div>
-                    <h3>No saved question sets yet</h3>
-                    <p class="text-muted mb-4">Generate a question paper and click "Save to My Account" to see it here.
-                    </p>
-                    <a href="{{ url_for('main.generate') }}" class="btn btn-primary btn-lg">
-                        <i class="bi bi-file-earmark-plus me-2"></i> Generate Your First Paper
-                    </a>
+                    <h3>No saved assets yet</h3>
+                    <p class="text-muted mb-4">Generate a paper or build an OMR template to see it here.</p>
+                    <div class="d-flex justify-content-center gap-2 flex-wrap">
+                        <a href="{{ url_for('main.generate') }}" class="btn btn-primary btn-lg">
+                            <i class="bi bi-file-earmark-plus me-2"></i> Generate Paper
+                        </a>
+                        <a href="{{ url_for('main.omr_builder') }}" class="btn btn-outline-primary btn-lg">
+                            <i class="bi bi-grid-3x3-gap-fill me-2"></i> Create OMR
+                        </a>
+                    </div>
                 </div>
                 {% else %}
-                <!-- Stats Bar -->
                 <div class="stats-bar mb-4">
                     <div class="stat-item">
                         <i class="bi bi-bookmark-fill"></i>
-                        <span><strong>{{ question_sets|length }}</strong> saved set{{ 's' if question_sets|length != 1
-                            }}</span>
+                        <span><strong>{{ question_sets|length }}</strong> saved set{{ 's' if question_sets|length != 1 else '' }}</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="bi bi-grid-3x3-gap-fill"></i>
+                        <span><strong>{{ omr_templates|length }}</strong> OMR template{{ 's' if omr_templates|length != 1 else '' }}</span>
                     </div>
                     <div class="stat-item">
                         <i class="bi bi-question-circle-fill"></i>
-                        <span><strong>{{ question_sets|map(attribute='questions_json')|map('length')|sum }}</strong>
-                            total questions</span>
+                        <span><strong>{{ question_sets|map(attribute='questions_json')|map('length')|sum }}</strong> total questions</span>
                     </div>
                 </div>
 
-                <!-- Question Sets Grid -->
-                <div class="row g-4">
-                    {% for qs in question_sets %}
-                    <div class="col-md-6 col-lg-4" id="qs-card-{{ qs.id }}">
-                        <div class="qs-card">
-                            <div class="qs-card-header">
-                                <span class="qs-source badge {{ 'bg-primary' if qs.source == 'db' else 'bg-info' }}">
-                                    {{ 'Question Bank' if qs.source == 'db' else 'Custom' }}
-                                </span>
-                                <div class="dropdown">
-                                    <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
-                                        <li>
-                                            <a class="dropdown-item" href="#"
-                                                onclick="viewQuestionSet({{ qs.id }}); return false;">
-                                                <i class="bi bi-eye me-2"></i> View Questions
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item" href="#"
-                                                onclick="renameSet({{ qs.id }}, this); return false;">
-                                                <i class="bi bi-pencil me-2"></i> Rename
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <hr class="dropdown-divider">
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item text-danger" href="#"
-                                                onclick="deleteSet({{ qs.id }}); return false;">
-                                                <i class="bi bi-trash me-2"></i> Delete
-                                            </a>
-                                        </li>
-                                    </ul>
+                <div class="dashboard-subsection mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h4 class="mb-1"><i class="bi bi-bookmark-star me-2 text-primary"></i>Saved Question Sets</h4>
+                            <p class="text-muted mb-0">Reusable paper drafts, share links, and quiz-ready sets.</p>
+                        </div>
+                        <a href="{{ url_for('main.generate') }}" class="btn btn-sm btn-outline-primary">New Paper</a>
+                    </div>
+
+                    {% if has_question_sets %}
+                    <div class="row g-4">
+                        {% for qs in question_sets %}
+                        <div class="col-md-6 col-lg-4" id="qs-card-{{ qs.id }}">
+                            <div class="qs-card">
+                                <div class="qs-card-header">
+                                    <span class="qs-source badge {{ 'bg-primary' if qs.source == 'db' else 'bg-info' }}">
+                                        {{ 'Question Bank' if qs.source == 'db' else 'Custom' }}
+                                    </span>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="#"
+                                                    onclick="viewQuestionSet({{ qs.id }}); return false;">
+                                                    <i class="bi bi-eye me-2"></i> View Questions
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#"
+                                                    onclick="renameSet({{ qs.id }}, this); return false;">
+                                                    <i class="bi bi-pencil me-2"></i> Rename
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <hr class="dropdown-divider">
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="#"
+                                                    onclick="deleteSet({{ qs.id }}); return false;">
+                                                    <i class="bi bi-trash me-2"></i> Delete
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="qs-card-body">
-                                <h5 class="qs-name" id="qs-name-{{ qs.id }}">{{ qs.name }}</h5>
-                                <div class="qs-meta">
-                                    {% if qs.paper_config %}
-                                    {% if qs.paper_config.get('class_name') %}
-                                    <span class="qs-meta-item"><i class="bi bi-mortarboard"></i> {{
-                                        qs.paper_config['class_name'] }}</span>
-                                    {% endif %}
-                                    {% if qs.paper_config.get('subject_name') %}
-                                    <span class="qs-meta-item"><i class="bi bi-book"></i> {{
-                                        qs.paper_config['subject_name'] }}</span>
-                                    {% endif %}
-                                    {% endif %}
+                                <div class="qs-card-body">
+                                    <h5 class="qs-name" id="qs-name-{{ qs.id }}">{{ qs.name }}</h5>
+                                    <div class="qs-meta">
+                                        {% if qs.paper_config %}
+                                        {% if qs.paper_config.get('class_name') %}
+                                        <span class="qs-meta-item"><i class="bi bi-mortarboard"></i> {{ qs.paper_config['class_name'] }}</span>
+                                        {% endif %}
+                                        {% if qs.paper_config.get('subject_name') %}
+                                        <span class="qs-meta-item"><i class="bi bi-book"></i> {{ qs.paper_config['subject_name'] }}</span>
+                                        {% endif %}
+                                        {% endif %}
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="qs-card-footer">
-                                <div class="qs-stats">
-                                    <span><i class="bi bi-question-circle"></i> {{ qs.questions_json|length if
-                                        qs.questions_json else 0 }} questions</span>
-                                    <span><i class="bi bi-clock"></i> {{ qs.created_at.strftime('%b %d, %Y') if
-                                        qs.created_at else 'N/A' }}</span>
-                                </div>
-                                <div class="qs-card-actions">
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="shareSet({{ qs.id }})"
-                                        title="Share paper link">
-                                        <i class="bi bi-share me-1"></i> Share
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-success"
-                                        onclick="openQuizModal({{ qs.id }}, '{{ qs.name|e }}')"
-                                        title="Start a live quiz">
-                                        <i class="bi bi-controller me-1"></i> Quiz
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-primary"
-                                        onclick="regenerateFromSet({{ qs.id }})">
-                                        <i class="bi bi-arrow-repeat me-1"></i> Regenerate
-                                    </button>
+                                <div class="qs-card-footer">
+                                    <div class="qs-stats">
+                                        <span><i class="bi bi-question-circle"></i> {{ qs.questions_json|length if qs.questions_json else 0 }} questions</span>
+                                        <span><i class="bi bi-clock"></i> {{ qs.created_at.strftime('%b %d, %Y') if qs.created_at else 'N/A' }}</span>
+                                    </div>
+                                    <div class="qs-card-actions">
+                                        <button class="btn btn-sm btn-outline-secondary" onclick="shareSet({{ qs.id }})"
+                                            title="Share paper link">
+                                            <i class="bi bi-share me-1"></i> Share
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-success"
+                                            onclick="openQuizModal({{ qs.id }}, '{{ qs.name|e }}')"
+                                            title="Start a live quiz">
+                                            <i class="bi bi-controller me-1"></i> Quiz
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary"
+                                            onclick="regenerateFromSet({{ qs.id }})">
+                                            <i class="bi bi-arrow-repeat me-1"></i> Regenerate
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
+                    {% else %}
+                    <div class="qs-card">
+                        <div class="qs-card-body">
+                            <h5 class="qs-name">No saved question sets yet</h5>
+                            <p class="text-muted mb-0">Generate a question paper and save it to reuse it later.</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="dashboard-subsection">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h4 class="mb-1"><i class="bi bi-grid-3x3-gap-fill me-2 text-danger"></i>Saved OMR Templates</h4>
+                            <p class="text-muted mb-0">Private scannable layouts for exam-day answer sheets.</p>
+                        </div>
+                        <a href="{{ url_for('main.omr_builder') }}" class="btn btn-sm btn-outline-primary">New OMR</a>
+                    </div>
+
+                    {% if has_omr_templates %}
+                    <div class="row g-4">
+                        {% for template in omr_templates %}
+                        <div class="col-md-6 col-lg-4" id="omr-card-{{ template.id }}">
+                            <div class="qs-card">
+                                <div class="qs-card-header">
+                                    <span class="qs-source badge bg-danger-subtle text-danger">OMR Template</span>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-link text-muted p-0" data-bs-toggle="dropdown">
+                                            <i class="bi bi-three-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('main.omr_builder') }}?template={{ template.id }}">
+                                                    <i class="bi bi-pencil-square me-2"></i> Edit in Builder
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="#"
+                                                    onclick="downloadOmrTemplate({{ template.id }}); return false;">
+                                                    <i class="bi bi-download me-2"></i> Download PDF
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <hr class="dropdown-divider">
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="#"
+                                                    onclick="deleteOmrTemplate({{ template.id }}); return false;">
+                                                    <i class="bi bi-trash me-2"></i> Delete
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="qs-card-body">
+                                    <h5 class="qs-name">{{ template.name }}</h5>
+                                    <div class="qs-meta">
+                                        <span class="qs-meta-item"><i class="bi bi-ui-checks-grid"></i> {{ template.question_count }} questions</span>
+                                        <span class="qs-meta-item"><i class="bi bi-palette"></i> {{ template.config_json.get('theme_color', 'rose')|title }}</span>
+                                        <span class="qs-meta-item"><i class="bi bi-circle"></i> {{ template.config_json.get('bubble_size', 'large')|title }}</span>
+                                    </div>
+                                </div>
+                                <div class="qs-card-footer">
+                                    <div class="qs-stats">
+                                        <span><i class="bi bi-download"></i> {{ template.download_count or 0 }} downloads</span>
+                                        <span><i class="bi bi-clock"></i> {{ template.updated_at.strftime('%b %d, %Y') if template.updated_at else 'N/A' }}</span>
+                                    </div>
+                                    <div class="qs-card-actions">
+                                        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('main.omr_builder') }}?template={{ template.id }}">
+                                            <i class="bi bi-pencil-square me-1"></i> Edit
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-success" onclick="downloadOmrTemplate({{ template.id }})">
+                                            <i class="bi bi-download me-1"></i> PDF
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="qs-card">
+                        <div class="qs-card-body">
+                            <h5 class="qs-name">No saved OMR templates yet</h5>
+                            <p class="text-muted mb-0">Create an OMR answer sheet in the builder and it will appear here.</p>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>
@@ -397,6 +503,80 @@
                 }
             })
             .catch(() => dashToast('❌ Delete failed', 'error'));
+    }
+
+    async function downloadOmrTemplate(id) {
+        try {
+            const tplRes = await fetch('/api/omr/templates/' + id, {
+                headers: { 'X-CSRFToken': csrfToken }
+            });
+            const tplData = await tplRes.json();
+            if (!tplRes.ok) {
+                dashToast('âŒ ' + (tplData.error || 'Failed to load OMR template'), 'error');
+                return;
+            }
+
+            const renderRes = await fetch('/api/omr/render', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({
+                    template_id: id,
+                    name: tplData.template.name,
+                    config_json: tplData.template.config_json
+                })
+            });
+
+            if (!renderRes.ok) {
+                const renderData = await renderRes.json();
+                dashToast('âŒ ' + (renderData.error || 'Failed to generate PDF'), 'error');
+                return;
+            }
+
+            const blob = await renderRes.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = (tplData.template.name || 'omr-template').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.pdf';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            dashToast('âœ… OMR PDF downloaded!', 'success');
+        } catch (err) {
+            dashToast('âŒ Failed to download OMR template', 'error');
+        }
+    }
+
+    async function deleteOmrTemplate(id) {
+        if (!confirm('Delete this OMR template?')) return;
+
+        try {
+            const res = await fetch('/api/omr/templates/' + id + '/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                dashToast('âŒ ' + (data.error || 'Delete failed'), 'error');
+                return;
+            }
+
+            const card = document.getElementById('omr-card-' + id);
+            if (card) {
+                card.style.transition = 'opacity 0.3s, transform 0.3s';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.92)';
+                setTimeout(() => {
+                    card.remove();
+                    if (document.querySelectorAll('[id^="omr-card-"]').length === 0 && document.querySelectorAll('[id^="qs-card-"]').length === 0) {
+                        location.reload();
+                    }
+                }, 280);
+            }
+            dashToast('ðŸ—‘ï¸ OMR template deleted.', 'success');
+        } catch (err) {
+            dashToast('âŒ Delete failed', 'error');
+        }
     }
 
     function regenerateFromSet(id) {
@@ -648,6 +828,13 @@
         padding: 16px 24px;
         background: linear-gradient(135deg, #f8fafc, #f1f5f9);
         border-radius: 12px;
+        border: 1px solid #e2e8f0;
+    }
+
+    .dashboard-subsection {
+        padding: 18px;
+        border-radius: 18px;
+        background: linear-gradient(180deg, #ffffff, #f8fafc);
         border: 1px solid #e2e8f0;
     }
 
