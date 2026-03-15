@@ -1,6 +1,33 @@
 {% extends "base.html" %}
 
-{% block title %}Contact Us - Prosno.io{% endblock %}
+{% block title %}Contact Prosno.io | Support for Teachers and Schools{% endblock %}
+{% block meta_description %}Contact Prosno.io for help with question paper generation, classroom quizzes, school onboarding, or account support.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{{ {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    "name": "Contact Prosno.io",
+    "url": request.base_url,
+    "description": "Contact Prosno.io support for product help and school onboarding.",
+    "mainEntity": {
+        "@type": "Organization",
+        "name": config.get("SITE_NAME", "Prosno.io"),
+        "url": site_url,
+        "email": config.get("SUPPORT_EMAIL", "support@prosno.io"),
+        "contactPoint": [
+            {
+                "@type": "ContactPoint",
+                "contactType": "customer support",
+                "email": config.get("SUPPORT_EMAIL", "support@prosno.io"),
+                "availableLanguage": ["English", "Bengali"]
+            }
+        ]
+    }
+}|tojson }}
+</script>
+{% endblock %}
 
 {% block content %}
 <section class="contact-section py-5">

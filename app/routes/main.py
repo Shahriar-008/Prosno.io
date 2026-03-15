@@ -2,7 +2,7 @@
 Main routes for Prosno.io
 """
 from datetime import datetime, date
-from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort, session, redirect
+from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort, session, redirect, url_for
 import os
 from sqlalchemy import or_
 
@@ -21,6 +21,13 @@ main_bp = Blueprint('main', __name__)
 MAX_QUESTIONS_PER_PAPER = 50       # Max questions allowed in one paper
 MAX_CHAPTERS_PER_REQUEST = 5       # Max chapters that can be queried at once
 DAILY_GENERATION_LIMIT = 10        # Max papers a logged-in user can generate per day
+
+
+def _format_sitemap_lastmod(value):
+    """Format datetimes for sitemap lastmod tags."""
+    if not value:
+        return None
+    return value.date().isoformat()
 
 
 def _get_user_credits(user_id):
@@ -846,6 +853,71 @@ def about():
 def contact():
     """Contact page"""
     return render_template('main/contact.html')
+
+
+@main_bp.route('/robots.txt')
+def robots_txt():
+    """Serve robots.txt with sitemap location and private path exclusions."""
+    sitemap_url = url_for('main.sitemap_xml', _external=True)
+    return current_app.response_class(
+        render_template('seo/robots.txt', sitemap_url=sitemap_url),
+        mimetype='text/plain',
+    )
+
+
+@main_bp.route('/sitemap.xml')
+def sitemap_xml():
+    """Serve an XML sitemap for crawlable public pages."""
+    pages = [
+        {
+            'loc': url_for('main.index', _external=True),
+            'changefreq': 'weekly',
+            'priority': '1.0',
+        },
+        {
+            'loc': url_for('main.generate', _external=True),
+            'changefreq': 'weekly',
+            'priority': '0.9',
+        },
+        {
+            'loc': url_for('main.about', _external=True),
+            'changefreq': 'monthly',
+            'priority': '0.5',
+        },
+        {
+            'loc': url_for('main.contact', _external=True),
+            'changefreq': 'monthly',
+            'priority': '0.5',
+        },
+        {
+            'loc': url_for('quiz.join_page', _external=True),
+            'changefreq': 'weekly',
+            'priority': '0.6',
+        },
+    ]
+
+    shared_sets = QuestionSet.query.filter(
+        QuestionSet.is_shared == True,
+        QuestionSet.share_token.isnot(None),
+    ).all()
+    for question_set in shared_sets:
+        pages.append({
+            'loc': url_for(
+                'main.public_paper_view',
+                share_token=question_set.share_token,
+                _external=True,
+            ),
+            'lastmod': _format_sitemap_lastmod(
+                question_set.updated_at or question_set.created_at
+            ),
+            'changefreq': 'weekly',
+            'priority': '0.7',
+        })
+
+    return current_app.response_class(
+        render_template('seo/sitemap.xml', pages=pages),
+        mimetype='application/xml',
+    )
 
 
 # ── SaaS Dashboard ────────────────────────────────────────────

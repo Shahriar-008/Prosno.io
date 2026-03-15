@@ -113,6 +113,77 @@ def test_healthz_is_not_throttled(tmp_path):
         assert response.status_code == 200
 
 
+def test_index_includes_seo_metadata(client, seed_catalog):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert '<meta name="robots" content="index,follow">' in html
+    assert '<link rel="canonical" href="http://localhost/">' in html
+    assert '<meta property="og:title"' in html
+    assert 'application/ld+json' in html
+
+
+def test_login_page_is_noindex(client):
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert '<meta name="robots" content="noindex, nofollow">' in html
+    assert response.headers["X-Robots-Tag"] == "noindex, nofollow"
+
+
+def test_quiz_join_code_page_is_noindex_with_generic_canonical(client):
+    response = client.get("/quiz/join/1234")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert '<meta name="robots" content="noindex, nofollow">' in html
+    assert '<link rel="canonical" href="http://localhost/quiz/join">' in html
+
+
+def test_robots_txt_exposes_sitemap_and_private_paths(client):
+    response = client.get("/robots.txt")
+
+    assert response.status_code == 200
+    assert response.mimetype == "text/plain"
+    body = response.get_data(as_text=True)
+    assert "Sitemap: http://localhost/sitemap.xml" in body
+    assert "Disallow: /admin/" in body
+    assert "Disallow: /api/" in body
+
+
+def test_sitemap_includes_public_pages_and_shared_papers(client):
+    with client.application.app_context():
+        shared_set = QuestionSet(
+            user_id="shared-user",
+            name="Shared Algebra Set",
+            questions_json=[
+                {
+                    "question_text": "2 + 2 = ?",
+                    "answer_options": ["1", "2", "3", "4"],
+                    "correct_answer": "4",
+                    "type": "simple",
+                }
+            ],
+            paper_config={"title": "Shared Algebra Practice"},
+            share_token="shared-paper-1",
+            is_shared=True,
+        )
+        db.session.add(shared_set)
+        db.session.commit()
+
+    response = client.get("/sitemap.xml")
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/xml"
+    body = response.get_data(as_text=True)
+    assert "<loc>http://localhost/</loc>" in body
+    assert "<loc>http://localhost/generate</loc>" in body
+    assert "<loc>http://localhost/paper/shared-paper-1</loc>" in body
+    assert "<lastmod>" in body
+
+
 def test_generate_paper_missing_required_fields_returns_400(client):
     response = client.post("/generate-paper", json={"class_id": 1})
 

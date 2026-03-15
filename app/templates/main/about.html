@@ -1,6 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}About Us - Prosno.io{% endblock %}
+{% block title %}About Prosno.io | Question Paper Generator for Teachers{% endblock %}
+{% block meta_description %}Learn how Prosno.io helps Bangladeshi educators create question papers, answer keys, quizzes, and exam resources faster.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{{ {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    "name": "About Prosno.io",
+    "url": request.base_url,
+    "description": "About Prosno.io and our mission to simplify question paper generation for teachers.",
+    "mainEntity": {
+        "@type": "Organization",
+        "name": config.get("SITE_NAME", "Prosno.io"),
+        "url": site_url,
+        "email": config.get("SUPPORT_EMAIL", "support@prosno.io")
+    }
+}|tojson }}
+</script>
+{% endblock %}
 
 {% block content %}
 <section class="about-section py-5">

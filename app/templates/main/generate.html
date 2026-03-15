@@ -1,6 +1,31 @@
 {% extends "base.html" %}
 
-{% block title %}Generate Question Paper - Prosno.io{% endblock %}
+{% block title %}Generate MCQ Question Papers Online | Prosno.io{% endblock %}
+{% block meta_description %}Create custom MCQ question papers online from a question bank or your own questions. Export DOCX or PDF, add answer keys, and share quizzes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{{ {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Prosno.io Question Paper Generator",
+    "url": request.base_url,
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web",
+    "description": "Generate MCQ question papers, answer keys, PDFs, and quizzes online.",
+    "creator": {
+        "@type": "Organization",
+        "name": config.get("SITE_NAME", "Prosno.io"),
+        "url": site_url
+    },
+    "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+    }
+}|tojson }}
+</script>
+{% endblock %}
 
 {% block content %}
 <section class="generate-section">

@@ -15,6 +15,15 @@ def generate_secret_key():
 
 class Config:
     """Base configuration"""
+    SITE_NAME = os.environ.get('SITE_NAME') or 'Prosno.io'
+    SITE_URL = (os.environ.get('SITE_URL') or '').rstrip('/')
+    DEFAULT_META_DESCRIPTION = (
+        'Prosno.io helps Bangladeshi teachers generate MCQ question papers, '
+        'answer keys, PDFs, and live quizzes in minutes.'
+    )
+    DEFAULT_OG_IMAGE = os.environ.get('DEFAULT_OG_IMAGE') or 'img/og-default.svg'
+    SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL') or 'support@prosno.io'
+
     # Security - IMPORTANT: Set SECRET_KEY environment variable in production
     SECRET_KEY = os.environ.get('SECRET_KEY') or generate_secret_key()
     ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')

@@ -31,6 +31,13 @@ def create_app(config_class=Config):
         'SKIP_STARTUP_TASKS', flask_app.config.get('TESTING', False)
     )
 
+    from app.utils.seo import (
+        default_meta_robots,
+        default_og_image_url,
+        get_site_url,
+        should_send_noindex_header,
+    )
+
     # Warn if SECRET_KEY not set from environment in production
     import warnings
     if not flask_app.debug and not os.environ.get('SECRET_KEY'):
@@ -60,6 +67,15 @@ def create_app(config_class=Config):
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
 
+    @flask_app.context_processor
+    def inject_seo_defaults():
+        """Expose sitewide SEO helpers to templates."""
+        return {
+            'default_meta_robots': default_meta_robots,
+            'default_og_image_url': default_og_image_url,
+            'site_url': get_site_url(),
+        }
+
     # Add security headers to all responses
     @flask_app.after_request
     def add_security_headers(response):
@@ -84,6 +100,15 @@ def create_app(config_class=Config):
             )
             # HSTS - only in production over HTTPS
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
+        if should_send_noindex_header(response):
+            directive = (
+                default_meta_robots()
+                if (response.mimetype or '').lower() == 'text/html'
+                else 'noindex, nofollow'
+            )
+            response.headers.setdefault('X-Robots-Tag', directive)
+
         return response
 
     # Initialize Supabase Auth client for public user auth

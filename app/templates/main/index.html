@@ -1,4 +1,64 @@
 {% extends "base.html" %}
+{% block meta_description %}Generate MCQ question papers, answer keys, PDFs, shareable practice links, and live classroom quizzes for Bangladeshi students in minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{{ {
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "Organization",
+            "@id": site_url + "#organization",
+            "name": config.get("SITE_NAME", "Prosno.io"),
+            "url": site_url,
+            "logo": default_og_image_url(),
+            "contactPoint": [
+                {
+                    "@type": "ContactPoint",
+                    "contactType": "customer support",
+                    "email": config.get("SUPPORT_EMAIL", "support@prosno.io"),
+                    "availableLanguage": ["English", "Bengali"]
+                }
+            ],
+            "sameAs": [
+                "https://www.facebook.com/profile.php?id=61587428617635"
+            ]
+        },
+        {
+            "@type": "WebSite",
+            "@id": site_url + "#website",
+            "url": site_url,
+            "name": config.get("SITE_NAME", "Prosno.io"),
+            "inLanguage": ["bn-BD", "en"],
+            "publisher": {
+                "@id": site_url + "#organization"
+            }
+        },
+        {
+            "@type": "SoftwareApplication",
+            "@id": request.base_url + "#app",
+            "name": config.get("SITE_NAME", "Prosno.io"),
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Web",
+            "url": request.base_url,
+            "description": "Generate question papers, answer keys, PDFs, and live quizzes for Bangladeshi classrooms.",
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+            },
+            "audience": {
+                "@type": "EducationalAudience",
+                "educationalRole": ["teacher", "student"]
+            },
+            "provider": {
+                "@id": site_url + "#organization"
+            }
+        }
+    ]
+}|tojson }}
+</script>
+{% endblock %}
 
 {% block title %}Prosno.io — Professional MCQ Question Paper Generator for Bangladeshi Educators{% endblock %}
 

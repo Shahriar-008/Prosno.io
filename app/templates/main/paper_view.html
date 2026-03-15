@@ -1,7 +1,34 @@
 {% extends "base.html" %}
+{% set paper_title = paper_config.get('title', question_set.name) %}
+{% set paper_description -%}
+Practice {{ questions|length }} MCQ questions{% if paper_config.get('subject_name') %} in {{ paper_config.get('subject_name') }}{% endif %}{% if paper_config.get('class_name') %} for {{ paper_config.get('class_name') }}{% endif %} online with instant scoring on Prosno.io.
+{%- endset %}
+
+{% block meta_description %}{{ paper_description }}{% endblock %}
+{% block og_url %}{{ share_url }}{% endblock %}
+{% block structured_data %}
+<script type="application/ld+json">
+{{ {
+    "@context": "https://schema.org",
+    "@type": "LearningResource",
+    "name": paper_title,
+    "url": share_url,
+    "description": paper_description,
+    "learningResourceType": "Practice paper",
+    "educationalLevel": paper_config.get("class_name", ""),
+    "about": paper_config.get("subject_name", ""),
+    "provider": {
+        "@type": "Organization",
+        "name": config.get("SITE_NAME", "Prosno.io"),
+        "url": site_url
+    }
+}|tojson }}
+</script>
+{% endblock %}
 {% block title %}{{ paper_config.get('title', question_set.name) }} — Prosno.io{% endblock %}
 
 {% block extra_css %}
+{#
 <meta property="og:title" content="{{ paper_config.get('title', question_set.name) }} — Prosno.io">
 <meta property="og:description" content="📝 {{ questions|length }} MCQ questions{% if paper_config.get('subject_name') %} — {{ paper_config.get('subject_name') }}{% endif %}{% if paper_config.get('class_name') %} | {{ paper_config.get('class_name') }}{% endif %}. Practice online now!">
 <meta property="og:type" content="website">
@@ -9,6 +36,7 @@
 <meta property="og:site_name" content="Prosno.io">
 <meta name="twitter:card" content="summary">
 
+#}
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
