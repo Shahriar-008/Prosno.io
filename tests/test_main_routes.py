@@ -1,6 +1,6 @@
 from app import create_app, db
 from app.models import GeneratedPaper, GenerationLog, OmrTemplate, QuestionSet
-from app.utils.omr_generator import get_default_omr_config
+from app.utils.omr_generator import _build_general_layout, get_default_omr_config
 from config import TestingConfig
 
 
@@ -433,6 +433,22 @@ def test_create_general_omr_template_accepts_auto_flow_with_one_question(client)
     assert body["template"]["question_count"] == 1
     assert body["template"]["config_json"]["sheet_variant"] == "general"
     assert body["template"]["config_json"]["answer_columns"] == 1
+
+
+def test_general_auto_flow_layout_tracks_actual_question_counts_per_column():
+    layout = _build_general_layout(40, 1)
+
+    assert layout["answer_grid"]["columns"] == 2
+    assert layout["answer_grid"]["rows"] == 25
+    assert layout["answer_grid"]["column_question_counts"] == [25, 15]
+
+
+def test_general_fixed_column_layout_balances_question_counts():
+    layout = _build_general_layout(17, 2)
+
+    assert layout["answer_grid"]["columns"] == 2
+    assert layout["answer_grid"]["rows"] == 9
+    assert layout["answer_grid"]["column_question_counts"] == [9, 8]
 
 
 def test_create_general_omr_template_rejects_incompatible_column_count(client):

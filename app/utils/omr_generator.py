@@ -166,6 +166,7 @@ GENERAL_COLUMN_LAYOUTS = {
 
 GENERAL_ANSWER_GRID_Y_MM = 102
 GENERAL_ANSWER_GRID_BOTTOM_MM = 270
+GENERAL_ANSWER_MARKER_BAND_HEIGHT_MM = 5.2
 
 DEFAULT_OMR_CONFIG = {
     "template_type": OMR_TEMPLATE_TYPE,
@@ -267,15 +268,28 @@ def get_omr_general_rules() -> dict[str, Any]:
     }
 
 
-def _resolve_general_distribution(question_count: int, answer_columns: int) -> tuple[int, int]:
+def _build_general_column_question_counts(question_count: int, answer_columns: int) -> list[int]:
     if answer_columns == GENERAL_AUTO_FLOW_COLUMN:
-        rows = min(question_count, GENERAL_MAX_ROWS_PER_AUTO_COLUMN)
-        return max(1, math.ceil(question_count / rows)), rows
-    return answer_columns, math.ceil(question_count / answer_columns)
+        counts: list[int] = []
+        remaining = question_count
+        while remaining > 0:
+            take = min(GENERAL_MAX_ROWS_PER_AUTO_COLUMN, remaining)
+            counts.append(take)
+            remaining -= take
+        return counts
+
+    base, remainder = divmod(question_count, answer_columns)
+    return [base + (1 if index < remainder else 0) for index in range(answer_columns)]
+
+
+def _resolve_general_distribution(question_count: int, answer_columns: int) -> tuple[int, int, list[int]]:
+    column_question_counts = _build_general_column_question_counts(question_count, answer_columns)
+    rows = max(column_question_counts) if column_question_counts else 1
+    return len(column_question_counts), rows, column_question_counts
 
 
 def _build_general_layout(question_count: int, answer_columns: int) -> dict[str, Any]:
-    render_columns, rows = _resolve_general_distribution(question_count, answer_columns)
+    render_columns, rows, column_question_counts = _resolve_general_distribution(question_count, answer_columns)
     spec = GENERAL_COLUMN_LAYOUTS[render_columns]
     available_rows_height = GENERAL_ANSWER_GRID_BOTTOM_MM - GENERAL_ANSWER_GRID_Y_MM - spec["header_height_mm"]
     row_height_mm = min(spec["max_row_height_mm"], available_rows_height / rows)
@@ -291,6 +305,7 @@ def _build_general_layout(question_count: int, answer_columns: int) -> dict[str,
             "row_height_mm": round(row_height_mm, 2),
             "header_height_mm": spec["header_height_mm"],
             "number_width_mm": spec["number_width_mm"],
+            "column_question_counts": column_question_counts,
         },
     }
 
@@ -701,6 +716,40 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             font-size: 4.2mm;
             font-weight: 700;
         }}
+        .general-answer-frame {{
+            border: 0.55mm solid #1f2937;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.03) 0%, rgba(255, 255, 255, 0) 22%);
+        }}
+        .general-answer-marker {{
+            background: #111827;
+            border-radius: 0.35mm;
+        }}
+        .general-answer-column {{
+            background: transparent;
+        }}
+        .general-answer-row {{
+            display: flex;
+            border-bottom: 0.25mm solid rgba(15, 23, 42, 0.14);
+        }}
+        .general-answer-row:last-child {{
+            border-bottom: 0;
+        }}
+        .general-answer-qnum {{
+            border-right: 0.35mm solid #1f2937;
+            color: #111827;
+            font-weight: 700;
+        }}
+        .general-answer-options {{
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            flex: 1 1 0;
+            place-items: center;
+            background: transparent;
+        }}
+        .general-answer-column .bubble {{
+            border-color: #1f2937;
+            color: #111827;
+        }}
         .answer-header {{
             display: flex;
             align-items: stretch;
@@ -918,24 +967,104 @@ def _render_html_matrix_panel(
     )
 
 
+def _get_general_answer_frame_metrics(grid: dict[str, Any]) -> dict[str, float]:
+    width_mm = (grid["columns"] * grid["column_width_mm"]) + ((grid["columns"] - 1) * grid["column_gap_mm"])
+    return {
+        "x_mm": grid["x_mm"],
+        "y_mm": grid["y_mm"],
+        "width_mm": width_mm,
+        "height_mm": GENERAL_ANSWER_MARKER_BAND_HEIGHT_MM + (grid["rows"] * grid["row_height_mm"]),
+    }
+
+
+def _get_general_answer_marker_specs(frame: dict[str, float]) -> list[dict[str, float]]:
+    marker_width_mm = 2.8
+    marker_height_mm = 2.8
+    offsets = (
+        2.1,
+        frame["width_mm"] * 0.23,
+        frame["width_mm"] * 0.29,
+        frame["width_mm"] * 0.49,
+        frame["width_mm"] - 10.2,
+        frame["width_mm"] - 5.0,
+    )
+    return [
+        {
+            "x_mm": frame["x_mm"] + offset,
+            "y_mm": frame["y_mm"] + 1.1,
+            "width_mm": marker_width_mm,
+            "height_mm": marker_height_mm,
+        }
+        for offset in offsets
+    ]
+
+
+def _render_html_general_answers(layout: dict[str, Any]) -> str:
+    grid = layout["answer_grid"]
+    column_question_counts = grid.get("column_question_counts") or [grid["rows"]] * grid["columns"]
+    frame = _get_general_answer_frame_metrics(grid)
+    question_width_pct = (grid["number_width_mm"] / grid["column_width_mm"]) * 100
+    html_parts = [
+        f'<div class="box answer-title" style="{_html_box_style_mm(40, grid["y_mm"] - 13, 130, 8)}">{GENERAL_ANSWER_TITLE}</div>',
+        f'<div class="box general-answer-frame" style="{_html_box_style_mm(frame["x_mm"], frame["y_mm"], frame["width_mm"], frame["height_mm"])}"></div>',
+    ]
+    html_parts.extend(
+        f'<div class="box general-answer-marker" style="{_html_box_style_mm(marker["x_mm"], marker["y_mm"], marker["width_mm"], marker["height_mm"])}"></div>'
+        for marker in _get_general_answer_marker_specs(frame)
+    )
+
+    next_number = 1
+    for column_index in range(grid["columns"]):
+        actual_rows = int(column_question_counts[column_index]) if column_index < len(column_question_counts) else grid["rows"]
+        if not actual_rows:
+            continue
+        x_mm = grid["x_mm"] + (column_index * (grid["column_width_mm"] + grid["column_gap_mm"]))
+        y_mm = grid["y_mm"] + GENERAL_ANSWER_MARKER_BAND_HEIGHT_MM
+        rows_markup = []
+        for row_index in range(actual_rows):
+            number = next_number + row_index
+            option_markup = "".join(
+                f'<span class="answer-option"><span class="bubble">{html.escape(label)}</span></span>'
+                for label in ANSWER_OPTION_LABELS
+            )
+            rows_markup.append(
+                '<div class="general-answer-row">'
+                f'<span class="general-answer-qnum" style="width:{question_width_pct:.4f}%">{to_bengali_numeral(number)}</span>'
+                f'<div class="general-answer-options">{option_markup}</div>'
+                "</div>"
+            )
+
+        html_parts.append(
+            f'<div class="box general-answer-column" style="{_html_box_style_mm(x_mm, y_mm, grid["column_width_mm"], actual_rows * grid["row_height_mm"])}">'
+            f'<div class="answer-rows" style="height:{actual_rows * grid["row_height_mm"]}mm; grid-template-rows: repeat({actual_rows}, {grid["row_height_mm"]}mm);">'
+            f'{"".join(rows_markup)}</div></div>'
+        )
+        next_number += actual_rows
+
+    return "".join(html_parts)
+
+
 def _render_html_answers(cfg: dict[str, Any], layout: dict[str, Any], bubble_preset: dict[str, Any]) -> str:
     del bubble_preset
+    if cfg["sheet_variant"] == "general":
+        return _render_html_general_answers(layout)
+
     grid = layout["answer_grid"]
-    total = cfg["question_count"]
+    column_question_counts = grid.get("column_question_counts") or [grid["rows"]] * grid["columns"]
     title = GENERAL_ANSWER_TITLE if cfg["sheet_variant"] == "general" else INSTITUTIONAL_ANSWER_TITLE
     html_parts = [
         f'<div class="box answer-title" style="{_html_box_style_mm(40, grid["y_mm"] - 13, 130, 8)}">{title}</div>'
     ]
-    total_height = grid["header_height_mm"] + (grid["rows"] * grid["row_height_mm"])
     question_width_pct = (grid["number_width_mm"] / grid["column_width_mm"]) * 100
+    next_number = 1
 
     for column_index in range(grid["columns"]):
-        start_number = (column_index * grid["rows"]) + 1
-        end_number = min(total, start_number + grid["rows"] - 1)
+        actual_rows = int(column_question_counts[column_index]) if column_index < len(column_question_counts) else grid["rows"]
+        total_height = grid["header_height_mm"] + (actual_rows * grid["row_height_mm"])
         rows_markup = []
-        for row_index in range(grid["rows"]):
-            number = start_number + row_index
-            qnum = to_bengali_numeral(number) if number <= end_number else "&nbsp;"
+        for row_index in range(actual_rows):
+            number = next_number + row_index
+            qnum = to_bengali_numeral(number)
             option_markup = "".join(
                 f'<span class="answer-option"><span class="bubble">{html.escape(label)}</span></span>'
                 for label in ANSWER_OPTION_LABELS
@@ -947,15 +1076,19 @@ def _render_html_answers(cfg: dict[str, Any], layout: dict[str, Any], bubble_pre
                 "</div>"
             )
         x_mm = grid["x_mm"] + (column_index * (grid["column_width_mm"] + grid["column_gap_mm"]))
+        rows_style = f'height:{actual_rows * grid["row_height_mm"]}mm;'
+        if actual_rows:
+            rows_style += f' grid-template-rows: repeat({actual_rows}, {grid["row_height_mm"]}mm);'
         html_parts.append(
             f'<div class="box answer-column" style="{_html_box_style_mm(x_mm, grid["y_mm"], grid["column_width_mm"], total_height)}">'
             f'<div class="answer-header" style="height:{grid["header_height_mm"]}mm">'
             f'<span class="question-head" style="width:{question_width_pct:.4f}%">{QUESTION_LABEL}</span>'
             f'<span style="flex:1 1 0">{ANSWER_LABEL}</span>'
             '</div>'
-            f'<div class="answer-rows" style="height:{grid["rows"] * grid["row_height_mm"]}mm; grid-template-rows: repeat({grid["rows"]}, {grid["row_height_mm"]}mm);">'
+            f'<div class="answer-rows" style="{rows_style}">'
             f"{''.join(rows_markup)}</div></div>"
         )
+        next_number += actual_rows
     return "".join(html_parts)
 
 
@@ -1300,6 +1433,95 @@ def _draw_general_line_field(
     pdf.line(_mm(line_x_mm), _top_to_bottom(y_top_mm + 0.8, 0), _mm(x_mm + width_mm), _top_to_bottom(y_top_mm + 0.8, 0))
 
 
+def _draw_general_answer_grid(
+    pdf: canvas.Canvas,
+    layout: dict[str, Any],
+    bubble_preset: dict[str, Any],
+) -> None:
+    grid = layout["answer_grid"]
+    frame = _get_general_answer_frame_metrics(grid)
+    column_question_counts = grid.get("column_question_counts") or [grid["rows"]] * grid["columns"]
+    question_font = 7.9 if grid["columns"] <= 3 else 6.8
+    stroke = colors.HexColor("#1f2937")
+
+    pdf.setFillColor(colors.black)
+    pdf.setFont(FONT_BOLD, 12.5)
+    pdf.drawCentredString(_mm(105), _top_text_baseline(grid["y_mm"] - 8.5, 12.5), GENERAL_ANSWER_TITLE)
+
+    pdf.setStrokeColor(stroke)
+    pdf.setLineWidth(1.35)
+    pdf.rect(
+        _mm(frame["x_mm"]),
+        _top_to_bottom(frame["y_mm"], frame["height_mm"]),
+        _mm(frame["width_mm"]),
+        _mm(frame["height_mm"]),
+        fill=0,
+        stroke=1,
+    )
+
+    pdf.setFillColor(colors.HexColor("#111827"))
+    for marker in _get_general_answer_marker_specs(frame):
+        pdf.rect(
+            _mm(marker["x_mm"]),
+            _top_to_bottom(marker["y_mm"], marker["height_mm"]),
+            _mm(marker["width_mm"]),
+            _mm(marker["height_mm"]),
+            fill=1,
+            stroke=0,
+        )
+
+    next_number = 1
+    for column_index in range(grid["columns"]):
+        actual_rows = int(column_question_counts[column_index]) if column_index < len(column_question_counts) else grid["rows"]
+        if not actual_rows:
+            continue
+
+        column_x = grid["x_mm"] + (column_index * (grid["column_width_mm"] + grid["column_gap_mm"]))
+        answer_width_mm = grid["column_width_mm"] - grid["number_width_mm"]
+        for row_index in range(actual_rows):
+            current_number = next_number + row_index
+            row_top = grid["y_mm"] + GENERAL_ANSWER_MARKER_BAND_HEIGHT_MM + (row_index * grid["row_height_mm"])
+            pdf.setStrokeColor(colors.HexColor("#d1d5db"))
+            pdf.setLineWidth(0.7)
+            pdf.line(
+                _mm(column_x),
+                _top_to_bottom(row_top + grid["row_height_mm"], 0),
+                _mm(column_x + grid["column_width_mm"]),
+                _top_to_bottom(row_top + grid["row_height_mm"], 0),
+            )
+            pdf.setStrokeColor(stroke)
+            pdf.line(
+                _mm(column_x + grid["number_width_mm"]),
+                _top_to_bottom(row_top, grid["row_height_mm"]),
+                _mm(column_x + grid["number_width_mm"]),
+                _top_to_bottom(row_top, 0),
+            )
+            pdf.setFillColor(colors.black)
+            pdf.setFont(FONT_REGULAR, question_font)
+            pdf.drawCentredString(
+                _mm(column_x + (grid["number_width_mm"] / 2)),
+                _top_text_baseline(row_top + (grid["row_height_mm"] * 0.67), question_font),
+                to_bengali_numeral(current_number),
+            )
+
+            start_x = column_x + grid["number_width_mm"] + 4.2
+            available_width = answer_width_mm - 8.4
+            step = available_width / 4
+            center_y_top = row_top + (grid["row_height_mm"] / 2)
+            for option_index, label in enumerate(ANSWER_OPTION_LABELS):
+                center_x = start_x + (step * option_index) + (step / 2)
+                _draw_label_bubble(
+                    pdf,
+                    center_x_mm=center_x,
+                    center_y_top_mm=center_y_top,
+                    diameter_mm=bubble_preset["diameter_mm"],
+                    label=label,
+                    accent=stroke,
+                    font_size=max(4.6, bubble_preset["font_size"] - 0.3),
+                )
+        next_number += actual_rows
+
+
 def _draw_answer_grid(
     pdf: canvas.Canvas,
     cfg: dict[str, Any],
@@ -1308,8 +1530,12 @@ def _draw_answer_grid(
     accent_soft: colors.Color,
     bubble_preset: dict[str, Any],
 ) -> None:
+    if cfg["sheet_variant"] == "general":
+        _draw_general_answer_grid(pdf, layout, bubble_preset)
+        return
+
     grid = layout["answer_grid"]
-    total_questions = cfg["question_count"]
+    column_question_counts = grid.get("column_question_counts") or [grid["rows"]] * grid["columns"]
     number = 1
     header_label_font = 8.5 if grid["columns"] <= 3 else 7.3
     question_font = 7.9 if grid["columns"] <= 3 else 6.8
@@ -1321,6 +1547,7 @@ def _draw_answer_grid(
 
     for column_index in range(grid["columns"]):
         column_x = grid["x_mm"] + (column_index * (grid["column_width_mm"] + grid["column_gap_mm"]))
+        actual_rows = int(column_question_counts[column_index]) if column_index < len(column_question_counts) else grid["rows"]
         _draw_answer_column(
             pdf,
             x_mm=column_x,
@@ -1328,17 +1555,17 @@ def _draw_answer_grid(
             column_width_mm=grid["column_width_mm"],
             header_height_mm=grid["header_height_mm"],
             row_height_mm=grid["row_height_mm"],
-            rows=grid["rows"],
+            rows=actual_rows,
             number_width_mm=grid["number_width_mm"],
             start_number=number,
-            end_number=min(total_questions, number + grid["rows"] - 1),
+            end_number=number + actual_rows - 1,
             accent=accent,
             accent_soft=accent_soft,
             bubble_preset=bubble_preset,
             header_label_font=header_label_font,
             question_font=question_font,
         )
-        number += grid["rows"]
+        number += actual_rows
 
 
 def _draw_answer_column(

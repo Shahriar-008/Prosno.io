@@ -11,6 +11,7 @@
     }, boot.generalRules || {});
     const generalAutoFlowColumn = 1;
     const generalMaxRowsPerAutoColumn = 25;
+    const generalAnswerMarkerBandHeightMm = 5.2;
     const layouts = boot.layouts || {};
     const themes = boot.themes || {};
     const bubbleSizes = boot.bubbleSizes || {};
@@ -349,15 +350,30 @@
 
     function getGeneralDistribution(questionCount, selectedColumns) {
         if (selectedColumns === generalAutoFlowColumn) {
-            const rows = Math.max(1, Math.min(questionCount, generalMaxRowsPerAutoColumn));
+            const columnQuestionCounts = [];
+            let remaining = questionCount;
+            while (remaining > 0) {
+                const take = Math.min(remaining, generalMaxRowsPerAutoColumn);
+                columnQuestionCounts.push(take);
+                remaining -= take;
+            }
             return {
-                columns: Math.max(1, Math.ceil(questionCount / rows)),
-                rows: rows,
+                columns: columnQuestionCounts.length,
+                rows: Math.max.apply(null, columnQuestionCounts),
+                columnQuestionCounts: columnQuestionCounts,
             };
+        }
+
+        const base = Math.floor(questionCount / selectedColumns);
+        const remainder = questionCount % selectedColumns;
+        const columnQuestionCounts = [];
+        for (let index = 0; index < selectedColumns; index += 1) {
+            columnQuestionCounts.push(base + (index < remainder ? 1 : 0));
         }
         return {
             columns: selectedColumns,
-            rows: Math.ceil(questionCount / selectedColumns),
+            rows: Math.max.apply(null, columnQuestionCounts),
+            columnQuestionCounts: columnQuestionCounts,
         };
     }
 
@@ -382,6 +398,7 @@
                 row_height_mm: Number(rowHeight.toFixed(2)),
                 header_height_mm: spec.header_height_mm,
                 number_width_mm: spec.number_width_mm,
+                column_question_counts: distribution.columnQuestionCounts,
             },
         };
     }
@@ -993,14 +1010,13 @@
     }
 
     function renderAnswersFixed(layout) {
+        if (state.config.sheet_variant === 'general') {
+            return renderGeneralAnswersFixed(layout);
+        }
+
         const grid = layout.answer_grid;
-        const total = state.config.question_count;
         const titleStyle = boxStyle(40, grid.y_mm - 13, 130, 8);
         let html = '<div class="omr-preview-answer-title" style="' + titleStyle + '">' + omrCopy.institutionalAnswerTitle + '</div>';
-
-        if (state.config.sheet_variant === 'general') {
-            html = '<div class="omr-preview-answer-title" style="' + titleStyle + '">' + omrCopy.generalAnswerTitle + '</div>';
-        }
 
         for (let columnIndex = 0; columnIndex < grid.columns; columnIndex += 1) {
             const x = grid.x_mm + (columnIndex * (grid.column_width_mm + grid.column_gap_mm));
@@ -1009,7 +1025,7 @@
             const headerPct = percent(grid.header_height_mm, height);
             const rowsPct = (100 - parseFloat(headerPct)).toFixed(4);
             const startNumber = (columnIndex * grid.rows) + 1;
-            const endNumber = Math.min(total, startNumber + grid.rows - 1);
+            const endNumber = startNumber + grid.rows - 1;
             html += '<div class="omr-preview-answer-column" style="' + boxStyle(x, y, grid.column_width_mm, height) + '">' +
                 '<div class="omr-preview-answer-header" style="height:' + headerPct + '%">' +
                 '<span class="question-label" style="width:' + percent(grid.number_width_mm, grid.column_width_mm) + '%">' + omrCopy.question + '</span>' +
@@ -1020,7 +1036,7 @@
             for (let rowIndex = 0; rowIndex < grid.rows; rowIndex += 1) {
                 const number = startNumber + rowIndex;
                 html += '<div class="omr-preview-answer-row">' +
-                    '<span class="omr-preview-qnum" style="width:' + percent(grid.number_width_mm, grid.column_width_mm) + '%">' + (number <= endNumber ? toBanglaNumber(number) : '&nbsp;') + '</span>' +
+                    '<span class="omr-preview-qnum" style="width:' + percent(grid.number_width_mm, grid.column_width_mm) + '%">' + toBanglaNumber(number) + '</span>' +
                     '<div class="omr-preview-options">';
                 optionLabels.forEach(function (label) {
                     html += '<span class="omr-preview-option"><span class="omr-mini-bubble ' + state.config.bubble_size + '">' + label + '</span></span>';
@@ -1031,6 +1047,83 @@
             html += '</div></div>';
         }
         return html;
+    }
+
+    function renderGeneralAnswersFixed(layout) {
+        const grid = layout.answer_grid;
+        const columnQuestionCounts = grid.column_question_counts || new Array(grid.columns).fill(grid.rows);
+        const titleStyle = boxStyle(40, grid.y_mm - 13, 130, 8);
+        const frame = getGeneralAnswerFrameMetrics(grid);
+        let html = '<div class="omr-preview-answer-title" style="' + titleStyle + '">' + omrCopy.generalAnswerTitle + '</div>';
+        let nextNumber = 1;
+
+        html += '<div class="omr-preview-answer-frame omr-preview-answer-frame-general" style="' +
+            boxStyle(frame.x_mm, frame.y_mm, frame.width_mm, frame.height_mm) + '"></div>';
+
+        getGeneralAnswerMarkerSpecs(frame).forEach(function (marker) {
+            html += '<div class="omr-preview-answer-marker" style="' +
+                boxStyle(marker.x_mm, marker.y_mm, marker.width_mm, marker.height_mm) + '"></div>';
+        });
+
+        for (let columnIndex = 0; columnIndex < grid.columns; columnIndex += 1) {
+            const actualRows = parseInt(columnQuestionCounts[columnIndex], 10) || 0;
+            if (!actualRows) {
+                continue;
+            }
+            const x = grid.x_mm + (columnIndex * (grid.column_width_mm + grid.column_gap_mm));
+            const y = grid.y_mm + generalAnswerMarkerBandHeightMm;
+            const height = actualRows * grid.row_height_mm;
+            html += '<div class="omr-preview-answer-column omr-preview-answer-column-general" style="' +
+                boxStyle(x, y, grid.column_width_mm, height) + '">' +
+                '<div class="omr-preview-answer-rows" style="height:100%">';
+
+            for (let rowIndex = 0; rowIndex < actualRows; rowIndex += 1) {
+                const number = nextNumber + rowIndex;
+                html += '<div class="omr-preview-answer-row">' +
+                    '<span class="omr-preview-qnum" style="width:' + percent(grid.number_width_mm, grid.column_width_mm) + '%">' + toBanglaNumber(number) + '</span>' +
+                    '<div class="omr-preview-options">';
+                optionLabels.forEach(function (label) {
+                    html += '<span class="omr-preview-option"><span class="omr-mini-bubble ' + state.config.bubble_size + '">' + label + '</span></span>';
+                });
+                html += '</div></div>';
+            }
+
+            html += '</div></div>';
+            nextNumber += actualRows;
+        }
+        return html;
+    }
+
+    function getGeneralAnswerFrameMetrics(grid) {
+        const width = (grid.columns * grid.column_width_mm) + ((grid.columns - 1) * grid.column_gap_mm);
+        return {
+            x_mm: grid.x_mm,
+            y_mm: grid.y_mm,
+            width_mm: width,
+            height_mm: generalAnswerMarkerBandHeightMm + (grid.rows * grid.row_height_mm),
+        };
+    }
+
+    function getGeneralAnswerMarkerSpecs(frame) {
+        const markerWidth = 2.8;
+        const markerHeight = 2.8;
+        const topY = frame.y_mm + 1.1;
+        const offsets = [
+            2.1,
+            frame.width_mm * 0.23,
+            frame.width_mm * 0.29,
+            frame.width_mm * 0.49,
+            frame.width_mm - 10.2,
+            frame.width_mm - 5.0,
+        ];
+        return offsets.map(function (offset) {
+            return {
+                x_mm: frame.x_mm + offset,
+                y_mm: topY,
+                width_mm: markerWidth,
+                height_mm: markerHeight,
+            };
+        });
     }
 
     function updateMeta() {
