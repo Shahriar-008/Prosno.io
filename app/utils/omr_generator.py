@@ -968,7 +968,6 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             border-bottom: 0;
         }}
         .general-answer-qnum {{
-            border-right: 0.35mm solid #1f2937;
             color: #111827;
             font-weight: 700;
         }}
@@ -2141,13 +2140,6 @@ def _draw_general_answer_grid(
                 _top_to_bottom(row_top + grid["row_height_mm"], 0),
                 _mm(column_x + grid["column_width_mm"]),
                 _top_to_bottom(row_top + grid["row_height_mm"], 0),
-            )
-            pdf.setStrokeColor(stroke)
-            pdf.line(
-                _mm(column_x + grid["number_width_mm"]),
-                _top_to_bottom(row_top, grid["row_height_mm"]),
-                _mm(column_x + grid["number_width_mm"]),
-                _top_to_bottom(row_top, 0),
             )
             pdf.setFillColor(colors.black)
             pdf.setFont(FONT_REGULAR, question_font)
