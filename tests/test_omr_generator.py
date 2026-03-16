@@ -106,3 +106,21 @@ def test_generate_omr_pdf_with_weasyprint_supports_institutional_templates(monke
     assert captured["base_url"]
     assert cfg["header"]["title"] in captured["string"]
     assert CLASS_TITLE in captured["string"]
+
+
+def test_build_omr_html_general_answer_numbers_are_centered():
+    cfg = normalize_omr_template_config(
+        {
+            "sheet_variant": "general",
+            "question_count": 50,
+            "answer_columns": 2,
+        }
+    )
+
+    html = _build_omr_html(cfg)
+
+    assert ".general-answer-row {" in html
+    assert "direction: ltr;" in html
+    assert ".general-answer-qnum {" in html
+    assert "justify-content: center;" in html
+    assert "unicode-bidi: isolate;" in html

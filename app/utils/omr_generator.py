@@ -962,14 +962,24 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         }}
         .general-answer-row {{
             display: flex;
+            direction: ltr;
             border-bottom: 0.25mm solid rgba(15, 23, 42, 0.14);
         }}
         .general-answer-row:last-child {{
             border-bottom: 0;
         }}
         .general-answer-qnum {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            padding: 0 0.8mm;
             color: #111827;
             font-weight: 700;
+            line-height: 1;
+            text-align: center;
+            direction: ltr;
+            unicode-bidi: isolate;
         }}
         .general-answer-options {{
             display: grid;
