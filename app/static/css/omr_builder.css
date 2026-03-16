@@ -496,11 +496,11 @@
 
 .omr-preview-instructions ol {
     margin: 0;
-    padding: 8px 8px 10px 18px;
+    padding: 6px 7px 8px 16px;
     color: #111827;
-    font-size: 8.2px;
-    font-size: 1.08cqw;
-    line-height: 1.4;
+    font-size: 7.6px;
+    font-size: 1cqw;
+    line-height: 1.28;
     overflow-wrap: anywhere;
     word-break: normal;
     white-space: normal;
@@ -514,7 +514,7 @@
 }
 
 .omr-preview-instructions li + li {
-    margin-top: 4px;
+    margin-top: 2px;
 }
 
 .omr-preview-signature {

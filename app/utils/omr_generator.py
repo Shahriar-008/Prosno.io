@@ -195,8 +195,8 @@ def _build_identity_section_layout() -> dict[str, Any]:
                 "labels": list(ANSWER_OPTION_LABELS),
             },
         ],
-        "instructions_block": {"x_mm": 149, "y_mm": 52, "width_mm": 48, "height_mm": 33},
-        "signature_box": {"x_mm": 149, "y_mm": 93, "width_mm": 48, "height_mm": 22},
+        "instructions_block": {"x_mm": 149, "y_mm": 52, "width_mm": 48, "height_mm": 40},
+        "signature_box": {"x_mm": 149, "y_mm": 95, "width_mm": 48, "height_mm": 22},
     }
 
 
@@ -926,10 +926,11 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         }}
         .instructions ol {{
             margin: 0;
-            padding: 2mm 3.2mm 3mm 6mm;
+            padding: 1.4mm 2.8mm 2.2mm 5.4mm;
             color: #111827;
-            font-size: 2.6mm;
-            line-height: 1.45;
+            font-size: 2.35mm;
+            line-height: 1.28;
+            overflow-wrap: anywhere;
         }}
         .signature {{
             display: flex;
@@ -1333,11 +1334,12 @@ def _render_html_answers(cfg: dict[str, Any], layout: dict[str, Any], bubble_pre
         f'<div class="box answer-title" style="{_html_box_style_mm(float(title_box["x_mm"]), float(title_box["y_mm"]), float(title_box["width_mm"]), float(title_box["height_mm"]))}">{title}</div>'
     ]
     question_width_pct = (grid["number_width_mm"] / grid["column_width_mm"]) * 100
+    answer_column_border_mm = 0.35 * 2
     next_number = 1
 
     for column_index in range(grid["columns"]):
         actual_rows = int(column_question_counts[column_index]) if column_index < len(column_question_counts) else grid["rows"]
-        total_height = grid["header_height_mm"] + (actual_rows * grid["row_height_mm"])
+        total_height = grid["header_height_mm"] + (actual_rows * grid["row_height_mm"]) + answer_column_border_mm
         rows_markup = []
         for row_index in range(actual_rows):
             number = next_number + row_index
