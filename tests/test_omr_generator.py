@@ -6,7 +6,11 @@ from app.utils.omr_generator import (
     FONT_BOLD,
     FONT_REGULAR,
     HEADER_WARNING_TEXT,
+    INSTITUTIONAL_BUBBLE_STROKE_HEX,
     INSTITUTIONAL_ANSWER_TITLE,
+    INSTITUTIONAL_HEADER_WARNING_HEIGHT_MM,
+    INSTITUTIONAL_PANEL_TITLE_HEIGHT_MM,
+    INSTITUTIONAL_STRIPE_HEX,
     ROLL_NUMBER_TITLE,
     SIGNATURE_LABEL,
     _build_omr_html,
@@ -75,6 +79,12 @@ def test_build_omr_html_uses_institutional_template_content():
     assert SIGNATURE_LABEL in html
     assert INSTITUTIONAL_ANSWER_TITLE in html
     assert "top-pattern-item" in html
+    assert f"size: 215.900mm 279.400mm;" in html
+    assert f"min-height: {INSTITUTIONAL_PANEL_TITLE_HEIGHT_MM}mm;" in html
+    assert f"background: {INSTITUTIONAL_STRIPE_HEX};" in html
+    assert f"border: 0.4mm solid {INSTITUTIONAL_BUBBLE_STROKE_HEX};" in html
+    assert f"height:{INSTITUTIONAL_HEADER_WARNING_HEIGHT_MM}mm;" in html
+    assert "min-height: 9.5mm;" not in html
 
 
 def test_generate_omr_pdf_with_weasyprint_supports_institutional_templates(monkeypatch):
@@ -107,6 +117,8 @@ def test_generate_omr_pdf_with_weasyprint_supports_institutional_templates(monke
     assert captured["base_url"]
     assert cfg["header"]["title"] in captured["string"]
     assert CLASS_TITLE in captured["string"]
+    assert '<svg viewBox="0 0 100 100"' in captured["string"]
+    assert f"background: {INSTITUTIONAL_STRIPE_HEX};" in captured["string"]
 
 
 def test_build_omr_html_general_answer_numbers_are_centered():

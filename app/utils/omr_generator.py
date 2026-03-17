@@ -134,6 +134,15 @@ DEFAULT_SIDE_MARKER_STACK = {
     "left_x_mm": 14.732,
     "right_x_mm": 195.834,
 }
+INSTITUTIONAL_SURFACE_HEX = "#f8f8f8"
+INSTITUTIONAL_STRIPE_HEX = "#f8b8c0"
+INSTITUTIONAL_BUBBLE_STROKE_HEX = "#7b7b86"
+INSTITUTIONAL_BUBBLE_TEXT_HEX = "#3f3f46"
+INSTITUTIONAL_BOX_BORDER_MM = 0.45
+INSTITUTIONAL_GRID_LINE_MM = 0.3
+INSTITUTIONAL_PANEL_TITLE_HEIGHT_MM = 4.45
+INSTITUTIONAL_HEADER_WARNING_HEIGHT_MM = 3.4
+INSTITUTIONAL_COPY_GAP_MM = 0.65
 
 
 def _expand_top_marker_pattern(pattern: str) -> list[dict[str, Any]]:
@@ -781,7 +790,7 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             position: relative;
             width: {PAGE_WIDTH_MM:.3f}mm;
             height: {PAGE_HEIGHT_MM:.3f}mm;
-            background: #f8f8f8;
+            background: {INSTITUTIONAL_SURFACE_HEX};
         }}
         .box {{
             position: absolute;
@@ -790,22 +799,17 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #101010;
+            overflow: hidden;
         }}
-        .marker span {{
-            width: 44%;
-            height: 44%;
-            border-left: 1mm solid #fff;
-            border-bottom: 1mm solid #fff;
-        }}
-        .marker.right span {{
-            transform: rotate(180deg);
+        .marker svg {{
+            display: block;
+            width: 100%;
+            height: 100%;
         }}
         .marker-bar {{
             background: #101010;
         }}
         .institutional-header {{
-            border: 0.35mm solid {accent};
             background: {accent_soft};
         }}
         .institutional-copy {{
@@ -823,9 +827,9 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             margin: 0;
             padding: 0 1mm;
             color: #dc2626;
-            font-size: 9.1pt;
+            font-size: 2.65mm;
             font-weight: 700;
-            line-height: 1.05;
+            line-height: 1.02;
             text-align: center;
         }}
         .top-pattern-item {{
@@ -848,15 +852,15 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             text-align: center;
         }}
         .institutional-copy-line.title {{
-            font-size: 11.8pt;
+            font-size: 3.2mm;
             font-weight: 700;
         }}
         .institutional-copy-line.subtitle {{
-            font-size: 7.6pt;
+            font-size: 2.26mm;
             font-weight: 700;
         }}
         .institutional-copy-line.institution {{
-            font-size: 7.1pt;
+            font-size: 2.05mm;
             font-weight: 400;
         }}
         .manual-header {{
@@ -864,7 +868,7 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             align-items: center;
             gap: 2mm;
             color: #111827;
-            font-size: 8.4pt;
+            font-size: 2.12mm;
             font-weight: 700;
         }}
         .manual-line {{
@@ -923,20 +927,20 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         .panel,
         .signature,
         .answer-column {{
-            border: 0.35mm solid {accent};
+            border: {INSTITUTIONAL_BOX_BORDER_MM}mm solid {accent};
             background: #fff;
         }}
         .panel-title {{
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 9.5mm;
+            min-height: {INSTITUTIONAL_PANEL_TITLE_HEIGHT_MM}mm;
             padding: 1mm 1.5mm;
             background: #ffffff;
-            border-bottom: 0.35mm solid {accent};
             color: #111827;
-            font-size: 3.1mm;
+            font-size: 2.55mm;
             font-weight: 700;
+            line-height: 1.02;
         }}
         .instructions .panel-title {{
             background: {accent};
@@ -945,14 +949,14 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         .matrix {{
             display: grid;
             width: 100%;
-            height: calc(100% - 9.5mm);
+            height: calc(100% - {INSTITUTIONAL_PANEL_TITLE_HEIGHT_MM}mm);
         }}
         .matrix-cell {{
             display: flex;
             align-items: center;
             justify-content: center;
-            border-right: 0.25mm solid rgba(0, 0, 0, 0.08);
-            border-bottom: 0.25mm solid rgba(0, 0, 0, 0.08);
+            border-right: {INSTITUTIONAL_GRID_LINE_MM}mm solid {accent};
+            border-bottom: {INSTITUTIONAL_GRID_LINE_MM}mm solid {accent};
             background: #ffffff;
         }}
         .instructions {{
@@ -963,7 +967,7 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             margin: 0;
             padding: 1.4mm 2.8mm 2.2mm 5.4mm;
             color: #111827;
-            font-size: 2.35mm;
+            font-size: 2.05mm;
             line-height: 1.28;
             overflow-wrap: anywhere;
         }}
@@ -973,15 +977,16 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             justify-content: center;
             padding: 2mm;
             color: #111827;
-            font-size: 2.9mm;
+            font-size: 2.45mm;
             text-align: center;
+            line-height: 1.12;
         }}
         .answer-title {{
             display: flex;
             align-items: center;
             justify-content: center;
             color: #111827;
-            font-size: 4.2mm;
+            font-size: 3.2mm;
             font-weight: 700;
         }}
         .general-answer-frame {{
@@ -1030,10 +1035,9 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         .answer-header {{
             display: flex;
             align-items: stretch;
-            background: {accent_soft};
-            border-bottom: 0.35mm solid {accent};
+            background: #ffffff;
             color: #111827;
-            font-size: 2.9mm;
+            font-size: 2.55mm;
             font-weight: 700;
         }}
         .answer-header span,
@@ -1045,24 +1049,21 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         }}
         .question-head,
         .answer-qnum {{
-            border-right: 0.35mm solid {accent};
+            border-right: {INSTITUTIONAL_GRID_LINE_MM}mm solid {accent};
         }}
         .answer-rows {{
             display: grid;
         }}
         .answer-row {{
             display: flex;
-            border-bottom: 0.25mm solid rgba(0, 0, 0, 0.08);
-        }}
-        .answer-row:last-child {{
-            border-bottom: 0;
+            border-top: {INSTITUTIONAL_GRID_LINE_MM}mm solid {accent};
         }}
         .answer-options {{
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             flex: 1 1 0;
             place-items: center;
-            background: #ffffff;
+            background: {INSTITUTIONAL_STRIPE_HEX};
         }}
         .bubble {{
             display: inline-flex;
@@ -1072,10 +1073,10 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             overflow: hidden;
             width: {bubble_preset["diameter_mm"]}mm;
             height: {bubble_preset["diameter_mm"]}mm;
-            border: 0.35mm solid {accent};
+            border: 0.4mm solid {INSTITUTIONAL_BUBBLE_STROKE_HEX};
             border-radius: 50%;
             background: #fff;
-            color: #111827;
+            color: {INSTITUTIONAL_BUBBLE_TEXT_HEX};
             font-size: {max(2.5, bubble_preset["font_size"] * 0.62):.2f}mm;
             line-height: 1;
         }}
@@ -1100,16 +1101,64 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
 def _render_html_markers(template: dict[str, Any] | None) -> str:
     parts = []
     for marker in _get_corner_marker_specs(template):
-        side = " right" if str(marker.get("orientation", "left")).lower() == "right" else ""
         size_mm = float(marker.get("size_mm", DEFAULT_CORNER_MARKER_SIZE_MM))
         parts.append(
-            f'<div class="box marker{side}" style="{_html_box_style_mm(float(marker["x_mm"]), float(marker["y_mm"]), size_mm, size_mm)}"><span></span></div>'
+            f'<div class="box marker" style="{_html_box_style_mm(float(marker["x_mm"]), float(marker["y_mm"]), size_mm, size_mm)}">{_build_html_corner_marker_svg(marker)}</div>'
         )
     for bar in _get_side_marker_bars(template):
         parts.append(
             f'<div class="box marker-bar" style="{_html_box_style_mm(bar["x_mm"], bar["y_mm"], bar["width_mm"], bar["height_mm"])}"></div>'
         )
     return "".join(parts)
+
+
+def _build_html_corner_marker_svg(marker: dict[str, Any]) -> str:
+    style = str(marker.get("style", "")).lower()
+    orientation = str(marker.get("orientation", "left")).lower()
+    pieces = ['<rect width="100" height="100" fill="#101010"></rect>']
+
+    if style == "top_left":
+        pieces.append('<rect x="30" y="30" width="40" height="40" fill="#ffffff"></rect>')
+    elif style == "top_right":
+        pieces.extend(
+            (
+                '<rect x="16" y="18" width="66" height="15" fill="#ffffff"></rect>',
+                '<rect x="16" y="18" width="15" height="57" fill="#ffffff"></rect>',
+                '<rect x="67" y="18" width="15" height="72" fill="#ffffff"></rect>',
+            )
+        )
+    elif style == "bottom_left":
+        pieces.extend(
+            (
+                '<rect x="16" y="70" width="66" height="15" fill="#ffffff"></rect>',
+                '<rect x="16" y="24" width="15" height="61" fill="#ffffff"></rect>',
+                '<rect x="67" y="46" width="15" height="39" fill="#ffffff"></rect>',
+            )
+        )
+    elif style == "bottom_right":
+        pieces.extend(
+            (
+                '<rect x="62" y="18" width="15" height="70" fill="#ffffff"></rect>',
+                '<rect x="28" y="48" width="49" height="15" fill="#ffffff"></rect>',
+                '<rect x="18" y="76" width="18" height="18" fill="#ffffff"></rect>',
+            )
+        )
+    elif orientation == "right":
+        pieces.extend(
+            (
+                '<rect x="26" y="26" width="48" height="15" fill="#ffffff"></rect>',
+                '<rect x="59" y="26" width="15" height="48" fill="#ffffff"></rect>',
+            )
+        )
+    else:
+        pieces.extend(
+            (
+                '<rect x="26" y="26" width="48" height="15" fill="#ffffff"></rect>',
+                '<rect x="26" y="26" width="15" height="48" fill="#ffffff"></rect>',
+            )
+        )
+
+    return f'<svg viewBox="0 0 100 100" aria-hidden="true">{"".join(pieces)}</svg>'
 
 
 def _render_html_top_marker_pattern(template: dict[str, Any] | None) -> str:
@@ -1131,20 +1180,20 @@ def _render_html_institutional_header(cfg: dict[str, Any], template: dict[str, A
     height_mm = float(header_box["height_mm"])
     parts = [
         f'<div class="box institutional-header" style="{_html_box_style_mm(x_mm, y_mm, width_mm, height_mm)}"></div>',
-        f'<div class="box institutional-warning" style="{_html_box_style_mm(x_mm + 4, y_mm + float(offsets["warning_y_mm"]) - 0.2, width_mm - 8, 4.8)}">{html.escape(HEADER_WARNING_TEXT)}</div>',
+        f'<div class="box institutional-warning" style="{_html_box_style_mm(x_mm + 2.5, y_mm + float(offsets["warning_y_mm"]), width_mm - 5, INSTITUTIONAL_HEADER_WARNING_HEIGHT_MM)}">{html.escape(HEADER_WARNING_TEXT)}</div>',
         _render_html_top_marker_pattern(template),
     ]
 
     if cfg["header_mode"] == "manual":
-        label_x_mm = x_mm + 5.8
-        line_end_x_mm = x_mm + width_mm - 6.2
+        label_x_mm = x_mm + 4.2
+        line_end_x_mm = x_mm + width_mm - 4.2
         manual_start_y_mm = y_mm + float(offsets["manual_line_start_y_mm"])
         manual_gap_mm = float(offsets["manual_line_gap_mm"])
         line_width_mm = line_end_x_mm - label_x_mm
         for index, label in enumerate(MANUAL_HEADER_LABELS):
             row_y_mm = manual_start_y_mm + (index * manual_gap_mm)
             parts.append(
-                f'<div class="box manual-header" style="{_html_box_style_mm(label_x_mm, row_y_mm - 1.55, line_width_mm, 3.6)}"><strong class="manual-line">{html.escape(label)}</strong><span class="rule"></span></div>'
+                f'<div class="box manual-header" style="{_html_box_style_mm(label_x_mm, row_y_mm - 1.05, line_width_mm, 2.2)}"><strong class="manual-line">{html.escape(label)}</strong><span class="rule"></span></div>'
             )
         return "".join(parts)
 
@@ -1167,9 +1216,9 @@ def _render_html_institutional_header(cfg: dict[str, Any], template: dict[str, A
     if not line_specs:
         return "".join(parts)
 
-    gap_mm = 3.8 if len(line_specs) > 1 else 0
+    gap_mm = INSTITUTIONAL_COPY_GAP_MM if len(line_specs) > 1 else 0
     line_box_height_mm = max(
-        2.8,
+        1.1,
         (copy_box["height_mm"] - (gap_mm * max(0, len(line_specs) - 1))) / len(line_specs),
     )
     copy_markup = "".join(
@@ -1288,7 +1337,7 @@ def _render_html_matrix_panel(
                 continue
 
             display = to_bengali_numeral(labels[label_index]) if labels[label_index].isdigit() else labels[label_index]
-            column_bg = "background:rgba(244, 93, 116, 0.22);" if shade_alternate_columns and col_index % 2 == 0 else ""
+            column_bg = f"background:{INSTITUTIONAL_STRIPE_HEX};" if shade_alternate_columns and col_index % 2 == 0 else ""
             cells.append(f'<div class="matrix-cell" style="{column_bg}">{_render_html_bubble(display)}</div>')
     return (
         f'<div class="box panel" style="{_html_box_style_mm(x_mm, y_mm, width_mm, height_mm)}">'
@@ -1393,12 +1442,11 @@ def _render_html_answers(cfg: dict[str, Any], layout: dict[str, Any], bubble_pre
         f'<div class="box answer-title" style="{_html_box_style_mm(float(title_box["x_mm"]), float(title_box["y_mm"]), float(title_box["width_mm"]), float(title_box["height_mm"]))}">{title}</div>'
     ]
     question_width_pct = (grid["number_width_mm"] / grid["column_width_mm"]) * 100
-    answer_column_border_mm = 0.35 * 2
     next_number = 1
 
     for column_index in range(grid["columns"]):
         actual_rows = int(column_question_counts[column_index]) if column_index < len(column_question_counts) else grid["rows"]
-        total_height = grid["header_height_mm"] + (actual_rows * grid["row_height_mm"]) + answer_column_border_mm
+        total_height = grid["header_height_mm"] + (actual_rows * grid["row_height_mm"])
         rows_markup = []
         for row_index in range(actual_rows):
             number = next_number + row_index

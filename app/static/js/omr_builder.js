@@ -12,6 +12,10 @@
     const generalAutoFlowColumn = 1;
     const generalMaxRowsPerAutoColumn = 25;
     const generalAnswerMarkerBandHeightMm = 5.2;
+    const a4PageMm = Object.freeze({ width_mm: 210, height_mm: 297 });
+    const letterPageMm = Object.freeze({ width_mm: 215.9, height_mm: 279.4 });
+    const institutionalPanelTitleHeightMm = 4.45;
+    const institutionalCopyGapMm = 0.65;
     const layouts = boot.layouts || {};
     const institutionalTemplates = boot.institutionalTemplates || {};
     const themes = boot.themes || {};
@@ -59,6 +63,7 @@
         dirty: false,
         name: '',
         config: deepClone(defaultConfig),
+        previewPage: deepClone(letterPageMm),
     };
 
     const els = {};
@@ -75,8 +80,8 @@
         rollNumber: 'রোল নম্বর',
         subjectCode: 'বিষয় কোড',
         setCode: 'সেট কোড',
-        instructions: 'নির্দেশনা',
-        signature: 'কক্ষ পরিদর্শকের স্বাক্ষর',
+        instructions: 'নির্দেশাবলী',
+        signature: 'কক্ষ পরিদর্শকের স্বাক্ষর তারিখসহ',
         institution: 'প্রতিষ্ঠান',
         examName: 'পরীক্ষার নাম',
         subtitle: 'উপশিরোনাম',
@@ -108,6 +113,7 @@
             'omrTemplateSelect',
             'omrTemplateMeta',
             'omrVariantLabel',
+            'omrPreviewFormatLabel',
             'omrQuestionCountLabel',
             'omrColumnCountLabel',
             'omrPreviewSheet',
@@ -308,15 +314,47 @@
         return Math.min(max, Math.max(min, value));
     }
 
+    function normalizePageDimensions(page, fallback) {
+        const fallbackPage = fallback || a4PageMm;
+        const source = page || fallbackPage;
+        const width = parseFloat(source.width_mm);
+        const height = parseFloat(source.height_mm);
+        return {
+            width_mm: Number.isFinite(width) && width > 0 ? width : fallbackPage.width_mm,
+            height_mm: Number.isFinite(height) && height > 0 ? height : fallbackPage.height_mm,
+        };
+    }
+
+    function getCurrentPreviewPage() {
+        const fallback = state.config.sheet_variant === 'general' ? a4PageMm : letterPageMm;
+        return normalizePageDimensions(state.previewPage, fallback);
+    }
+
     function getInstitutionalLayout(questionCount) {
         const template = getInstitutionalTemplate(questionCount);
+        const fallbackPage = normalizePageDimensions(
+            template && template.print_dimensions,
+            letterPageMm
+        );
         if (template && template.answer_section_layout) {
             return {
-                page: template.print_dimensions || { width_mm: 210, height_mm: 297 },
+                page: fallbackPage,
                 answer_grid: deepClone(template.answer_section_layout),
             };
         }
-        return layouts[String(questionCount)] || layouts[questionCount] || layouts[String(defaultConfig.question_count)] || layouts[defaultConfig.question_count];
+        const fallbackLayout = layouts[String(questionCount)] ||
+            layouts[questionCount] ||
+            layouts[String(defaultConfig.question_count)] ||
+            layouts[defaultConfig.question_count];
+        if (!fallbackLayout) {
+            return {
+                page: fallbackPage,
+                answer_grid: {},
+            };
+        }
+        const resolved = deepClone(fallbackLayout);
+        resolved.page = normalizePageDimensions(resolved.page, fallbackPage);
+        return resolved;
     }
 
     function getInstitutionalTemplate(questionCount) {
@@ -400,7 +438,7 @@
         const availableRowsHeight = 270 - 102 - spec.header_height_mm;
         const rowHeight = Math.min(spec.max_row_height_mm, availableRowsHeight / distribution.rows);
         return {
-            page: { width_mm: 210, height_mm: 297 },
+            page: deepClone(a4PageMm),
             answer_grid: {
                 title_box: { x_mm: 40, y_mm: 89, width_mm: 130, height_mm: 8 },
                 x_mm: spec.x_mm,
@@ -737,13 +775,29 @@
         const accentHex = theme.hex;
         const soft = hexToRgba(accentHex, 0.16);
         const lighter = hexToRgba(accentHex, 0.08);
+        const gridAccent = hexToRgba(accentHex, 0.72);
         const institutionalTemplate = state.config.sheet_variant === 'institutional'
             ? getInstitutionalTemplate(state.config.question_count)
             : null;
+        const page = normalizePageDimensions(
+            layout && layout.page,
+            state.config.sheet_variant === 'general' ? a4PageMm : letterPageMm
+        );
+
+        state.previewPage = page;
 
         els.omrPreviewSheet.style.setProperty('--omr-accent', accentHex);
         els.omrPreviewSheet.style.setProperty('--omr-accent-soft', soft);
         els.omrPreviewSheet.style.setProperty('--omr-accent-light', lighter);
+        els.omrPreviewSheet.style.setProperty('--omr-accent-grid', gridAccent);
+        els.omrPreviewSheet.style.aspectRatio = page.width_mm + ' / ' + page.height_mm;
+        els.omrPreviewSheet.classList.toggle('is-institutional', state.config.sheet_variant === 'institutional');
+        els.omrPreviewSheet.classList.toggle('is-general', state.config.sheet_variant === 'general');
+
+        if (els.omrPreviewFormatLabel) {
+            const formatLabel = state.config.sheet_variant === 'general' ? 'A4 portrait' : 'Letter portrait';
+            els.omrPreviewFormatLabel.innerHTML = '<i class="bi bi-file-earmark"></i> ' + formatLabel;
+        }
 
         const blocks = [];
         blocks.push(renderMarkers(institutionalTemplate));
@@ -784,7 +838,41 @@
 
     function renderCornerMarker(marker) {
         const orientationClass = marker.orientation === 'right' ? ' omr-preview-marker-right' : '';
-        return '<div class="omr-preview-marker' + orientationClass + '" style="' + boxStyle(marker.x_mm, marker.y_mm, marker.size_mm, marker.size_mm) + '"><span></span></div>';
+        const markerStyleClass = marker.style ? ' omr-preview-marker-' + marker.style : '';
+        return '<div class="omr-preview-marker' + orientationClass + markerStyleClass + '" style="' +
+            boxStyle(marker.x_mm, marker.y_mm, marker.size_mm, marker.size_mm) + '">' +
+            buildCornerMarkerSvg(marker) +
+            '</div>';
+    }
+
+    function buildCornerMarkerSvg(marker) {
+        const style = String(marker.style || '').toLowerCase();
+        const orientation = String(marker.orientation || 'left').toLowerCase();
+        let markup = '<rect width="100" height="100" fill="#101010"></rect>';
+
+        if (style === 'top_left') {
+            markup += '<rect x="30" y="30" width="40" height="40" fill="#ffffff"></rect>';
+        } else if (style === 'top_right') {
+            markup += '<rect x="16" y="18" width="66" height="15" fill="#ffffff"></rect>';
+            markup += '<rect x="16" y="18" width="15" height="57" fill="#ffffff"></rect>';
+            markup += '<rect x="67" y="18" width="15" height="72" fill="#ffffff"></rect>';
+        } else if (style === 'bottom_left') {
+            markup += '<rect x="16" y="70" width="66" height="15" fill="#ffffff"></rect>';
+            markup += '<rect x="16" y="24" width="15" height="61" fill="#ffffff"></rect>';
+            markup += '<rect x="67" y="46" width="15" height="39" fill="#ffffff"></rect>';
+        } else if (style === 'bottom_right') {
+            markup += '<rect x="62" y="18" width="15" height="70" fill="#ffffff"></rect>';
+            markup += '<rect x="28" y="48" width="49" height="15" fill="#ffffff"></rect>';
+            markup += '<rect x="18" y="76" width="18" height="18" fill="#ffffff"></rect>';
+        } else if (orientation === 'right') {
+            markup += '<rect x="26" y="26" width="48" height="15" fill="#ffffff"></rect>';
+            markup += '<rect x="59" y="26" width="15" height="48" fill="#ffffff"></rect>';
+        } else {
+            markup += '<rect x="26" y="26" width="48" height="15" fill="#ffffff"></rect>';
+            markup += '<rect x="26" y="26" width="15" height="48" fill="#ffffff"></rect>';
+        }
+
+        return '<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">' + markup + '</svg>';
     }
 
     function getSideMarkerBars(template) {
@@ -936,21 +1024,33 @@
     }
 
     function renderMatrixBlock(spec) {
-        const rows = spec.labels.length;
+        const rows = spec.labels.length + (spec.hasWriteRow ? 1 : 0);
         const bubbleClass = state.config.bubble_size === 'small' ? 'small' : 'large';
         const titleClass = spec.w <= 26
             ? 'omr-preview-card-title omr-preview-card-title-compact'
             : 'omr-preview-card-title';
+        const titlePct = percent(institutionalPanelTitleHeightMm, spec.h);
         let cells = '';
         // Emit cells row-first because CSS grid auto-placement fills rows first.
-        spec.labels.forEach(function (label) {
+        for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
             for (let col = 0; col < spec.cols; col += 1) {
-                cells += '<div class="omr-preview-matrix-cell">' + renderPreviewBubble(formatBubbleLabel(label), bubbleClass) + '</div>';
+                if (spec.hasWriteRow && rowIndex === 0) {
+                    cells += '<div class="omr-preview-matrix-cell omr-preview-matrix-cell-write"></div>';
+                    continue;
+                }
+                const labelIndex = spec.hasWriteRow ? rowIndex - 1 : rowIndex;
+                const label = spec.labels[labelIndex];
+                const stripeClass = spec.shadeAlternateColumns && col % 2 === 0
+                    ? ' omr-preview-matrix-cell-shaded'
+                    : '';
+                cells += '<div class="omr-preview-matrix-cell' + stripeClass + '">' +
+                    renderPreviewBubble(formatBubbleLabel(label), bubbleClass) +
+                    '</div>';
             }
-        });
+        }
 
         return '<div class="omr-preview-card" style="' + boxStyle(spec.x, spec.y, spec.w, spec.h) + '">' +
-            '<div class="' + titleClass + '">' + spec.title + '</div>' +
+            '<div class="' + titleClass + '" style="height:' + titlePct + '%">' + escapeHtml(spec.title) + '</div>' +
             '<div class="omr-preview-matrix" style="grid-template-columns: repeat(' + spec.cols + ', 1fr); grid-template-rows: repeat(' + rows + ', 1fr);">' +
             cells +
             '</div></div>';
@@ -1005,10 +1105,10 @@
         const headerBox = template.header_box || { x_mm: 13, y_mm: 10, width_mm: 184, height_mm: 30 };
         const headerOffsets = template.header_offsets || {};
         const warningBox = {
-            x_mm: headerBox.x_mm + 4,
-            y_mm: headerBox.y_mm + (parseFloat(headerOffsets.warning_y_mm) || 3.2),
-            width_mm: headerBox.width_mm - 8,
-            height_mm: 4.4,
+            x_mm: headerBox.x_mm + 2.5,
+            y_mm: headerBox.y_mm + (parseFloat(headerOffsets.warning_y_mm) || 0.72),
+            width_mm: headerBox.width_mm - 5,
+            height_mm: 3.4,
         };
         let html = '<div class="omr-preview-header-band" style="' + boxStyle(headerBox.x_mm, headerBox.y_mm, headerBox.width_mm, headerBox.height_mm) + '"></div>';
         html += '<div class="omr-preview-warning omr-preview-warning-band" style="' + boxStyle(warningBox.x_mm, warningBox.y_mm, warningBox.width_mm, warningBox.height_mm) + '">' + omrCopy.warning + '</div>';
@@ -1022,32 +1122,48 @@
 
         const copyBox = {
             x_mm: headerBox.x_mm + (parseFloat(headerOffsets.copy_box_x_mm) || 24),
-            y_mm: headerBox.y_mm + (parseFloat(headerOffsets.copy_box_y_mm) || 15.2),
-            width_mm: parseFloat(headerOffsets.copy_box_width_mm) || 157,
-            height_mm: parseFloat(headerOffsets.copy_box_height_mm) || 11.8,
+            y_mm: headerBox.y_mm + (parseFloat(headerOffsets.copy_box_y_mm) || 4.8),
+            width_mm: parseFloat(headerOffsets.copy_box_width_mm) || 116.6,
+            height_mm: parseFloat(headerOffsets.copy_box_height_mm) || 3.8,
         };
 
         if (state.config.header_mode === 'manual') {
-            html += '<div class="omr-preview-manual-copy" style="' + boxStyle(copyBox.x_mm, copyBox.y_mm, copyBox.width_mm, copyBox.height_mm) + '">' +
-                '<div class="omr-preview-manual-line"><strong>' + omrCopy.institution + '</strong><span></span></div>' +
-                '<div class="omr-preview-manual-line"><strong>' + omrCopy.examName + '</strong><span></span></div>' +
-                '<div class="omr-preview-manual-line"><strong>' + omrCopy.subtitle + '</strong><span></span></div>' +
-                '</div>';
+            const labelX = headerBox.x_mm + 4.2;
+            const lineEndX = headerBox.x_mm + headerBox.width_mm - 4.2;
+            const manualStartY = headerBox.y_mm + (parseFloat(headerOffsets.manual_line_start_y_mm) || 4.7);
+            const manualGap = parseFloat(headerOffsets.manual_line_gap_mm) || 2.2;
+            const manualLineHeight = 2.2;
+            [omrCopy.institution, omrCopy.examName, omrCopy.subtitle].forEach(function (label, index) {
+                const rowY = manualStartY + (index * manualGap);
+                html += '<div class="omr-preview-manual-row" style="' +
+                    boxStyle(labelX, rowY - 1.05, lineEndX - labelX, manualLineHeight) +
+                    '"><strong>' + label + '</strong><span></span></div>';
+            });
             return html;
         }
 
         const copy = [];
         if (state.config.header.title) {
-            copy.push('<h2 class="omr-preview-header-title">' + escapeHtml(state.config.header.title) + '</h2>');
+            copy.push({ text: state.config.header.title, className: 'omr-preview-header-title' });
         }
         if (state.config.header.subtitle) {
-            copy.push('<p class="omr-preview-subtitle">' + escapeHtml(state.config.header.subtitle) + '</p>');
+            copy.push({ text: state.config.header.subtitle, className: 'omr-preview-subtitle' });
         }
         if (state.config.header.institution) {
-            copy.push('<p class="omr-preview-institution">' + escapeHtml(state.config.header.institution) + '</p>');
+            copy.push({ text: state.config.header.institution, className: 'omr-preview-institution' });
         }
         if (copy.length) {
-            html += '<div class="omr-preview-header-copy-box" style="' + boxStyle(copyBox.x_mm, copyBox.y_mm, copyBox.width_mm, copyBox.height_mm) + '">' + copy.join('') + '</div>';
+            const gapMm = copy.length > 1 ? institutionalCopyGapMm : 0;
+            const lineHeightMm = Math.max(1.1, (copyBox.height_mm - (gapMm * Math.max(0, copy.length - 1))) / copy.length);
+            html += '<div class="omr-preview-header-copy-box" style="' +
+                boxStyle(copyBox.x_mm, copyBox.y_mm, copyBox.width_mm, copyBox.height_mm) +
+                ';gap:' + percent(gapMm, copyBox.height_mm) + '%">';
+            copy.forEach(function (item) {
+                html += '<div class="' + item.className + '" style="height:' + percent(lineHeightMm, copyBox.height_mm) + '%">' +
+                    escapeHtml(item.text) +
+                    '</div>';
+            });
+            html += '</div>';
         }
         return html;
     }
@@ -1087,13 +1203,16 @@
                 h: block.height_mm,
                 cols: block.columns,
                 labels: block.labels,
+                shadeAlternateColumns: !!block.shade_alternate_columns,
+                hasWriteRow: !!block.has_write_row,
             }));
         });
 
         if (template.identity_section_layout.instructions_block) {
             const instructionsBlock = template.identity_section_layout.instructions_block;
+            const titlePct = percent(institutionalPanelTitleHeightMm, instructionsBlock.height_mm);
             html.push('<div class="omr-preview-instructions" style="' + boxStyle(instructionsBlock.x_mm, instructionsBlock.y_mm, instructionsBlock.width_mm, instructionsBlock.height_mm) + '">' +
-                '<div class="omr-preview-card-title">' + omrCopy.instructions + '</div>' +
+                '<div class="omr-preview-card-title" style="height:' + titlePct + '%">' + omrCopy.instructions + '</div>' +
                 '<ol>' + state.config.instructions.slice(0, 6).map(function (instruction) {
                     return '<li>' + escapeHtml(instruction) + '</li>';
                 }).join('') + '</ol></div>');
@@ -1271,11 +1390,12 @@
     }
 
     function boxStyle(x, y, width, height) {
+        const page = getCurrentPreviewPage();
         return [
-            'left:' + percent(x, 210) + '%',
-            'top:' + percent(y, 297) + '%',
-            'width:' + percent(width, 210) + '%',
-            'height:' + percent(height, 297) + '%',
+            'left:' + percent(x, page.width_mm) + '%',
+            'top:' + percent(y, page.height_mm) + '%',
+            'width:' + percent(width, page.width_mm) + '%',
+            'height:' + percent(height, page.height_mm) + '%',
         ].join(';');
     }
 

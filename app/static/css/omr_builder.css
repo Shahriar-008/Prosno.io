@@ -134,12 +134,12 @@
 .omr-stage-paper {
     position: relative;
     width: 100%;
-    aspect-ratio: 210 / 297;
+    aspect-ratio: 215.9 / 279.4;
     container-type: size;
     border-radius: 6px;
     overflow: hidden;
-    background: #fff;
-    box-shadow: inset 0 0 0 1px #e5e7eb;
+    background: #f8f8f8;
+    box-shadow: inset 0 0 0 1px #ead6db;
     font-family: var(--omr-print-font);
 }
 
@@ -172,7 +172,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #101010;
+    overflow: hidden;
+}
+
+.omr-preview-marker svg {
+    display: block;
+    width: 100%;
+    height: 100%;
 }
 
 .omr-preview-marker span {
@@ -228,6 +234,7 @@
     gap: 0.48cqw;
 }
 
+.omr-preview-manual-row,
 .omr-preview-manual-line {
     display: grid;
     grid-template-columns: auto 1fr;
@@ -239,8 +246,15 @@
     font-weight: 700;
 }
 
+.omr-preview-manual-row strong,
+.omr-preview-manual-line strong,
+.omr-preview-manual-row span,
 .omr-preview-manual-line span {
     display: block;
+}
+
+.omr-preview-manual-row span,
+.omr-preview-manual-line span {
     height: 1px;
     background: var(--omr-accent);
 }
@@ -656,6 +670,223 @@
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.omr-stage-paper.is-institutional {
+    background: #f8f8f8;
+    box-shadow: inset 0 0 0 1px #e7d0d5;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-warning {
+    color: #dc2626;
+    font-size: 0.94cqw;
+    font-weight: 700;
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-header-copy-box {
+    justify-content: flex-start;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-header-title,
+.omr-stage-paper.is-institutional .omr-preview-subtitle,
+.omr-stage-paper.is-institutional .omr-preview-institution {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin: 0;
+    padding: 0 0.55cqw;
+    overflow-wrap: anywhere;
+    text-align: center;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-header-title {
+    color: #090f18;
+    font-size: 1.5cqw;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-subtitle {
+    color: #101828;
+    font-size: 1.06cqw;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-institution {
+    color: #2e3540;
+    font-size: 0.96cqw;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-manual-row {
+    gap: 0.42cqw;
+    color: #111827;
+    font-size: 0.98cqw;
+    font-weight: 700;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-top-marker-circle {
+    border: 1px solid #111827;
+    background: transparent;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-top-marker-square,
+.omr-stage-paper.is-institutional .omr-preview-side-bar {
+    background: #111827;
+    border-radius: 0;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-card,
+.omr-stage-paper.is-institutional .omr-preview-instructions,
+.omr-stage-paper.is-institutional .omr-preview-signature,
+.omr-stage-paper.is-institutional .omr-preview-answer-column {
+    border: 1px solid var(--omr-accent);
+    background: #ffffff;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-card,
+.omr-stage-paper.is-institutional .omr-preview-instructions {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-card-title {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    padding: 0 0.4cqw;
+    background: #ffffff;
+    border-bottom: 0;
+    color: #111827;
+    font-size: 0.97cqw;
+    font-weight: 700;
+    line-height: 1.02;
+    overflow-wrap: anywhere;
+    text-align: center;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-card-title-compact {
+    font-size: 0.82cqw;
+    letter-spacing: -0.02em;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-instructions .omr-preview-card-title {
+    background: var(--omr-accent);
+    color: #ffffff;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-matrix {
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-matrix-cell {
+    border-right: 1px solid var(--omr-accent-grid);
+    border-bottom: 1px solid var(--omr-accent-grid);
+    background: #ffffff;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-matrix-cell-shaded {
+    background: #f8b8c0;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-matrix-cell-write {
+    background: #ffffff;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-instructions {
+    padding: 0;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-instructions ol {
+    flex: 1 1 auto;
+    margin: 0;
+    padding: 0.45cqw 0.62cqw 0.62cqw 1.15cqw;
+    color: #111827;
+    font-size: 0.73cqw;
+    line-height: 1.28;
+    list-style-position: outside;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-instructions li + li {
+    margin-top: 0.08cqw;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-signature {
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.55cqw;
+    color: #111827;
+    font-size: 0.88cqw;
+    line-height: 1.14;
+    text-align: center;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-answer-title {
+    color: #111827;
+    font-size: 1.52cqw;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-answer-header {
+    align-items: center;
+    background: #ffffff;
+    border-bottom: 0;
+    color: #111827;
+    font-size: 0.94cqw;
+    font-weight: 700;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-answer-header .question-label,
+.omr-stage-paper.is-institutional .omr-preview-qnum {
+    border-right: 1px solid var(--omr-accent-grid);
+}
+
+.omr-stage-paper.is-institutional .omr-preview-answer-row {
+    border-top: 1px solid var(--omr-accent-grid);
+    border-bottom: 0;
+    background: #ffffff;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-qnum {
+    color: #111827;
+    font-size: 0.92cqw;
+    font-weight: 700;
+    background: #ffffff;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-options {
+    background: #f8b8c0;
+}
+
+.omr-stage-paper.is-institutional .omr-preview-option {
+    padding: 0.08cqw 0;
+}
+
+.omr-stage-paper.is-institutional .omr-mini-bubble {
+    width: 1.6cqw;
+    height: 1.6cqw;
+    border: 1px solid #7b7b86;
+    color: #3f3f46;
+    background: #ffffff;
+    font-size: 0.82cqw;
+    font-weight: 500;
+}
+
+.omr-stage-paper.is-institutional .omr-mini-bubble.small {
+    width: 1.42cqw;
+    height: 1.42cqw;
+    font-size: 0.72cqw;
 }
 
 .omr-preview-footer-badge {
