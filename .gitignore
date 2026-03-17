@@ -15,6 +15,9 @@ env/
 # Instance folder
 instance/
 
+# Planning and generated analysis files
+.planning/
+
 # Database
 *.db
 *.sqlite

@@ -942,11 +942,12 @@
             ? 'omr-preview-card-title omr-preview-card-title-compact'
             : 'omr-preview-card-title';
         let cells = '';
-        for (let col = 0; col < spec.cols; col += 1) {
-            spec.labels.forEach(function (label) {
+        // Emit cells row-first because CSS grid auto-placement fills rows first.
+        spec.labels.forEach(function (label) {
+            for (let col = 0; col < spec.cols; col += 1) {
                 cells += '<div class="omr-preview-matrix-cell">' + renderPreviewBubble(formatBubbleLabel(label), bubbleClass) + '</div>';
-            });
-        }
+            }
+        });
 
         return '<div class="omr-preview-card" style="' + boxStyle(spec.x, spec.y, spec.w, spec.h) + '">' +
             '<div class="' + titleClass + '">' + spec.title + '</div>' +

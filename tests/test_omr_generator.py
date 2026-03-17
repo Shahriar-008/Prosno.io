@@ -13,6 +13,7 @@ from app.utils.omr_generator import (
     _fit_wrapped_pdf_text,
     _generate_omr_pdf_with_weasyprint,
     _measure_pdf_text_width_mm,
+    _render_html_matrix_panel,
     _register_fonts,
     _wrap_pdf_text,
     normalize_omr_template_config,
@@ -124,3 +125,25 @@ def test_build_omr_html_general_answer_numbers_are_centered():
     assert ".general-answer-qnum {" in html
     assert "justify-content: center;" in html
     assert "unicode-bidi: isolate;" in html
+
+
+def test_render_html_matrix_panel_keeps_serial_label_rows_aligned_across_columns():
+    html = _render_html_matrix_panel(
+        title="রোল নম্বর",
+        x_mm=14,
+        y_mm=52,
+        width_mm=42,
+        height_mm=82,
+        labels=["0", "1", "2"],
+        columns=3,
+        bubble_preset={"diameter_mm": 4.8, "font_size": 6.0},
+    )
+
+    assert html.count('<span class="bubble-label">০</span>') == 3
+    assert html.count('<span class="bubble-label">১</span>') == 3
+    assert html.count('<span class="bubble-label">২</span>') == 3
+    zero = html.find('<span class="bubble-label">০</span>')
+    one = html.find('<span class="bubble-label">১</span>')
+    assert zero != -1
+    assert one != -1
+    assert zero < one

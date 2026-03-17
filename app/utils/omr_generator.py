@@ -1236,8 +1236,9 @@ def _render_html_matrix_panel(
     del bubble_preset
     rows = len(labels)
     cells = []
-    for _ in range(columns):
-        for label in labels:
+    # Emit cells row-first because CSS grid auto-placement fills rows first.
+    for label in labels:
+        for _ in range(columns):
             display = to_bengali_numeral(label) if label.isdigit() else label
             cells.append(f'<div class="matrix-cell">{_render_html_bubble(display)}</div>')
     return (
