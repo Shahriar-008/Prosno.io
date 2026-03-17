@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -22,8 +22,8 @@ from .document_generator import to_bengali_numeral
 
 logger = logging.getLogger(__name__)
 
-PAGE_WIDTH_MM = 210
-PAGE_HEIGHT_MM = 297
+PAGE_WIDTH_MM = round(LETTER[0] / mm, 3)
+PAGE_HEIGHT_MM = round(LETTER[1] / mm, 3)
 SUPPORTED_QUESTION_COUNTS = (40, 60, 80, 100)
 SUPPORTED_BUBBLE_SIZES = ("small", "large")
 SUPPORTED_HEADER_MODES = ("digital", "manual")
@@ -57,7 +57,7 @@ CLASS_TITLE = "\u09b6\u09cd\u09b0\u09c7\u09a3\u09bf"
 CLASS_LABELS = tuple(str(i) for i in range(6, 13))
 
 THEME_COLORS = {
-    "rose": {"label": "Rose", "hex": "#f45d74"},
+    "rose": {"label": "Rose", "hex": "#f03858"},
     "slate": {"label": "Slate", "hex": "#8b95a7"},
     "blue": {"label": "Blue", "hex": "#5d8ee6"},
     "green": {"label": "Green", "hex": "#46c56d"},
@@ -68,47 +68,71 @@ THEME_COLORS = {
 }
 
 BUBBLE_SIZE_PRESETS = {
-    "small": {"label": "Small", "diameter_mm": 3.8, "font_size": 5.2},
-    "large": {"label": "Large", "diameter_mm": 4.8, "font_size": 6.0},
+    "small": {"label": "Small", "diameter_mm": 3.1, "font_size": 4.8},
+    "large": {"label": "Large", "diameter_mm": 3.55, "font_size": 5.3},
 }
 
 DEFAULT_CORNER_MARKER_SIZE_MM = 10
 DEFAULT_CORNER_MARKERS = {
-    "top_left": {"x_mm": 2.5, "y_mm": 12, "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM, "orientation": "left"},
-    "top_right": {"x_mm": 197.5, "y_mm": 12, "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM, "orientation": "right"},
-    "bottom_left": {"x_mm": 2.5, "y_mm": 279, "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM, "orientation": "left"},
-    "bottom_right": {"x_mm": 197.5, "y_mm": 279, "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM, "orientation": "right"},
+    "top_left": {
+        "x_mm": 14.732,
+        "y_mm": 4.953,
+        "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM,
+        "orientation": "left",
+        "style": "top_left",
+    },
+    "top_right": {
+        "x_mm": 191.77,
+        "y_mm": 4.953,
+        "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM,
+        "orientation": "right",
+        "style": "top_right",
+    },
+    "bottom_left": {
+        "x_mm": 14.732,
+        "y_mm": 251.46,
+        "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM,
+        "orientation": "left",
+        "style": "bottom_left",
+    },
+    "bottom_right": {
+        "x_mm": 191.77,
+        "y_mm": 251.46,
+        "size_mm": DEFAULT_CORNER_MARKER_SIZE_MM,
+        "orientation": "right",
+        "style": "bottom_right",
+    },
 }
-DEFAULT_HEADER_BOX = {"x_mm": 13, "y_mm": 10, "width_mm": 184, "height_mm": 30}
+DEFAULT_HEADER_BOX = {"x_mm": 25.908, "y_mm": 4.953, "width_mm": 164.592, "height_mm": 10}
 DEFAULT_HEADER_OFFSETS = {
-    "warning_y_mm": 3.2,
-    "pattern_y_mm": 8.9,
-    "pattern_center_x_mm": 105,
+    "warning_y_mm": 0.72,
+    "pattern_y_mm": 5.08,
+    "pattern_center_x_mm": 108.204,
     "copy_box_x_mm": 24,
-    "copy_box_y_mm": 15.2,
-    "copy_box_width_mm": 157,
-    "copy_box_height_mm": 11.8,
-    "manual_label_width_mm": 27,
-    "manual_line_start_y_mm": 16.2,
-    "manual_line_gap_mm": 4.8,
+    "copy_box_y_mm": 4.8,
+    "copy_box_width_mm": 116.6,
+    "copy_box_height_mm": 3.8,
+    "manual_label_width_mm": 22,
+    "manual_line_start_y_mm": 4.7,
+    "manual_line_gap_mm": 2.2,
 }
 DEFAULT_TOP_PATTERN_STYLE = {
-    "square_size_mm": 3.5,
-    "circle_diameter_mm": 4.7,
+    "square_size_mm": 2.95,
+    "circle_diameter_mm": 3.92,
     "gap_mm": 1.05,
 }
-DEFAULT_ANSWER_TITLE_BOX = {"x_mm": 42, "width_mm": 126, "height_mm": 8}
-DEFAULT_ANSWER_GRID_X_MM = 13
-DEFAULT_ANSWER_GRID_COLUMN_WIDTH_MM = 43
-DEFAULT_ANSWER_GRID_GAP_MM = 4
+DEFAULT_ANSWER_TITLE_BOX = {"x_mm": 53.7, "width_mm": 109, "height_mm": 4.6}
+DEFAULT_ANSWER_GRID_X_MM = 25.527
+DEFAULT_ANSWER_GRID_COLUMN_WIDTH_MM = 39.878
+DEFAULT_ANSWER_GRID_GAP_MM = 2.032
 DEFAULT_ANSWER_GRID_NUMBER_WIDTH_MM = 9.4
 DEFAULT_SIDE_MARKER_STACK = {
-    "bars": 4,
-    "bar_width_mm": 6.6,
-    "bar_height_mm": 3.2,
-    "gap_mm": 0.9,
-    "left_x_mm": 0.8,
-    "right_x_mm": 202.6,
+    "bars": 5,
+    "bar_width_mm": 5.969,
+    "bar_height_mm": 2.921,
+    "gap_mm": 0.635,
+    "left_x_mm": 14.732,
+    "right_x_mm": 195.834,
 }
 
 
@@ -155,10 +179,10 @@ def _build_identity_section_layout() -> dict[str, Any]:
             {
                 "key": "class_track",
                 "title": CLASS_TITLE,
-                "x_mm": 13,
-                "y_mm": 52,
-                "width_mm": 24,
-                "height_mm": 82,
+                "x_mm": 25.527,
+                "y_mm": 35.941,
+                "width_mm": 22.352,
+                "height_mm": 58.547,
                 "columns": 1,
                 "labels": list(CLASS_LABELS),
             },
@@ -166,10 +190,10 @@ def _build_identity_section_layout() -> dict[str, Any]:
                 "key": "roll",
                 "enabled_field": "roll",
                 "title": ROLL_NUMBER_TITLE,
-                "x_mm": 40,
-                "y_mm": 52,
-                "width_mm": 50,
-                "height_mm": 82,
+                "x_mm": 50.419,
+                "y_mm": 35.941,
+                "width_mm": 45.339,
+                "height_mm": 65.024,
                 "columns": 6,
                 "labels": list(DIGIT_LABELS),
                 "shade_alternate_columns": True,
@@ -179,10 +203,10 @@ def _build_identity_section_layout() -> dict[str, Any]:
                 "key": "subject_code",
                 "enabled_field": "subject_code",
                 "title": SUBJECT_CODE_TITLE,
-                "x_mm": 93,
-                "y_mm": 52,
-                "width_mm": 26,
-                "height_mm": 82,
+                "x_mm": 98.298,
+                "y_mm": 35.941,
+                "width_mm": 22.987,
+                "height_mm": 65.024,
                 "columns": 3,
                 "labels": list(DIGIT_LABELS),
                 "shade_alternate_columns": True,
@@ -192,17 +216,17 @@ def _build_identity_section_layout() -> dict[str, Any]:
                 "key": "set_code",
                 "enabled_field": "set_code",
                 "title": SET_CODE_TITLE,
-                "x_mm": 122,
-                "y_mm": 52,
-                "width_mm": 24,
-                "height_mm": 56,
+                "x_mm": 123.698,
+                "y_mm": 35.941,
+                "width_mm": 22.479,
+                "height_mm": 52.578,
                 "columns": 1,
                 "labels": list(SET_CODE_LABELS),
                 "has_write_row": True,
             },
         ],
-        "instructions_block": {"x_mm": 149, "y_mm": 52, "width_mm": 48, "height_mm": 40},
-        "signature_box": {"x_mm": 149, "y_mm": 95, "width_mm": 48, "height_mm": 22},
+        "instructions_block": {"x_mm": 149.098, "y_mm": 35.941, "width_mm": 41.91, "height_mm": 41.402},
+        "signature_box": {"x_mm": 149.098, "y_mm": 79.502, "width_mm": 41.91, "height_mm": 21.463},
     }
 
 
@@ -215,6 +239,7 @@ def _build_institutional_template(
     row_height_mm: float,
     questions_per_column: list[int],
     side_marker_y_mm: float,
+    bottom_marker_y_mm: float | None = None,
     title_y_mm: float,
     header_offsets: dict[str, float] | None = None,
 ) -> dict[str, Any]:
@@ -228,12 +253,17 @@ def _build_institutional_template(
     columns = len(questions_per_column)
     rows = max(questions_per_column)
 
+    resolved_corner_markers = copy.deepcopy(DEFAULT_CORNER_MARKERS)
+    if bottom_marker_y_mm is not None:
+        resolved_corner_markers["bottom_left"]["y_mm"] = float(bottom_marker_y_mm)
+        resolved_corner_markers["bottom_right"]["y_mm"] = float(bottom_marker_y_mm)
+
     return {
         "question_count": question_count,
         "print_dimensions": {"width_mm": PAGE_WIDTH_MM, "height_mm": PAGE_HEIGHT_MM},
-        "left_corner_marker": copy.deepcopy(DEFAULT_CORNER_MARKERS["top_left"]),
-        "right_corner_marker": copy.deepcopy(DEFAULT_CORNER_MARKERS["top_right"]),
-        "corner_markers": copy.deepcopy(DEFAULT_CORNER_MARKERS),
+        "left_corner_marker": copy.deepcopy(resolved_corner_markers["top_left"]),
+        "right_corner_marker": copy.deepcopy(resolved_corner_markers["top_right"]),
+        "corner_markers": resolved_corner_markers,
         "top_marker_pattern": {
             "pattern": pattern,
             "items": _expand_top_marker_pattern(pattern),
@@ -277,47 +307,47 @@ def _build_institutional_template(
 INSTITUTIONAL_TEMPLATE_PRESETS = {
     40: _build_institutional_template(
         question_count=40,
-        pattern="obbb oobbb obo oobb",
-        answer_y_mm=150,
-        header_height_mm=7.0,
-        row_height_mm=12.7,
+        pattern="obbbobbbobbbbbbooobb",
+        answer_y_mm=111.887,
+        header_height_mm=6.223,
+        row_height_mm=5.715,
         questions_per_column=[10, 10, 10, 10],
-        side_marker_y_mm=160,
-        title_y_mm=137,
-        header_offsets={"pattern_y_mm": 8.8},
+        side_marker_y_mm=72.517,
+        bottom_marker_y_mm=165.481,
+        title_y_mm=104.775,
     ),
     60: _build_institutional_template(
         question_count=60,
-        pattern="obbb obb obb obobbbb",
-        answer_y_mm=150,
-        header_height_mm=6.9,
-        row_height_mm=8.55,
+        pattern="obboobbbobbobobbbbbb",
+        answer_y_mm=111.887,
+        header_height_mm=6.223,
+        row_height_mm=5.715,
         questions_per_column=[15, 15, 15, 15],
-        side_marker_y_mm=165,
-        title_y_mm=137,
-        header_offsets={"pattern_y_mm": 8.85},
+        side_marker_y_mm=86.995,
+        bottom_marker_y_mm=194.183,
+        title_y_mm=104.775,
     ),
     80: _build_institutional_template(
         question_count=80,
-        pattern="bbob bobo bboo bbbobb",
-        answer_y_mm=149,
-        header_height_mm=6.8,
-        row_height_mm=6.35,
+        pattern="bbobbbobobboobbbbobb",
+        answer_y_mm=111.887,
+        header_height_mm=6.223,
+        row_height_mm=5.715,
         questions_per_column=[20, 20, 20, 20],
-        side_marker_y_mm=170,
-        title_y_mm=136,
-        header_offsets={"pattern_y_mm": 8.9},
+        side_marker_y_mm=101.219,
+        bottom_marker_y_mm=222.758,
+        title_y_mm=104.775,
     ),
     100: _build_institutional_template(
         question_count=100,
-        pattern="obbb obbbb obo oobbb",
-        answer_y_mm=149,
-        header_height_mm=6.6,
-        row_height_mm=5.24,
+        pattern="obbbobbbbbboboboobbb",
+        answer_y_mm=111.887,
+        header_height_mm=6.223,
+        row_height_mm=5.715,
         questions_per_column=[25, 25, 25, 25],
-        side_marker_y_mm=175,
-        title_y_mm=136,
-        header_offsets={"pattern_y_mm": 8.95},
+        side_marker_y_mm=115.697,
+        bottom_marker_y_mm=251.46,
+        title_y_mm=104.775,
     ),
 }
 
@@ -647,7 +677,7 @@ def generate_omr_pdf_to_memory(config: dict[str, Any]) -> io.BytesIO:
     _register_fonts()
 
     buffer = io.BytesIO()
-    pdf = canvas.Canvas(buffer, pagesize=A4)
+    pdf = canvas.Canvas(buffer, pagesize=(PAGE_WIDTH_MM * mm, PAGE_HEIGHT_MM * mm))
     layout = _resolve_omr_layout(cfg)
     institutional_template = (
         _resolve_institutional_template(cfg["question_count"])
@@ -726,7 +756,7 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
     <meta charset="utf-8">
     <style>
         @page {{
-            size: A4;
+            size: {PAGE_WIDTH_MM:.3f}mm {PAGE_HEIGHT_MM:.3f}mm;
             margin: 0;
         }}
         @font-face {{
@@ -749,10 +779,9 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         }}
         .omr-page {{
             position: relative;
-            width: 210mm;
-            height: 297mm;
-            background: #ffffff;
-            box-shadow: inset 0 0 0 0.35mm #e5e7eb;
+            width: {PAGE_WIDTH_MM:.3f}mm;
+            height: {PAGE_HEIGHT_MM:.3f}mm;
+            background: #f8f8f8;
         }}
         .box {{
             position: absolute;
@@ -1485,22 +1514,72 @@ def _draw_corner_marker(pdf: canvas.Canvas, marker: dict[str, Any]) -> None:
     y_top_mm = float(marker["y_mm"])
     size_mm = float(marker.get("size_mm", DEFAULT_CORNER_MARKER_SIZE_MM))
     orientation = str(marker.get("orientation", "left")).lower()
-    y = _top_to_bottom(y_top_mm, size_mm)
+    style = str(marker.get("style", "")).lower()
 
     pdf.setFillColor(colors.black)
-    pdf.rect(_mm(x_mm), y, _mm(size_mm), _mm(size_mm), fill=1, stroke=0)
-    pdf.setStrokeColor(colors.white)
-    pdf.setLineWidth(1.4)
+    pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, size_mm), _mm(size_mm), _mm(size_mm), fill=1, stroke=0)
+    pdf.setFillColor(colors.white)
+
+    def _fill_box(x_box_mm: float, y_box_top_mm: float, w_box_mm: float, h_box_mm: float) -> None:
+        pdf.rect(
+            _mm(x_box_mm),
+            _top_to_bottom(y_box_top_mm, h_box_mm),
+            _mm(w_box_mm),
+            _mm(h_box_mm),
+            fill=1,
+            stroke=0,
+        )
+
+    wall_mm = size_mm * 0.15
+
+    if style == "top_left":
+        white_size_mm = size_mm * 0.40
+        inset_mm = (size_mm - white_size_mm) / 2
+        _fill_box(x_mm + inset_mm, y_top_mm + inset_mm, white_size_mm, white_size_mm)
+        return
+
+    if style == "top_right":
+        left_mm = x_mm + (size_mm * 0.16)
+        right_mm = x_mm + (size_mm * 0.82)
+        top_mm = y_top_mm + (size_mm * 0.18)
+        left_leg_h_mm = size_mm * 0.57
+        right_leg_h_mm = size_mm * 0.72
+        _fill_box(left_mm, top_mm, right_mm - left_mm, wall_mm)
+        _fill_box(left_mm, top_mm, wall_mm, left_leg_h_mm)
+        _fill_box(right_mm - wall_mm, top_mm, wall_mm, right_leg_h_mm)
+        return
+
+    if style == "bottom_left":
+        left_mm = x_mm + (size_mm * 0.16)
+        right_mm = x_mm + (size_mm * 0.82)
+        bottom_bar_top_mm = y_top_mm + (size_mm * 0.70)
+        left_leg_top_mm = y_top_mm + (size_mm * 0.24)
+        right_leg_top_mm = y_top_mm + (size_mm * 0.46)
+        _fill_box(left_mm, bottom_bar_top_mm, right_mm - left_mm, wall_mm)
+        _fill_box(left_mm, left_leg_top_mm, wall_mm, bottom_bar_top_mm + wall_mm - left_leg_top_mm)
+        _fill_box(right_mm - wall_mm, right_leg_top_mm, wall_mm, bottom_bar_top_mm + wall_mm - right_leg_top_mm)
+        return
+
+    if style == "bottom_right":
+        stem_x_mm = x_mm + (size_mm * 0.62)
+        stem_top_mm = y_top_mm + (size_mm * 0.18)
+        stem_h_mm = size_mm * 0.70
+        bar_y_mm = y_top_mm + (size_mm * 0.48)
+        dot_size_mm = size_mm * 0.18
+        _fill_box(stem_x_mm, stem_top_mm, wall_mm, stem_h_mm)
+        _fill_box(x_mm + (size_mm * 0.28), bar_y_mm, stem_x_mm + wall_mm - (x_mm + (size_mm * 0.28)), wall_mm)
+        _fill_box(x_mm + (size_mm * 0.18), y_top_mm + (size_mm * 0.76), dot_size_mm, dot_size_mm)
+        return
 
     inset_start = 2.6
     inset_end = size_mm - 2.6
     if orientation == "right":
-        pdf.line(_mm(x_mm + inset_start), y + _mm(inset_end), _mm(x_mm + inset_end), y + _mm(inset_end))
-        pdf.line(_mm(x_mm + inset_end), y + _mm(inset_start), _mm(x_mm + inset_end), y + _mm(inset_end))
+        _fill_box(x_mm + inset_start, y_top_mm + inset_start, inset_end - inset_start, wall_mm)
+        _fill_box(x_mm + inset_end - wall_mm, y_top_mm + inset_start, wall_mm, inset_end - inset_start)
         return
 
-    pdf.line(_mm(x_mm + inset_start), y + _mm(inset_start), _mm(x_mm + inset_end), y + _mm(inset_start))
-    pdf.line(_mm(x_mm + inset_start), y + _mm(inset_start), _mm(x_mm + inset_start), y + _mm(inset_end))
+    _fill_box(x_mm + inset_start, y_top_mm + inset_start, inset_end - inset_start, wall_mm)
+    _fill_box(x_mm + inset_start, y_top_mm + inset_start, wall_mm, inset_end - inset_start)
 
 
 def _draw_top_marker_pattern(pdf: canvas.Canvas, template: dict[str, Any] | None) -> None:
@@ -1514,7 +1593,7 @@ def _draw_top_marker_pattern(pdf: canvas.Canvas, template: dict[str, Any] | None
             center_x = _mm(x_mm + (size_mm / 2))
             center_y = _top_to_center(y_mm + (size_mm / 2))
             pdf.setStrokeColor(colors.black)
-            pdf.setLineWidth(0.6)
+            pdf.setLineWidth(0.45)
             pdf.circle(center_x, center_y, _mm(size_mm / 2), stroke=1, fill=0)
             continue
 
@@ -1523,11 +1602,8 @@ def _draw_top_marker_pattern(pdf: canvas.Canvas, template: dict[str, Any] | None
 
 
 def _draw_page_background(pdf: canvas.Canvas) -> None:
-    pdf.setFillColor(colors.white)
-    pdf.rect(0, 0, A4[0], A4[1], fill=1, stroke=0)
-    pdf.setStrokeColor(colors.HexColor("#e5e7eb"))
-    pdf.setLineWidth(0.8)
-    pdf.rect(_mm(4), _mm(4), _mm(202), _mm(289), fill=0, stroke=1)
+    pdf.setFillColor(colors.HexColor("#f8f8f8"))
+    pdf.rect(0, 0, PAGE_WIDTH_MM * mm, PAGE_HEIGHT_MM * mm, fill=1, stroke=0)
 
 
 def _draw_registration_markers(pdf: canvas.Canvas, template: dict[str, Any] | None) -> None:
@@ -1742,13 +1818,13 @@ def _draw_header(
     _draw_centered_pdf_text_box(
         pdf,
         text=HEADER_WARNING_TEXT,
-        x_mm=x_mm + 4,
-        y_top_mm=y_top_mm + float(offsets["warning_y_mm"]) - 0.2,
-        width_mm=width_mm - 8,
-        height_mm=4.8,
+        x_mm=x_mm + 2.5,
+        y_top_mm=y_top_mm + float(offsets["warning_y_mm"]),
+        width_mm=width_mm - 5,
+        height_mm=3.4,
         font_name=FONT_BOLD,
-        max_font_size=9.1,
-        min_font_size=7.0,
+        max_font_size=8.0,
+        min_font_size=6.3,
         leading_factor=1.05,
         max_lines=1,
     )
@@ -1756,24 +1832,24 @@ def _draw_header(
     _draw_top_marker_pattern(pdf, template)
 
     if cfg["header_mode"] == "manual":
-        label_x_mm = x_mm + 5.8
+        label_x_mm = x_mm + 4.2
         line_start_x_mm = label_x_mm + float(offsets["manual_label_width_mm"])
-        line_end_x_mm = x_mm + width_mm - 6.2
+        line_end_x_mm = x_mm + width_mm - 4.2
         manual_start_y_mm = y_top_mm + float(offsets["manual_line_start_y_mm"])
         manual_gap_mm = float(offsets["manual_line_gap_mm"])
 
         pdf.setFillColor(colors.HexColor("#0f172a"))
-        pdf.setFont(FONT_BOLD, 8.4)
+        pdf.setFont(FONT_BOLD, 6.0)
         pdf.setStrokeColor(accent)
-        pdf.setLineWidth(0.9)
+        pdf.setLineWidth(0.45)
         for index, label in enumerate(MANUAL_HEADER_LABELS):
             row_y_mm = manual_start_y_mm + (index * manual_gap_mm)
-            pdf.drawString(_mm(label_x_mm), _top_text_baseline(row_y_mm, 8.4), label)
+            pdf.drawString(_mm(label_x_mm), _top_text_baseline(row_y_mm, 6.0), label)
             pdf.line(
                 _mm(line_start_x_mm),
-                _top_to_bottom(row_y_mm - 0.3, 0),
+                _top_to_bottom(row_y_mm - 0.15, 0),
                 _mm(line_end_x_mm),
-                _top_to_bottom(row_y_mm - 0.3, 0),
+                _top_to_bottom(row_y_mm - 0.15, 0),
             )
         return
 
@@ -1788,18 +1864,18 @@ def _draw_header(
     subtitle = (cfg["header"]["subtitle"] or "").strip()
     institution = (cfg["header"]["institution"] or "").strip()
     if title:
-        line_specs.append((title, FONT_BOLD, 11.8))
+        line_specs.append((title, FONT_BOLD, 9.1))
     if subtitle:
-        line_specs.append((subtitle, FONT_BOLD, 7.6))
+        line_specs.append((subtitle, FONT_BOLD, 6.4))
     if institution:
-        line_specs.append((institution, FONT_REGULAR, 7.1))
+        line_specs.append((institution, FONT_REGULAR, 5.8))
 
     if not line_specs:
         return
 
-    gap_mm = 3.8 if len(line_specs) > 1 else 0
+    gap_mm = 0.65 if len(line_specs) > 1 else 0
     line_box_height_mm = max(
-        2.8,
+        1.1,
         (copy_box["height_mm"] - (gap_mm * max(0, len(line_specs) - 1))) / len(line_specs),
     )
     start_y_mm = copy_box["y_mm"]
@@ -1816,7 +1892,7 @@ def _draw_header(
             height_mm=line_box_height_mm,
             font_name=font_name,
             max_font_size=font_size,
-            min_font_size=max(6.3, font_size - 2.6),
+            min_font_size=max(4.8, font_size - 1.6),
             leading_factor=1.08,
             max_lines=1,
         )
@@ -1915,7 +1991,7 @@ def _draw_bubble_matrix_block(
     shade_alternate_columns: bool = False,
     has_write_row: bool = False,
 ) -> None:
-    title_h_mm = 9.5
+    title_h_mm = 4.45
     content_h_mm = height_mm - title_h_mm
     col_w_mm = width_mm / max(columns, 1)
     total_rows = rows + (1 if has_write_row else 0)
@@ -1923,7 +1999,7 @@ def _draw_bubble_matrix_block(
     bubble_d_mm = bubble_preset["diameter_mm"]
 
     pdf.setStrokeColor(accent)
-    pdf.setLineWidth(1)
+    pdf.setLineWidth(0.45)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, height_mm), _mm(width_mm), _mm(height_mm), fill=0, stroke=1)
     pdf.setFillColor(colors.white)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, title_h_mm), _mm(width_mm), _mm(title_h_mm), fill=1, stroke=0)
@@ -1931,13 +2007,13 @@ def _draw_bubble_matrix_block(
     _draw_centered_pdf_text_box(
         pdf,
         text=title,
-        x_mm=x_mm + 1.2,
-        y_top_mm=y_top_mm + 0.7,
-        width_mm=width_mm - 2.4,
-        height_mm=title_h_mm - 1.2,
+        x_mm=x_mm + 0.8,
+        y_top_mm=y_top_mm + 0.3,
+        width_mm=width_mm - 1.6,
+        height_mm=title_h_mm - 0.6,
         font_name=FONT_BOLD,
-        max_font_size=9,
-        min_font_size=6.5,
+        max_font_size=7.8,
+        min_font_size=6.1,
         leading_factor=1.08,
         max_lines=1,
     )
@@ -1953,7 +2029,7 @@ def _draw_bubble_matrix_block(
     )
 
     if shade_alternate_columns:
-        stripe_color = colors.HexColor("#f6c7d0")
+        stripe_color = colors.HexColor("#f8b8c0")
         pdf.setFillColor(stripe_color)
         for col_index in range(columns):
             if col_index % 2 != 0:
@@ -1970,6 +2046,8 @@ def _draw_bubble_matrix_block(
                 stroke=0,
             )
 
+    pdf.setStrokeColor(accent)
+    pdf.setLineWidth(0.3)
     for col_index in range(1, columns):
         line_x = x_mm + (col_w_mm * col_index)
         pdf.line(
@@ -1995,7 +2073,7 @@ def _draw_bubble_matrix_block(
                 center_y_top_mm=center_y_top,
                 diameter_mm=bubble_d_mm,
                 label=to_bengali_numeral(labels[row]) if labels[row].isdigit() else labels[row],
-                accent=accent,
+                accent=colors.HexColor("#7b7b86"),
                 font_size=bubble_preset["font_size"],
             )
 
@@ -2011,9 +2089,9 @@ def _draw_instructions_block(
     accent: colors.Color,
     accent_soft: colors.Color,
 ) -> None:
-    title_h_mm = 8.5
+    title_h_mm = 4.45
     pdf.setStrokeColor(accent)
-    pdf.setLineWidth(1)
+    pdf.setLineWidth(0.45)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, height_mm), _mm(width_mm), _mm(height_mm), fill=0, stroke=1)
     pdf.setFillColor(accent)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, title_h_mm), _mm(width_mm), _mm(title_h_mm), fill=1, stroke=0)
@@ -2021,13 +2099,13 @@ def _draw_instructions_block(
     _draw_centered_pdf_text_box(
         pdf,
         text=INSTRUCTIONS_TITLE,
-        x_mm=x_mm + 1.2,
-        y_top_mm=y_top_mm + 0.5,
-        width_mm=width_mm - 2.4,
-        height_mm=title_h_mm - 0.8,
+        x_mm=x_mm + 0.9,
+        y_top_mm=y_top_mm + 0.35,
+        width_mm=width_mm - 1.8,
+        height_mm=title_h_mm - 0.6,
         font_name=FONT_BOLD,
-        max_font_size=8.5,
-        min_font_size=6.8,
+        max_font_size=6.7,
+        min_font_size=5.5,
         leading_factor=1.05,
         max_lines=1,
     )
@@ -2044,18 +2122,18 @@ def _draw_instructions_block(
     pdf.setFillColor(colors.black)
     groups, font_size, line_height_mm, group_gap_mm = _fit_instruction_groups(
         cfg["instructions"],
-        max_width_mm=width_mm - 5.4,
-        max_height_mm=height_mm - title_h_mm - 3.4,
-        max_font_size=7.2,
-        min_font_size=5.5,
+        max_width_mm=width_mm - 3.8,
+        max_height_mm=height_mm - title_h_mm - 2.5,
+        max_font_size=5.8,
+        min_font_size=4.8,
     )
     pdf.setFont(FONT_REGULAR, font_size)
-    text_y_mm = y_top_mm + title_h_mm + 2.0
+    text_y_mm = y_top_mm + title_h_mm + 1.3
     for group in groups:
         for line in group:
-            if text_y_mm > y_top_mm + height_mm - 2.2:
+            if text_y_mm > y_top_mm + height_mm - 1.4:
                 return
-            pdf.drawString(_mm(x_mm + 2.4), _top_text_baseline(text_y_mm, font_size), line)
+            pdf.drawString(_mm(x_mm + 1.6), _top_text_baseline(text_y_mm, font_size), line)
             text_y_mm += line_height_mm
         text_y_mm += group_gap_mm
     return
@@ -2079,19 +2157,19 @@ def _draw_signature_box(
     accent: colors.Color,
 ) -> None:
     pdf.setStrokeColor(accent)
-    pdf.setLineWidth(1)
+    pdf.setLineWidth(0.45)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, height_mm), _mm(width_mm), _mm(height_mm), fill=0, stroke=1)
     pdf.setFillColor(colors.black)
     _draw_centered_pdf_text_box(
         pdf,
         text=SIGNATURE_LABEL,
-        x_mm=x_mm + 2,
-        y_top_mm=y_top_mm + 4.2,
-        width_mm=width_mm - 4,
-        height_mm=height_mm - 6.4,
+        x_mm=x_mm + 1.6,
+        y_top_mm=y_top_mm + 2.3,
+        width_mm=width_mm - 3.2,
+        height_mm=height_mm - 3.5,
         font_name=FONT_REGULAR,
-        max_font_size=8,
-        min_font_size=6,
+        max_font_size=5.8,
+        min_font_size=4.8,
         leading_factor=1.12,
         max_lines=2,
     )
@@ -2239,21 +2317,21 @@ def _draw_answer_grid(
     title_box = grid.get("title_box") or {"x_mm": 40, "y_mm": grid["y_mm"] - 13, "width_mm": 130, "height_mm": 8}
     column_question_counts = grid.get("column_question_counts") or [grid["rows"]] * grid["columns"]
     number = 1
-    header_label_font = 8.5 if grid["columns"] <= 3 else 7.3
-    question_font = 7.9 if grid["columns"] <= 3 else 6.8
+    header_label_font = 6.4
+    question_font = 5.9
     answer_title = GENERAL_ANSWER_TITLE if cfg["sheet_variant"] == "general" else INSTITUTIONAL_ANSWER_TITLE
 
     pdf.setFillColor(colors.black)
     _draw_centered_pdf_text_box(
         pdf,
         text=answer_title,
-        x_mm=float(title_box["x_mm"]) + 2,
-        y_top_mm=float(title_box["y_mm"]) + 0.8,
-        width_mm=float(title_box["width_mm"]) - 4,
-        height_mm=float(title_box["height_mm"]) - 1,
+        x_mm=float(title_box["x_mm"]) + 1,
+        y_top_mm=float(title_box["y_mm"]) + 0.15,
+        width_mm=float(title_box["width_mm"]) - 2,
+        height_mm=float(title_box["height_mm"]) - 0.3,
         font_name=FONT_BOLD,
-        max_font_size=12.5,
-        min_font_size=10.2,
+        max_font_size=9.1,
+        min_font_size=7.7,
         leading_factor=1.08,
         max_lines=1,
     )
@@ -2302,13 +2380,17 @@ def _draw_answer_column(
     answer_width_mm = column_width_mm - number_width_mm
     total_h_mm = header_height_mm + (rows * row_height_mm)
     bubble_d_mm = bubble_preset["diameter_mm"]
+    options_fill = colors.HexColor("#f8b8c0")
+    bubble_accent = colors.HexColor("#7b7b86")
 
     pdf.setStrokeColor(accent)
-    pdf.setLineWidth(1)
+    pdf.setLineWidth(0.45)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, total_h_mm), _mm(column_width_mm), _mm(total_h_mm), fill=0, stroke=1)
 
-    pdf.setFillColor(accent_soft)
+    pdf.setFillColor(colors.white)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, header_height_mm), _mm(column_width_mm), _mm(header_height_mm), fill=1, stroke=0)
+    pdf.setStrokeColor(accent)
+    pdf.setLineWidth(0.3)
     pdf.line(_mm(x_mm + number_width_mm), _top_to_bottom(y_top_mm, total_h_mm), _mm(x_mm + number_width_mm), _top_to_bottom(y_top_mm, 0))
     pdf.setFillColor(colors.black)
     pdf.setFont(FONT_BOLD, header_label_font)
@@ -2326,19 +2408,31 @@ def _draw_answer_column(
     for row_index in range(rows):
         current_number = start_number + row_index
         row_top = y_top_mm + header_height_mm + (row_index * row_height_mm)
+        pdf.setFillColor(options_fill)
+        pdf.rect(
+            _mm(x_mm + number_width_mm),
+            _top_to_bottom(row_top, row_height_mm),
+            _mm(answer_width_mm),
+            _mm(row_height_mm),
+            fill=1,
+            stroke=0,
+        )
+        pdf.setStrokeColor(accent)
+        pdf.setLineWidth(0.3)
         pdf.line(_mm(x_mm), _top_to_bottom(row_top, 0), _mm(x_mm + column_width_mm), _top_to_bottom(row_top, 0))
         if current_number > end_number:
             continue
 
-        pdf.setFont(FONT_REGULAR, question_font)
+        pdf.setFillColor(colors.black)
+        pdf.setFont(FONT_BOLD, question_font)
         pdf.drawCentredString(
             _mm(x_mm + (number_width_mm / 2)),
             _top_text_baseline(row_top + (row_height_mm * 0.67), question_font),
             to_bengali_numeral(current_number),
         )
 
-        start_x = x_mm + number_width_mm + 4.2
-        available_width = answer_width_mm - 8.4
+        start_x = x_mm + number_width_mm + 2.55
+        available_width = answer_width_mm - 5.1
         step = available_width / 4
         center_y_top = row_top + (row_height_mm / 2)
         for option_index, label in enumerate(ANSWER_OPTION_LABELS):
@@ -2349,8 +2443,8 @@ def _draw_answer_column(
                 center_y_top_mm=center_y_top,
                 diameter_mm=bubble_d_mm,
                 label=label,
-                accent=accent,
-                font_size=max(4.6, bubble_preset["font_size"] - 0.3),
+                accent=bubble_accent,
+                font_size=max(4.7, bubble_preset["font_size"] - 0.1),
             )
 
 
@@ -2368,11 +2462,11 @@ def _draw_label_bubble(
     center_x = _mm(center_x_mm)
     center_y = _top_to_center(center_y_top_mm)
     pdf.setStrokeColor(accent)
-    pdf.setLineWidth(0.85)
+    pdf.setLineWidth(0.4)
     pdf.circle(center_x, center_y, radius, stroke=1, fill=0)
-    pdf.setFillColor(colors.black)
+    pdf.setFillColor(colors.HexColor("#3f3f46"))
     pdf.setFont(FONT_REGULAR, font_size)
-    pdf.drawCentredString(center_x, center_y - (font_size * 0.18), label)
+    pdf.drawCentredString(center_x, center_y - (font_size * 0.16), label)
 
 
 def _blend_hex(hex_a: str, hex_b: str, ratio_b: float) -> colors.Color:
@@ -2402,12 +2496,12 @@ def _mm(value_mm: float) -> float:
 
 
 def _top_to_bottom(y_top_mm: float, height_mm: float) -> float:
-    return A4[1] - _mm(y_top_mm + height_mm)
+    return (PAGE_HEIGHT_MM * mm) - _mm(y_top_mm + height_mm)
 
 
 def _top_to_center(y_top_mm: float) -> float:
-    return A4[1] - _mm(y_top_mm)
+    return (PAGE_HEIGHT_MM * mm) - _mm(y_top_mm)
 
 
 def _top_text_baseline(y_top_mm: float, font_size: float) -> float:
-    return A4[1] - _mm(y_top_mm) - (font_size * 0.25)
+    return (PAGE_HEIGHT_MM * mm) - _mm(y_top_mm) - (font_size * 0.25)
