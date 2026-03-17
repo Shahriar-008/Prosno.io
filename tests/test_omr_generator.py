@@ -1,6 +1,8 @@
 import sys
 import types
 
+import pytest
+
 from app.utils.omr_generator import (
     CLASS_TITLE,
     FONT_BOLD,
@@ -8,6 +10,7 @@ from app.utils.omr_generator import (
     HEADER_WARNING_TEXT,
     INSTITUTIONAL_BUBBLE_STROKE_HEX,
     INSTITUTIONAL_ANSWER_TITLE,
+    INSTITUTIONAL_GRID_LINE_MM,
     INSTITUTIONAL_HEADER_WARNING_HEIGHT_MM,
     INSTITUTIONAL_PANEL_TITLE_HEIGHT_MM,
     INSTITUTIONAL_STRIPE_HEX,
@@ -15,6 +18,7 @@ from app.utils.omr_generator import (
     SIGNATURE_LABEL,
     _build_omr_html,
     _fit_wrapped_pdf_text,
+    _get_answer_option_centers_x_mm,
     _generate_omr_pdf_with_weasyprint,
     _measure_pdf_text_width_mm,
     _render_html_matrix_panel,
@@ -83,6 +87,7 @@ def test_build_omr_html_uses_institutional_template_content():
     assert f"min-height: {INSTITUTIONAL_PANEL_TITLE_HEIGHT_MM}mm;" in html
     assert f"background: {INSTITUTIONAL_STRIPE_HEX};" in html
     assert f"border: 0.4mm solid {INSTITUTIONAL_BUBBLE_STROKE_HEX};" in html
+    assert f"border-bottom: {INSTITUTIONAL_GRID_LINE_MM}mm solid #f03858;" in html
     assert f"height:{INSTITUTIONAL_HEADER_WARNING_HEIGHT_MM}mm;" in html
     assert "min-height: 9.5mm;" not in html
 
@@ -159,3 +164,13 @@ def test_render_html_matrix_panel_keeps_serial_label_rows_aligned_across_columns
     assert zero != -1
     assert one != -1
     assert zero < one
+
+
+def test_answer_option_centers_use_full_answer_width_without_inset_padding():
+    centers = _get_answer_option_centers_x_mm(9.4, 30.478, 4)
+
+    assert len(centers) == 4
+    step = centers[1] - centers[0]
+    assert step == pytest.approx(30.478 / 4)
+    assert centers[0] - 9.4 == pytest.approx(step / 2)
+    assert (9.4 + 30.478) - centers[-1] == pytest.approx(step / 2)

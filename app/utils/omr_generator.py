@@ -936,6 +936,7 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             justify-content: center;
             min-height: {INSTITUTIONAL_PANEL_TITLE_HEIGHT_MM}mm;
             padding: 1mm 1.5mm;
+            border-bottom: {INSTITUTIONAL_GRID_LINE_MM}mm solid {accent};
             background: #ffffff;
             color: #111827;
             font-size: 2.55mm;
@@ -2096,6 +2097,13 @@ def _draw_bubble_matrix_block(
 
     pdf.setStrokeColor(accent)
     pdf.setLineWidth(0.3)
+    title_separator_y_top = y_top_mm + title_h_mm
+    pdf.line(
+        _mm(x_mm),
+        _top_to_bottom(title_separator_y_top, 0),
+        _mm(x_mm + width_mm),
+        _top_to_bottom(title_separator_y_top, 0),
+    )
     for col_index in range(1, columns):
         line_x = x_mm + (col_w_mm * col_index)
         pdf.line(
@@ -2166,6 +2174,14 @@ def _draw_instructions_block(
         _mm(height_mm - title_h_mm),
         fill=1,
         stroke=0,
+    )
+    pdf.setStrokeColor(accent)
+    pdf.setLineWidth(0.3)
+    pdf.line(
+        _mm(x_mm),
+        _top_to_bottom(y_top_mm + title_h_mm, 0),
+        _mm(x_mm + width_mm),
+        _top_to_bottom(y_top_mm + title_h_mm, 0),
     )
     pdf.setFillColor(colors.black)
     groups, font_size, line_height_mm, group_gap_mm = _fit_instruction_groups(
@@ -2330,12 +2346,15 @@ def _draw_general_answer_grid(
                 to_bengali_numeral(current_number),
             )
 
-            start_x = column_x + grid["number_width_mm"] + 4.2
-            available_width = answer_width_mm - 8.4
-            step = available_width / 4
             center_y_top = row_top + (grid["row_height_mm"] / 2)
-            for option_index, label in enumerate(ANSWER_OPTION_LABELS):
-                center_x = start_x + (step * option_index) + (step / 2)
+            for center_x, label in zip(
+                _get_answer_option_centers_x_mm(
+                    column_x + grid["number_width_mm"],
+                    answer_width_mm,
+                    len(ANSWER_OPTION_LABELS),
+                ),
+                ANSWER_OPTION_LABELS,
+            ):
                 _draw_label_bubble(
                     pdf,
                     center_x_mm=center_x,
@@ -2479,12 +2498,15 @@ def _draw_answer_column(
             to_bengali_numeral(current_number),
         )
 
-        start_x = x_mm + number_width_mm + 2.55
-        available_width = answer_width_mm - 5.1
-        step = available_width / 4
         center_y_top = row_top + (row_height_mm / 2)
-        for option_index, label in enumerate(ANSWER_OPTION_LABELS):
-            center_x = start_x + (step * option_index) + (step / 2)
+        for center_x, label in zip(
+            _get_answer_option_centers_x_mm(
+                x_mm + number_width_mm,
+                answer_width_mm,
+                len(ANSWER_OPTION_LABELS),
+            ),
+            ANSWER_OPTION_LABELS,
+        ):
             _draw_label_bubble(
                 pdf,
                 center_x_mm=center_x,
@@ -2515,6 +2537,19 @@ def _draw_label_bubble(
     pdf.setFillColor(colors.HexColor("#3f3f46"))
     pdf.setFont(FONT_REGULAR, font_size)
     pdf.drawCentredString(center_x, center_y - (font_size * 0.16), label)
+
+
+def _get_answer_option_centers_x_mm(
+    options_x_mm: float,
+    options_width_mm: float,
+    option_count: int,
+) -> list[float]:
+    slots = max(1, option_count)
+    slot_width_mm = options_width_mm / slots
+    return [
+        options_x_mm + (slot_width_mm * index) + (slot_width_mm / 2)
+        for index in range(slots)
+    ]
 
 
 def _blend_hex(hex_a: str, hex_b: str, ratio_b: float) -> colors.Color:
