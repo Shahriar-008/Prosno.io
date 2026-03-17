@@ -35,6 +35,7 @@ GENERAL_MAX_ROWS_PER_AUTO_COLUMN = 25
 GENERAL_MAX_QUESTIONS_BY_COLUMN = {1: 100, 2: 50, 3: 75, 4: 100}
 OMR_TEMPLATE_TYPE = "exam_sheet_v1"
 ANSWER_OPTION_LABELS = ("ক", "খ", "গ", "ঘ")
+SET_CODE_LABELS = ("ক", "খ", "গ", "ঘ", "ঙ")
 HEADER_WARNING_TEXT = "এই বক্সে কোনো দাগ দেওয়া যাবে না"
 MANUAL_HEADER_LABELS = ("প্রতিষ্ঠান", "পরীক্ষার নাম", "উপশিরোনাম")
 GENERAL_FIELD_ROWS = (
@@ -45,8 +46,8 @@ GENERAL_FIELD_ROWS = (
 ROLL_NUMBER_TITLE = "রোল নম্বর"
 SUBJECT_CODE_TITLE = "বিষয় কোড"
 SET_CODE_TITLE = "সেট কোড"
-INSTRUCTIONS_TITLE = "নির্দেশনা"
-SIGNATURE_LABEL = "কক্ষ পরিদর্শকের স্বাক্ষর"
+INSTRUCTIONS_TITLE = "নির্দেশাবলী"
+SIGNATURE_LABEL = "কক্ষ পরিদর্শকের স্বাক্ষর তারিখসহ"
 QUESTION_LABEL = "প্রশ্ন"
 ANSWER_LABEL = "উত্তর"
 INSTITUTIONAL_ANSWER_TITLE = "বহুনির্বাচনি অভীক্ষার উত্তরপত্র"
@@ -171,6 +172,8 @@ def _build_identity_section_layout() -> dict[str, Any]:
                 "height_mm": 82,
                 "columns": 6,
                 "labels": list(DIGIT_LABELS),
+                "shade_alternate_columns": True,
+                "has_write_row": True,
             },
             {
                 "key": "subject_code",
@@ -182,6 +185,8 @@ def _build_identity_section_layout() -> dict[str, Any]:
                 "height_mm": 82,
                 "columns": 3,
                 "labels": list(DIGIT_LABELS),
+                "shade_alternate_columns": True,
+                "has_write_row": True,
             },
             {
                 "key": "set_code",
@@ -190,9 +195,10 @@ def _build_identity_section_layout() -> dict[str, Any]:
                 "x_mm": 122,
                 "y_mm": 52,
                 "width_mm": 24,
-                "height_mm": 82,
+                "height_mm": 56,
                 "columns": 1,
-                "labels": list(ANSWER_OPTION_LABELS),
+                "labels": list(SET_CODE_LABELS),
+                "has_write_row": True,
             },
         ],
         "instructions_block": {"x_mm": 149, "y_mm": 52, "width_mm": 48, "height_mm": 40},
@@ -897,7 +903,7 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
             justify-content: center;
             min-height: 9.5mm;
             padding: 1mm 1.5mm;
-            background: {accent_soft};
+            background: #ffffff;
             border-bottom: 0.35mm solid {accent};
             color: #111827;
             font-size: 3.1mm;
@@ -922,7 +928,7 @@ def _build_omr_html(cfg: dict[str, Any]) -> str:
         }}
         .instructions {{
             overflow: hidden;
-            background: {accent_soft};
+            background: #ffffff;
         }}
         .instructions ol {{
             margin: 0;
@@ -1190,6 +1196,8 @@ def _render_html_institutional_identity(
                 labels=list(spec["labels"]),
                 columns=int(spec["columns"]),
                 bubble_preset=bubble_preset,
+                shade_alternate_columns=bool(spec.get("shade_alternate_columns", False)),
+                has_write_row=bool(spec.get("has_write_row", False)),
             )
         )
 
@@ -1232,15 +1240,27 @@ def _render_html_matrix_panel(
     labels: list[str],
     columns: int,
     bubble_preset: dict[str, Any],
+    shade_alternate_columns: bool = False,
+    has_write_row: bool = False,
 ) -> str:
     del bubble_preset
-    rows = len(labels)
+    rows = len(labels) + (1 if has_write_row else 0)
     cells = []
     # Emit cells row-first because CSS grid auto-placement fills rows first.
-    for label in labels:
-        for _ in range(columns):
-            display = to_bengali_numeral(label) if label.isdigit() else label
-            cells.append(f'<div class="matrix-cell">{_render_html_bubble(display)}</div>')
+    for row_index in range(rows):
+        for col_index in range(columns):
+            if has_write_row and row_index == 0:
+                cells.append('<div class="matrix-cell"></div>')
+                continue
+
+            label_index = row_index - 1 if has_write_row else row_index
+            if label_index < 0 or label_index >= len(labels):
+                cells.append('<div class="matrix-cell"></div>')
+                continue
+
+            display = to_bengali_numeral(labels[label_index]) if labels[label_index].isdigit() else labels[label_index]
+            column_bg = "background:rgba(244, 93, 116, 0.22);" if shade_alternate_columns and col_index % 2 == 0 else ""
+            cells.append(f'<div class="matrix-cell" style="{column_bg}">{_render_html_bubble(display)}</div>')
     return (
         f'<div class="box panel" style="{_html_box_style_mm(x_mm, y_mm, width_mm, height_mm)}">'
         f'<div class="panel-title">{html.escape(title)}</div>'
@@ -1852,6 +1872,8 @@ def _draw_identity_section(
             accent=accent,
             accent_soft=accent_soft,
             bubble_preset=bubble_preset,
+            shade_alternate_columns=bool(spec.get("shade_alternate_columns", False)),
+            has_write_row=bool(spec.get("has_write_row", False)),
         )
 
     instructions_block = identity_layout["instructions_block"]
@@ -1890,17 +1912,20 @@ def _draw_bubble_matrix_block(
     accent: colors.Color,
     accent_soft: colors.Color,
     bubble_preset: dict[str, Any],
+    shade_alternate_columns: bool = False,
+    has_write_row: bool = False,
 ) -> None:
     title_h_mm = 9.5
     content_h_mm = height_mm - title_h_mm
     col_w_mm = width_mm / max(columns, 1)
-    row_h_mm = content_h_mm / max(rows, 1)
+    total_rows = rows + (1 if has_write_row else 0)
+    row_h_mm = content_h_mm / max(total_rows, 1)
     bubble_d_mm = bubble_preset["diameter_mm"]
 
     pdf.setStrokeColor(accent)
     pdf.setLineWidth(1)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, height_mm), _mm(width_mm), _mm(height_mm), fill=0, stroke=1)
-    pdf.setFillColor(accent_soft)
+    pdf.setFillColor(colors.white)
     pdf.rect(_mm(x_mm), _top_to_bottom(y_top_mm, title_h_mm), _mm(width_mm), _mm(title_h_mm), fill=1, stroke=0)
     pdf.setFillColor(colors.black)
     _draw_centered_pdf_text_box(
@@ -1927,6 +1952,24 @@ def _draw_bubble_matrix_block(
         stroke=0,
     )
 
+    if shade_alternate_columns:
+        stripe_color = colors.HexColor("#f6c7d0")
+        pdf.setFillColor(stripe_color)
+        for col_index in range(columns):
+            if col_index % 2 != 0:
+                continue
+            col_start_x_mm = x_mm + (col_index * col_w_mm)
+            stripe_y_top_mm = y_top_mm + title_h_mm + (row_h_mm if has_write_row else 0)
+            stripe_height_mm = content_h_mm - (row_h_mm if has_write_row else 0)
+            pdf.rect(
+                _mm(col_start_x_mm),
+                _top_to_bottom(stripe_y_top_mm, stripe_height_mm),
+                _mm(col_w_mm),
+                _mm(stripe_height_mm),
+                fill=1,
+                stroke=0,
+            )
+
     for col_index in range(1, columns):
         line_x = x_mm + (col_w_mm * col_index)
         pdf.line(
@@ -1935,7 +1978,7 @@ def _draw_bubble_matrix_block(
             _mm(line_x),
             _top_to_bottom(y_top_mm + title_h_mm, 0),
         )
-    for row_index in range(1, rows):
+    for row_index in range(1, total_rows):
         line_y_top = y_top_mm + title_h_mm + (row_h_mm * row_index)
         pdf.line(_mm(x_mm), _top_to_bottom(line_y_top, 0), _mm(x_mm + width_mm), _top_to_bottom(line_y_top, 0))
 
@@ -1944,7 +1987,8 @@ def _draw_bubble_matrix_block(
             if row >= len(labels):
                 continue
             center_x = x_mm + (col * col_w_mm) + (col_w_mm / 2)
-            center_y_top = y_top_mm + title_h_mm + (row * row_h_mm) + (row_h_mm / 2)
+            row_offset = 1 if has_write_row else 0
+            center_y_top = y_top_mm + title_h_mm + ((row + row_offset) * row_h_mm) + (row_h_mm / 2)
             _draw_label_bubble(
                 pdf,
                 center_x_mm=center_x,
@@ -1988,7 +2032,7 @@ def _draw_instructions_block(
         max_lines=1,
     )
 
-    pdf.setFillColor(accent_soft)
+    pdf.setFillColor(colors.white)
     pdf.rect(
         _mm(x_mm),
         _top_to_bottom(y_top_mm + title_h_mm, height_mm - title_h_mm),
