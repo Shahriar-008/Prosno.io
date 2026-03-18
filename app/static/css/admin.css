@@ -60,6 +60,20 @@ body {
     color: var(--text-900);
 }
 
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.btn:focus-visible,
+.nav-link:focus-visible,
+.shortcut-card:focus-visible,
+.header-chip:focus-visible,
+.page-link:focus-visible {
+    outline: 3px solid rgba(47, 159, 169, 0.38);
+    outline-offset: 2px;
+}
+
 /* ===================================
    Layout
    =================================== */
@@ -372,8 +386,16 @@ body {
     color: var(--text-900);
 }
 
+.shortcut-card.w-100.h-100 {
+    min-height: 64px;
+}
+
 .page-content {
     padding: 1.4rem;
+}
+
+.page-header > div:last-child {
+    flex-shrink: 0;
 }
 
 .page-header {
@@ -604,6 +626,17 @@ body {
     border-color: transparent;
     color: #fff;
     background: linear-gradient(140deg, var(--brand-700), var(--brand-500));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 
 /* ===================================
