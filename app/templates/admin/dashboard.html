@@ -4,11 +4,45 @@
 
 {% block content %}
 <div class="page-header">
-    <h1>Dashboard</h1>
-    <p>Welcome back! Here's an overview of your question bank.</p>
+    <h1>Admin Overview</h1>
+    <p>Use this workspace to move from curriculum setup to question operations quickly.</p>
 </div>
 
-<!-- Stats Cards -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Start With These Actions</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6 col-xl-3">
+                <a href="{{ url_for('admin.questions') }}" class="shortcut-card w-100 h-100">
+                    <i class="bi bi-question-circle"></i>
+                    <span>Manage MCQ Questions</span>
+                </a>
+            </div>
+            <div class="col-md-6 col-xl-3">
+                <a href="{{ url_for('admin.bulk_upload_questions') }}" class="shortcut-card w-100 h-100">
+                    <i class="bi bi-upload"></i>
+                    <span>Bulk Upload Questions</span>
+                </a>
+            </div>
+            <div class="col-md-6 col-xl-3">
+                <a href="{{ url_for('admin.bank_dashboard') }}" class="shortcut-card w-100 h-100">
+                    <i class="bi bi-bank"></i>
+                    <span>Review Bank Moderation</span>
+                </a>
+            </div>
+            <div class="col-md-6 col-xl-3">
+                <a href="{{ url_for('admin.ai_generator') }}" class="shortcut-card w-100 h-100">
+                    <i class="bi bi-robot"></i>
+                    <span>Generate With AI</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- KPI Cards -->
 <div class="row g-4 mb-4">
     <div class="col-md-6 col-lg-3">
         <div class="stat-card">
@@ -17,7 +51,7 @@
             </div>
             <div class="stat-content">
                 <h3>{{ stats.classes }}</h3>
-                <p>Classes</p>
+                <p>Classes Configured</p>
             </div>
         </div>
     </div>
@@ -29,7 +63,7 @@
             </div>
             <div class="stat-content">
                 <h3>{{ stats.subjects }}</h3>
-                <p>Subjects</p>
+                <p>Subjects Added</p>
             </div>
         </div>
     </div>
@@ -41,7 +75,7 @@
             </div>
             <div class="stat-content">
                 <h3>{{ stats.chapters }}</h3>
-                <p>Chapters</p>
+                <p>Chapters Available</p>
             </div>
         </div>
     </div>
@@ -53,13 +87,13 @@
             </div>
             <div class="stat-content">
                 <h3>{{ stats.questions }}</h3>
-                <p>Questions</p>
+                <p>MCQ Questions</p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Secondary Stats -->
+<!-- Output Stats -->
 <div class="row g-4 mb-4">
     <div class="col-md-6">
         <div class="stat-card">
@@ -86,31 +120,53 @@
     </div>
 </div>
 
-<!-- Quick Actions -->
+<!-- Admin Workflow -->
 <div class="row g-4 mb-4">
-    <div class="col-12">
+    <div class="col-lg-7">
         <div class="card">
             <div class="card-header">
-                <h5 class="mb-0">Quick Actions</h5>
+                <h5 class="mb-0">Content Setup Workflow</h5>
             </div>
             <div class="card-body">
-                <div class="d-flex flex-wrap gap-2">
+                <div class="d-grid gap-2">
                     <a href="{{ url_for('admin.add_class') }}" class="btn btn-outline-primary">
-                        <i class="bi bi-plus-circle me-1"></i> Add Class
+                        <i class="bi bi-1-circle me-1"></i> Add Class
                     </a>
                     <a href="{{ url_for('admin.add_subject') }}" class="btn btn-outline-success">
-                        <i class="bi bi-plus-circle me-1"></i> Add Subject
+                        <i class="bi bi-2-circle me-1"></i> Add Subject
                     </a>
                     <a href="{{ url_for('admin.add_chapter') }}" class="btn btn-outline-warning">
-                        <i class="bi bi-plus-circle me-1"></i> Add Chapter
+                        <i class="bi bi-3-circle me-1"></i> Add Chapter
                     </a>
                     <a href="{{ url_for('admin.add_question') }}" class="btn btn-outline-info">
-                        <i class="bi bi-plus-circle me-1"></i> Add Question
+                        <i class="bi bi-4-circle me-1"></i> Add Question
                     </a>
                     <a href="{{ url_for('admin.bulk_upload_questions') }}" class="btn btn-outline-secondary">
-                        <i class="bi bi-upload me-1"></i> Bulk Upload
+                        <i class="bi bi-5-circle me-1"></i> Bulk Upload
                     </a>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">High-Traffic Pages</h5>
+            </div>
+            <div class="card-body d-grid gap-2">
+                <a href="{{ url_for('admin.questions') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-right-circle me-1"></i> Questions List
+                </a>
+                <a href="{{ url_for('admin.short_questions') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-right-circle me-1"></i> সংক্ষিপ্ত প্রশ্ন
+                </a>
+                <a href="{{ url_for('admin.cq_questions') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-right-circle me-1"></i> সৃজনশীল প্রশ্ন
+                </a>
+                <a href="{{ url_for('admin.papers') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-right-circle me-1"></i> Generated Papers
+                </a>
             </div>
         </div>
     </div>
