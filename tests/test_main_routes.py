@@ -123,6 +123,25 @@ def test_healthz_is_not_throttled(tmp_path):
         assert response.status_code == 200
 
 
+def test_legacy_subject_and_chapter_routes_are_unavailable(client, seed_catalog):
+    subjects_response = client.get(f"/get-subjects/{seed_catalog['class_id']}")
+    chapters_response = client.get(f"/get-chapters/{seed_catalog['subject_id']}")
+
+    assert subjects_response.status_code == 404
+    assert chapters_response.status_code == 404
+
+
+def test_generate_page_uses_api_subject_chapter_loaders(client):
+    response = client.get("/generate")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "/api/subjects/" in html
+    assert "/api/chapters/" in html
+    assert "/get-subjects/" not in html
+    assert "/get-chapters/" not in html
+
+
 def test_index_includes_seo_metadata(client, seed_catalog):
     response = client.get("/")
 

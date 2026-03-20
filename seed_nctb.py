@@ -3,8 +3,9 @@
 Seed database with NCTB Bangladesh Curriculum
 Classes 1-10 with Subjects and Chapters
 """
-from app import create_app, db
-from app.models import Class, Subject, Chapter
+from __future__ import annotations
+
+from typing import Callable
 
 # NCTB Curriculum Data
 NCTB_DATA = {
@@ -1149,94 +1150,162 @@ NCTB_DATA = {
 }
 
 
+def _legacy_class_names(class_num: int) -> list[str]:
+    """Return class names used by older seed data for compatibility."""
+    legacy_names = {
+        9: ["Class 9"],
+        10: ["Class 10"],
+    }
+    return legacy_names.get(class_num, [])
+
+
+def _find_existing_class(Class, class_num: int, class_data: dict):
+    """Find class rows by order first, then by current/legacy names."""
+    existing_class = Class.query.filter_by(order=class_num).first()
+    if existing_class:
+        return existing_class
+
+    existing_class = Class.query.filter_by(name=class_data["name"]).first()
+    if existing_class:
+        return existing_class
+
+    for legacy_name in _legacy_class_names(class_num):
+        existing_class = Class.query.filter_by(name=legacy_name).first()
+        if existing_class:
+            return existing_class
+
+    return None
+
+
+def apply_nctb_seed(
+    db,
+    Class,
+    Subject,
+    Chapter,
+    logger: Callable[[str], None] = print,
+) -> dict[str, int]:
+    """Create or update NCTB curriculum rows using one idempotent workflow."""
+    summary = {
+        "created_classes": 0,
+        "updated_classes": 0,
+        "created_subjects": 0,
+        "updated_subjects": 0,
+        "created_chapters": 0,
+        "updated_chapters": 0,
+    }
+
+    for class_num, class_data in NCTB_DATA.items():
+        existing_class = _find_existing_class(Class, class_num, class_data)
+        if existing_class:
+            existing_class.name = class_data["name"]
+            existing_class.name_bn = class_data["name_bn"]
+            existing_class.level = class_data["level"]
+            existing_class.order = class_num
+            existing_class.is_active = True
+            cls = existing_class
+            summary["updated_classes"] += 1
+            logger(
+                f"Updated class: {class_data['name']} ({class_data['name_bn']})"
+            )
+        else:
+            cls = Class(
+                name=class_data["name"],
+                name_bn=class_data["name_bn"],
+                level=class_data["level"],
+                order=class_num,
+                is_active=True,
+            )
+            db.session.add(cls)
+            db.session.flush()
+            summary["created_classes"] += 1
+            logger(
+                f"Created class: {class_data['name']} ({class_data['name_bn']})"
+            )
+
+        for subject_order, (subj_name, subj_data) in enumerate(
+            class_data["subjects"].items(), start=1
+        ):
+            existing_subject = Subject.query.filter_by(
+                name=subj_name,
+                class_id=cls.id,
+            ).first()
+
+            if existing_subject:
+                existing_subject.name_bn = subj_data["name_bn"]
+                existing_subject.order = subject_order
+                existing_subject.is_active = True
+                subj = existing_subject
+                summary["updated_subjects"] += 1
+                logger(
+                    f"  Updated subject: {subj_name} ({subj_data['name_bn']})"
+                )
+            else:
+                subj = Subject(
+                    name=subj_name,
+                    name_bn=subj_data["name_bn"],
+                    class_id=cls.id,
+                    order=subject_order,
+                    is_active=True,
+                )
+                db.session.add(subj)
+                db.session.flush()
+                summary["created_subjects"] += 1
+                logger(
+                    f"  Created subject: {subj_name} ({subj_data['name_bn']})"
+                )
+
+            for chapter_order, (chap_bn, chap_en) in enumerate(
+                subj_data["chapters"], start=1
+            ):
+                existing_chapter = Chapter.query.filter_by(
+                    chapter_number=chapter_order,
+                    subject_id=subj.id,
+                ).first()
+
+                if existing_chapter:
+                    existing_chapter.name = chap_en
+                    existing_chapter.name_bn = chap_bn
+                    existing_chapter.order = chapter_order
+                    existing_chapter.is_active = True
+                    summary["updated_chapters"] += 1
+                else:
+                    chap = Chapter(
+                        name=chap_en,
+                        name_bn=chap_bn,
+                        chapter_number=chapter_order,
+                        subject_id=subj.id,
+                        order=chapter_order,
+                        is_active=True,
+                    )
+                    db.session.add(chap)
+                    summary["created_chapters"] += 1
+
+    db.session.commit()
+    return summary
+
+
 def seed_nctb():
     """Seed database with NCTB curriculum"""
+    from app import create_app, db
+    from app.models import Class, Subject, Chapter
+
     app = create_app()
     with app.app_context():
-        created_classes = 0
-        updated_classes = 0
-        created_subjects = 0
-        updated_subjects = 0
-        created_chapters = 0
-        updated_chapters = 0
-
-        for class_num, class_data in NCTB_DATA.items():
-            # Check if class already exists
-            existing_class = Class.query.filter_by(name=class_data["name"]).first()
-            if existing_class:
-                # Update existing class
-                existing_class.name_bn = class_data["name_bn"]
-                existing_class.level = class_data["level"]
-                existing_class.order = class_num
-                cls = existing_class
-                updated_classes += 1
-                print(f"↻ Updated class: {class_data['name']} ({class_data['name_bn']})")
-            else:
-                cls = Class(
-                    name=class_data["name"],
-                    name_bn=class_data["name_bn"],
-                    level=class_data["level"],
-                    order=class_num
-                )
-                db.session.add(cls)
-                db.session.flush()
-                created_classes += 1
-                print(f"✓ Created class: {class_data['name']} ({class_data['name_bn']})")
-
-            # Add/Update subjects
-            for subj_name, subj_data in class_data["subjects"].items():
-                existing_subject = Subject.query.filter_by(
-                    name=subj_name, class_id=cls.id
-                ).first()
-                
-                if existing_subject:
-                    # Update existing subject
-                    existing_subject.name_bn = subj_data["name_bn"]
-                    existing_subject.order = list(class_data["subjects"].keys()).index(subj_name) + 1
-                    subj = existing_subject
-                    updated_subjects += 1
-                    print(f"  ↻ Updated subject: {subj_name} ({subj_data['name_bn']})")
-                else:
-                    subj = Subject(
-                        name=subj_name,
-                        name_bn=subj_data["name_bn"],
-                        class_id=cls.id,
-                        order=list(class_data["subjects"].keys()).index(subj_name) + 1
-                    )
-                    db.session.add(subj)
-                    db.session.flush()
-                    created_subjects += 1
-                    print(f"  ✓ Created subject: {subj_name} ({subj_data['name_bn']})")
-
-                # Add/Update chapters
-                for idx, (chap_bn, chap_en) in enumerate(subj_data["chapters"], 1):
-                    existing_chapter = Chapter.query.filter_by(
-                        chapter_number=idx, subject_id=subj.id
-                    ).first()
-                    
-                    if existing_chapter:
-                        # Update existing chapter
-                        existing_chapter.name = chap_en
-                        existing_chapter.name_bn = chap_bn
-                        existing_chapter.order = idx
-                        updated_chapters += 1
-                    else:
-                        chap = Chapter(
-                            name=chap_en,
-                            name_bn=chap_bn,
-                            chapter_number=idx,
-                            subject_id=subj.id,
-                            order=idx
-                        )
-                        db.session.add(chap)
-                        created_chapters += 1
-
-        db.session.commit()
+        summary = apply_nctb_seed(db, Class, Subject, Chapter)
         print("\n" + "=" * 50)
         print("NCTB Curriculum Seeding Complete!")
-        print(f"  Classes created:  {created_classes} | updated: {updated_classes}")
-        print(f"  Subjects created: {created_subjects} | updated: {updated_subjects}")
-        print(f"  Chapters created: {created_chapters} | updated: {updated_chapters}")
+        print(
+            f"  Classes created:  {summary['created_classes']}"
+            f" | updated: {summary['updated_classes']}"
+        )
+        print(
+            f"  Subjects created: {summary['created_subjects']}"
+            f" | updated: {summary['updated_subjects']}"
+        )
+        print(
+            f"  Chapters created: {summary['created_chapters']}"
+            f" | updated: {summary['updated_chapters']}"
+        )
         print("=" * 50)
 
 

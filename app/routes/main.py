@@ -80,39 +80,6 @@ def generate():
     return render_template('main/generate.html', classes=classes)
 
 
-@main_bp.route('/get-subjects/<int:class_id>')
-@limiter.limit("60 per minute")
-def get_subjects(class_id):
-    """Get subjects for a class"""
-    subjects = Subject.query.filter_by(
-        class_id=class_id, 
-        is_active=True
-    ).order_by(Subject.order).all()
-    
-    return jsonify([{
-        'id': s.id,
-        'name': s.name,
-        'name_bn': s.name_bn or s.name
-    } for s in subjects])
-
-
-@main_bp.route('/get-chapters/<int:subject_id>')
-@limiter.limit("60 per minute")
-def get_chapters(subject_id):
-    """Get chapters for a subject"""
-    chapters = Chapter.query.filter_by(
-        subject_id=subject_id,
-        is_active=True
-    ).order_by(Chapter.order).all()
-    
-    return jsonify([{
-        'id': c.id,
-        'name': c.name,
-        'name_bn': c.name_bn or c.name,
-        'chapter_number': c.chapter_number
-    } for c in chapters])
-
-
 @main_bp.route('/get-question-count', methods=['POST'])
 @limiter.limit("60 per minute")
 def get_question_count():

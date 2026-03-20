@@ -1199,7 +1199,7 @@ Answer: b</code></pre>
                 return;
             }
 
-            fetch(`/get-subjects/${classId}`)
+            fetch(`/api/subjects/${classId}`)
                 .then(response => response.json())
                 .then(subjects => {
                     subjectSelect.innerHTML = '<option value="">-- Choose Subject --</option>';
@@ -1253,7 +1253,7 @@ Answer: b</code></pre>
 
             chaptersContainer.innerHTML = '<div class="text-center p-4"><div class="spinner-border" role="status"></div></div>';
 
-            fetch(`/get-chapters/${subjectId}`)
+            fetch(`/api/chapters/${subjectId}`)
                 .then(response => response.json())
                 .then(chapters => {
                     if (chapters.length === 0) {
@@ -1735,7 +1735,7 @@ Answer: b</code></pre>
         const sel = document.getElementById('sqChapterId');
         sel.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
         if (!subjectId) return;
-        fetch(`/get-chapters/${subjectId}`)
+        fetch(`/api/chapters/${subjectId}`)
             .then(r => r.json())
             .then(chapters => {
                 chapters.forEach(c => {
@@ -1747,7 +1747,7 @@ Answer: b</code></pre>
         const sel = document.getElementById('cqChapterId');
         sel.innerHTML = '<option value="">-- সব অধ্যায় --</option>';
         if (!subjectId) return;
-        fetch(`/get-chapters/${subjectId}`)
+        fetch(`/api/chapters/${subjectId}`)
             .then(r => r.json())
             .then(chapters => {
                 chapters.forEach(c => {

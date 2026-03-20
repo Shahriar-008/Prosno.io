@@ -95,11 +95,11 @@ const Builder = (() => {
 
         if (!classId) return;
 
-        fetch(`/get-subjects/${classId}`)
+        fetch(`/api/subjects/${classId}`)
             .then(r => r.json())
-            .then(data => {
+            .then(subjects => {
                 subjectSel.innerHTML = '<option value="">-- Select Subject --</option>';
-                (data.subjects || []).forEach(s => {
+                subjects.forEach(s => {
                     subjectSel.innerHTML += `<option value="${s.id}">${s.name_bn || s.name}</option>`;
                 });
                 subjectSel.disabled = false;
@@ -120,10 +120,9 @@ const Builder = (() => {
 
         if (!subjectId) return;
 
-        fetch(`/get-chapters/${subjectId}`)
+        fetch(`/api/chapters/${subjectId}`)
             .then(r => r.json())
-            .then(data => {
-                const chapters = data.chapters || [];
+            .then(chapters => {
                 if (!chapters.length) {
                     container.innerHTML = '<span class="text-muted small">No chapters found</span>';
                     return;
