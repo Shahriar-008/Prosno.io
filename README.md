@@ -73,29 +73,58 @@ A modern Flask-based web application for generating professional MCQ question pa
 
 ## 📁 Project Structure
 
-```
+```text
 prosno.io/
 ├── app/
-│   ├── __init__.py          # Application factory
-│   ├── models.py             # Database models
-│   ├── routes/
-│   │   ├── main.py           # Public routes
-│   │   ├── admin.py          # Admin routes
-│   │   └── api.py            # API endpoints
-│   ├── templates/
-│   │   ├── base.html         # Base template
-│   │   ├── main/             # Public templates
-│   │   └── admin/            # Admin templates
-│   ├── static/
-│   │   ├── css/              # Stylesheets
-│   │   └── js/               # JavaScript files
-│   └── utils/
-│       └── document_generator.py  # DOCX generation
-├── config.py                 # Configuration settings
-├── run.py                    # Application entry point
-├── requirements.txt          # Python dependencies
-└── README.md                 # This file
+│   ├── __init__.py                 # Application factory, extension setup, startup tasks
+│   ├── models.py                   # SQLAlchemy models (curriculum, users, papers, quiz, bank)
+│   ├── routes/                     # Blueprints
+│   │   ├── main.py                 # Public pages, paper/OMR generation flows
+│   │   ├── admin.py                # Admin dashboard/content management
+│   │   ├── api.py                  # JSON APIs (class/subject/chapter/question metadata)
+│   │   ├── auth.py                 # Authentication/account routes
+│   │   ├── quiz.py                 # Quiz and session endpoints
+│   │   ├── bank.py                 # Question bank contribution/browsing
+│   │   └── moderation.py           # Moderation workflows
+│   ├── utils/
+│   │   ├── document_generator.py   # DOCX generation (student/teacher copies)
+│   │   ├── pdf_generator.py        # PDF conversion utilities
+│   │   ├── ai_generator.py         # AI-assisted question generation pipeline
+│   │   ├── omr_generator.py        # OMR template/builder generation
+│   │   ├── scheduler.py            # Background scheduled jobs
+│   │   ├── cache.py                # Cache configuration helpers
+│   │   └── supabase_auth.py        # Supabase auth integration helper
+│   ├── templates/                  # Jinja templates (public, admin, auth, quiz, bank)
+│   └── static/                     # Frontend assets (CSS/JS/images)
+├── tests/                          # Pytest test suite
+├── config.py                       # Environment-driven Flask config
+├── run.py                          # Local entry point + Flask CLI commands
+├── requirements.txt                # Python dependencies
+└── README.md
 ```
+
+### Route Modules at a Glance
+
+- `main` - Landing page, paper builder, downloads, OMR workflows
+- `admin` - Protected CMS-like management for classes/subjects/chapters/questions
+- `api` - Lightweight JSON endpoints used by the frontend
+- `auth` - Sign-in/up and account flows
+- `quiz` - Quiz delivery/session tracking
+- `bank` - Community/teacher question bank features
+- `moderation` - Review and moderation actions for submitted content
+
+### Utility Modules at a Glance
+
+- `document_generator` - Creates DOCX papers with Bengali-friendly formatting
+- `pdf_generator` - Produces/serves PDF outputs from generated content
+- `ai_generator` - AI provider integration for batch question generation
+- `omr_generator` - OMR sheet/template rendering helpers
+- `scheduler` - Background jobs for deferred/periodic tasks
+- `cache` - Cache backend selection and helper wrappers
+- `supabase_auth` - External auth bridge for configured deployments
+- `search` / `bank_helpers` / `seo` - Feature-specific helper modules
+
+> Note: The app has grown beyond the initial 3-route layout (`main/admin/api`); see `app/routes/` for the current blueprint set.
 
 ## 🎯 Usage
 

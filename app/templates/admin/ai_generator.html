@@ -362,7 +362,7 @@ document.getElementById('start_class_id').addEventListener('change', function() 
     chapterSelect.disabled = true;
     
     if (classId) {
-        fetch(`/get-subjects/${classId}`)
+        fetch(`/api/subjects/${classId}`)
             .then(r => r.json())
             .then(data => {
                 data.forEach(s => {
@@ -381,7 +381,7 @@ document.getElementById('start_subject_id').addEventListener('change', function(
     chapterSelect.disabled = true;
     
     if (subjectId) {
-        fetch(`/get-chapters/${subjectId}`)
+        fetch(`/api/chapters/${subjectId}`)
             .then(r => r.json())
             .then(data => {
                 data.forEach(c => {

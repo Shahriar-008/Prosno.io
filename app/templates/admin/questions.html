@@ -6,9 +6,9 @@
 <div class="page-header d-flex justify-content-between align-items-center">
     <div>
         <h1>Questions</h1>
-        <p>Manage your question bank</p>
+        <p>Manage and review MCQ items with chapter-based filtering.</p>
     </div>
-    <div>
+    <div class="d-flex flex-wrap gap-2">
         <a href="{{ url_for('admin.bulk_upload_questions') }}" class="btn btn-outline-primary me-2">
             <i class="bi bi-upload me-1"></i> Bulk Upload
         </a>
@@ -20,6 +20,10 @@
 
 <!-- Filter -->
 <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Filter</h5>
+        <small class="text-muted">Tip: choose a chapter to narrow down long lists.</small>
+    </div>
     <div class="card-body">
         <form method="GET" class="row g-3">
             <div class="col-md-4">
@@ -38,6 +42,10 @@
 </div>
 
 <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Question Library</h5>
+        <small class="text-muted">Showing {{ questions.items|length }} of {{ questions.total }} total</small>
+    </div>
     <div class="card-body">
         {% if questions.items %}
         <div class="table-responsive">

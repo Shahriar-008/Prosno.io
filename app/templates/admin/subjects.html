@@ -6,7 +6,7 @@
 <div class="page-header d-flex justify-content-between align-items-center">
     <div>
         <h1>Subjects</h1>
-        <p>Manage all subjects in your question bank</p>
+        <p>Manage subjects mapped to class levels and curriculum structure.</p>
     </div>
     <a href="{{ url_for('admin.add_subject') }}" class="btn btn-primary">
         <i class="bi bi-plus-circle me-1"></i> Add Subject
@@ -14,6 +14,10 @@
 </div>
 
 <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Subject Directory</h5>
+        <small class="text-muted">{{ subjects|length }} subjects configured</small>
+    </div>
     <div class="card-body">
         {% if subjects %}
         <div class="table-responsive">

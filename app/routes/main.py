@@ -1,16 +1,29 @@
 """
 Main routes for Prosno.io
 """
+import re
 from datetime import datetime, date
-from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort, session
+from flask import Blueprint, render_template, request, jsonify, send_file, current_app, abort, session, redirect, url_for
 import os
+from sqlalchemy import or_
 
 from app import db, csrf, limiter
 from app.models import (
     Class, Subject, Chapter, Question, GeneratedPaper,
-    QuestionSet, GenerationLog, ShortQuestion, CQQuestion,
+    QuestionSet, GenerationLog, ShortQuestion, CQQuestion, OmrTemplate,
+    BankQuestion,
 )
 from app.utils.document_generator import generate_paper_from_db, generate_paper_to_memory
+from app.utils.omr_generator import (
+    generate_omr_pdf_to_memory,
+    get_default_omr_config,
+    get_omr_bubble_size_options,
+    get_omr_general_rules,
+    get_omr_layout_presets,
+    get_omr_template_presets,
+    get_omr_theme_options,
+    normalize_omr_template_config,
+)
 from app.utils.pdf_generator import generate_paper_to_memory_pdf
 
 main_bp = Blueprint('main', __name__)
@@ -19,6 +32,14 @@ main_bp = Blueprint('main', __name__)
 MAX_QUESTIONS_PER_PAPER = 50       # Max questions allowed in one paper
 MAX_CHAPTERS_PER_REQUEST = 5       # Max chapters that can be queried at once
 DAILY_GENERATION_LIMIT = 10        # Max papers a logged-in user can generate per day
+OMR_TEMPLATE_NAME_MAX_LEN = 200
+
+
+def _format_sitemap_lastmod(value):
+    """Format datetimes for sitemap lastmod tags."""
+    if not value:
+        return None
+    return value.date().isoformat()
 
 
 def _get_user_credits(user_id):
@@ -57,39 +78,6 @@ def generate():
     """Question paper generation page"""
     classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
     return render_template('main/generate.html', classes=classes)
-
-
-@main_bp.route('/get-subjects/<int:class_id>')
-@limiter.limit("60 per minute")
-def get_subjects(class_id):
-    """Get subjects for a class"""
-    subjects = Subject.query.filter_by(
-        class_id=class_id, 
-        is_active=True
-    ).order_by(Subject.order).all()
-    
-    return jsonify([{
-        'id': s.id,
-        'name': s.name,
-        'name_bn': s.name_bn or s.name
-    } for s in subjects])
-
-
-@main_bp.route('/get-chapters/<int:subject_id>')
-@limiter.limit("60 per minute")
-def get_chapters(subject_id):
-    """Get chapters for a subject"""
-    chapters = Chapter.query.filter_by(
-        subject_id=subject_id,
-        is_active=True
-    ).order_by(Chapter.order).all()
-    
-    return jsonify([{
-        'id': c.id,
-        'name': c.name,
-        'name_bn': c.name_bn or c.name,
-        'chapter_number': c.chapter_number
-    } for c in chapters])
 
 
 @main_bp.route('/get-question-count', methods=['POST'])
@@ -846,11 +834,274 @@ def contact():
     return render_template('main/contact.html')
 
 
+@main_bp.route('/robots.txt')
+def robots_txt():
+    """Serve robots.txt with sitemap location and private path exclusions."""
+    sitemap_url = url_for('main.sitemap_xml', _external=True)
+    return current_app.response_class(
+        render_template('seo/robots.txt', sitemap_url=sitemap_url),
+        mimetype='text/plain',
+    )
+
+
+@main_bp.route('/sitemap.xml')
+def sitemap_xml():
+    """Serve an XML sitemap for crawlable public pages."""
+    pages = [
+        {
+            'loc': url_for('main.index', _external=True),
+            'changefreq': 'weekly',
+            'priority': '1.0',
+        },
+        {
+            'loc': url_for('main.generate', _external=True),
+            'changefreq': 'weekly',
+            'priority': '0.9',
+        },
+        {
+            'loc': url_for('main.about', _external=True),
+            'changefreq': 'monthly',
+            'priority': '0.5',
+        },
+        {
+            'loc': url_for('main.contact', _external=True),
+            'changefreq': 'monthly',
+            'priority': '0.5',
+        },
+        {
+            'loc': url_for('quiz.join_page', _external=True),
+            'changefreq': 'weekly',
+            'priority': '0.6',
+        },
+    ]
+
+    shared_sets = QuestionSet.query.filter(
+        QuestionSet.is_shared == True,
+        QuestionSet.share_token.isnot(None),
+    ).all()
+    for question_set in shared_sets:
+        pages.append({
+            'loc': url_for(
+                'main.public_paper_view',
+                share_token=question_set.share_token,
+                _external=True,
+            ),
+            'lastmod': _format_sitemap_lastmod(
+                question_set.updated_at or question_set.created_at
+            ),
+            'changefreq': 'weekly',
+            'priority': '0.7',
+        })
+
+    return current_app.response_class(
+        render_template('seo/sitemap.xml', pages=pages),
+        mimetype='application/xml',
+    )
+
+
 # ── SaaS Dashboard ────────────────────────────────────────────
 
 def _require_user():
     """Return Supabase user dict or None. Use in routes to guard access."""
     return session.get('user')
+
+
+def _normalize_omr_template_name(value):
+    """Normalize and validate an OMR template name."""
+    name = str(value or '').strip()
+    if not name:
+        raise ValueError('Template name is required.')
+    if len(name) > OMR_TEMPLATE_NAME_MAX_LEN:
+        raise ValueError(
+            f'Template name must be {OMR_TEMPLATE_NAME_MAX_LEN} characters or less.'
+        )
+    return name
+
+
+def _slugify_omr_filename(name):
+    """Convert a template name into a safe PDF filename."""
+    slug = re.sub(r'[^A-Za-z0-9]+', '-', str(name or '').strip()).strip('-').lower()
+    return slug or 'omr-template'
+
+
+def _get_user_omr_template_or_404(template_id, user_id):
+    """Fetch an OMR template owned by the given user or return None."""
+    return OmrTemplate.query.filter_by(id=template_id, user_id=user_id).first()
+
+
+def _serialize_omr_template(template):
+    """Return the public JSON payload for an OMR template."""
+    return template.to_dict()
+
+
+@main_bp.route('/omr-builder')
+def omr_builder():
+    """Standalone OMR template builder."""
+    user = _require_user()
+    if not user:
+        return redirect(url_for('auth.login', next='/omr-builder'))
+
+    return render_template(
+        'main/omr_builder.html',
+        omr_default_config=get_default_omr_config(),
+        omr_general_rules=get_omr_general_rules(),
+        omr_layout_presets=get_omr_layout_presets(),
+        omr_template_presets=get_omr_template_presets(),
+        omr_theme_options=get_omr_theme_options(),
+        omr_bubble_sizes=get_omr_bubble_size_options(),
+        initial_template_id=request.args.get('template', type=int),
+    )
+
+
+@main_bp.route('/api/omr/templates')
+@limiter.limit("60 per minute")
+def list_omr_templates():
+    """List the current user's saved OMR templates."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    templates = OmrTemplate.query.filter_by(user_id=user['id']).order_by(
+        OmrTemplate.updated_at.desc()
+    ).all()
+    return jsonify({
+        'templates': [_serialize_omr_template(template) for template in templates],
+    })
+
+
+@main_bp.route('/api/omr/templates', methods=['POST'])
+@limiter.limit("30 per minute")
+def create_omr_template():
+    """Create a new private OMR template."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    data = request.get_json() or {}
+    try:
+        name = _normalize_omr_template_name(data.get('name'))
+        config_json = normalize_omr_template_config(data.get('config_json'))
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    template = OmrTemplate(
+        user_id=user['id'],
+        name=name,
+        config_json=config_json,
+        question_count=config_json['question_count'],
+    )
+    db.session.add(template)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'template': _serialize_omr_template(template),
+    })
+
+
+@main_bp.route('/api/omr/templates/<int:template_id>')
+@limiter.limit("60 per minute")
+def get_omr_template(template_id):
+    """Fetch a single OMR template owned by the current user."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    template = _get_user_omr_template_or_404(template_id, user['id'])
+    if not template:
+        return jsonify({'error': 'OMR template not found.'}), 404
+
+    return jsonify({'template': _serialize_omr_template(template)})
+
+
+@main_bp.route('/api/omr/templates/<int:template_id>', methods=['PUT'])
+@limiter.limit("30 per minute")
+def update_omr_template(template_id):
+    """Update an existing OMR template."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    template = _get_user_omr_template_or_404(template_id, user['id'])
+    if not template:
+        return jsonify({'error': 'OMR template not found.'}), 404
+
+    data = request.get_json() or {}
+    try:
+        name = _normalize_omr_template_name(data.get('name', template.name))
+        config_json = normalize_omr_template_config(
+            data.get('config_json', template.config_json)
+        )
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    template.name = name
+    template.config_json = config_json
+    template.question_count = config_json['question_count']
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'template': _serialize_omr_template(template),
+    })
+
+
+@main_bp.route('/api/omr/templates/<int:template_id>/delete', methods=['POST'])
+@limiter.limit("30 per minute")
+def delete_omr_template(template_id):
+    """Delete an existing OMR template."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    template = _get_user_omr_template_or_404(template_id, user['id'])
+    if not template:
+        return jsonify({'error': 'OMR template not found.'}), 404
+
+    db.session.delete(template)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@main_bp.route('/api/omr/render', methods=['POST'])
+@limiter.limit("20 per minute")
+def render_omr_template_pdf():
+    """Render an OMR template as a PDF."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.', 'login_required': True}), 401
+
+    data = request.get_json() or {}
+    try:
+        name = _normalize_omr_template_name(data.get('name') or 'OMR Template')
+        config_json = normalize_omr_template_config(data.get('config_json'))
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    template_id = data.get('template_id')
+    try:
+        template_id = int(template_id) if template_id else None
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Template id must be a number.'}), 400
+    if template_id:
+        template = _get_user_omr_template_or_404(template_id, user['id'])
+        if not template:
+            return jsonify({'error': 'OMR template not found.'}), 404
+        template.download_count = (template.download_count or 0) + 1
+        db.session.commit()
+
+    try:
+        pdf_buffer = generate_omr_pdf_to_memory(config_json)
+    except Exception as exc:
+        current_app.logger.error(f'OMR render failed: {exc}')
+        return jsonify({'error': 'Failed to generate OMR PDF.'}), 500
+    filename = _slugify_omr_filename(name) + '.pdf'
+    return send_file(
+        pdf_buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename,
+    )
 
 
 @main_bp.route('/save-question-set', methods=['POST'])
@@ -998,6 +1249,9 @@ def dashboard():
     sets = QuestionSet.query.filter_by(user_id=user['id']).order_by(
         QuestionSet.updated_at.desc()
     ).all()
+    omr_templates = OmrTemplate.query.filter_by(user_id=user['id']).order_by(
+        OmrTemplate.updated_at.desc()
+    ).all()
     
     # Credit / usage data
     credit_used, credit_limit, credit_remaining = _get_user_credits(user['id'])
@@ -1005,6 +1259,7 @@ def dashboard():
     return render_template(
         'main/dashboard.html',
         question_sets=sets,
+        omr_templates=omr_templates,
         credit_used=credit_used,
         credit_limit=credit_limit,
         credit_remaining=credit_remaining,
@@ -1146,6 +1401,371 @@ def bank_leaderboard():
     """Leaderboard page."""
     user = _require_user()
     return render_template('main/bank_leaderboard.html', user=user)
+
+
+# ── Paper Builder ─────────────────────────────────────────────
+
+
+@main_bp.route('/builder')
+def builder():
+    """Smart Paper Builder — drag & drop paper creation."""
+    user = session.get('user')
+    if not user:
+        return redirect(url_for('auth.login'))
+    classes = Class.query.filter_by(is_active=True).order_by(Class.order).all()
+    return render_template('main/builder.html', classes=classes)
+
+
+@main_bp.route('/api/builder/questions', methods=['POST'])
+@limiter.limit("60 per minute")
+def builder_fetch_questions():
+    """Fetch questions across types (MCQ, SQ, CQ) for the paper builder."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.'}), 401
+
+    data = request.get_json() or {}
+    chapter_ids = data.get('chapter_ids', [])
+    question_types = data.get('question_types', ['mcq', 'sq', 'cq'])
+    search_text = data.get('search', '').strip()
+    difficulty = data.get('difficulty', '')
+    page = max(1, data.get('page', 1))
+    per_page = min(50, data.get('per_page', 20))
+
+    if not chapter_ids:
+        return jsonify({'mcq': [], 'sq': [], 'cq': [], 'total_counts': {}})
+
+    if len(chapter_ids) > 10:
+        return jsonify({'error': 'Maximum 10 chapters per request.'}), 400
+
+    result = {}
+    total_counts = {}
+    offset = (page - 1) * per_page
+    user_id = user.get('id')
+
+    def _bank_base_query(question_type):
+        query = BankQuestion.query.filter(
+            BankQuestion.chapter_id.in_(chapter_ids),
+            BankQuestion.is_active == True,
+            BankQuestion.question_type == question_type,
+        )
+        if user_id:
+            query = query.filter(
+                or_(
+                    BankQuestion.visibility == 'public',
+                    BankQuestion.teacher_id == user_id,
+                )
+            )
+        else:
+            query = query.filter(BankQuestion.visibility == 'public')
+        if difficulty:
+            query = query.filter(BankQuestion.difficulty == difficulty)
+        return query
+
+    # MCQ
+    if 'mcq' in question_types:
+        q = _bank_base_query('MCQ')
+        if search_text:
+            q = q.filter(BankQuestion.question_text.ilike(f'%{search_text}%'))
+        total_counts['mcq'] = q.count()
+        mcq_rows = q.order_by(BankQuestion.chapter_id, BankQuestion.id).offset(offset).limit(per_page).all()
+        result['mcq'] = [{
+            'id': r.id,
+            'question_text': r.question_text,
+            'type': 'simple',
+            'answer_options': r.answer_options or [],
+            'correct_answer': r.correct_answer or '',
+            'difficulty': r.difficulty,
+            'chapter_id': r.chapter_id,
+            'chapter_name': (r.chapter_ref.name_bn or r.chapter_ref.name) if r.chapter_ref else '',
+            'marks': r.marks,
+            'db_source': 'bank',
+        } for r in mcq_rows]
+
+    # SQ
+    if 'sq' in question_types:
+        q = _bank_base_query('SQ')
+        if search_text:
+            q = q.filter(BankQuestion.question_text.ilike(f'%{search_text}%'))
+        total_counts['sq'] = q.count()
+        sq_rows = q.order_by(BankQuestion.chapter_id, BankQuestion.id).offset(offset).limit(per_page).all()
+        result['sq'] = [{
+            'id': r.id,
+            'question_text': r.question_text,
+            'marks': r.marks or 2,
+            'difficulty': r.difficulty,
+            'chapter_id': r.chapter_id,
+            'chapter_name': (r.chapter_ref.name_bn or r.chapter_ref.name) if r.chapter_ref else '',
+            'db_source': 'bank',
+        } for r in sq_rows]
+
+    # CQ
+    if 'cq' in question_types:
+        q = _bank_base_query('CQ')
+        if search_text:
+            q = q.filter(
+                or_(
+                    BankQuestion.stem.ilike(f'%{search_text}%'),
+                    BankQuestion.question_text.ilike(f'%{search_text}%'),
+                )
+            )
+        total_counts['cq'] = q.count()
+        cq_rows = q.order_by(BankQuestion.chapter_id, BankQuestion.id).offset(offset).limit(per_page).all()
+        result['cq'] = [{
+            'id': r.id,
+            'question_text': r.question_text or '',
+            'stem': r.stem or r.question_text or '',
+            'part_ka': r.part_ka or '',
+            'part_kha': r.part_kha or '',
+            'part_ga': r.part_ga or '',
+            'part_gha': r.part_gha or '',
+            'marks_ka': r.marks_ka or 0,
+            'marks_kha': r.marks_kha or 0,
+            'marks_ga': r.marks_ga or 0,
+            'marks_gha': r.marks_gha or 0,
+            'total_marks': (r.marks_ka or 0) + (r.marks_kha or 0) + (r.marks_ga or 0) + (r.marks_gha or 0),
+            'difficulty': r.difficulty,
+            'chapter_id': r.chapter_id,
+            'chapter_name': (r.chapter_ref.name_bn or r.chapter_ref.name) if r.chapter_ref else '',
+            'board': r.board,
+            'year': r.year,
+            'db_source': 'bank',
+        } for r in cq_rows]
+
+    result['total_counts'] = total_counts
+    return jsonify(result)
+
+
+@main_bp.route('/api/builder/generate', methods=['POST'])
+@limiter.limit("20 per minute")
+@csrf.exempt
+def builder_generate():
+    """Generate a paper from the sections-based builder JSON."""
+    user = _require_user()
+    if not user:
+        return jsonify({'error': 'Login required.'}), 401
+
+    _used, _limit, _remaining = _get_user_credits(user['id'])
+    if _remaining <= 0:
+        return jsonify({
+            'error': 'Daily generation limit reached.',
+            'credits_exhausted': True,
+        }), 429
+
+    data = request.get_json()
+    if not data or 'sections' not in data:
+        return jsonify({'error': 'Missing sections data.'}), 400
+
+    cfg = data.get('paper_config', {})
+    sections = data.get('sections', [])
+
+    class_id = cfg.get('class_id')
+    subject_id = cfg.get('subject_id')
+    class_obj = Class.query.get(class_id) if class_id else None
+    subject_obj = Subject.query.get(subject_id) if subject_id else None
+    paper_title = cfg.get('title', 'Question Paper')
+    time_minutes = cfg.get('time_minutes', 60)
+    omr_style = cfg.get('omr_style', True)
+
+    # Resolve questions per section
+    mcq_questions = []
+    sq_config = None
+    cq_config = None
+    all_mcq_ids = []
+    user_id = user.get('id')
+
+    def _get_bank_question(question_id, question_type):
+        q = BankQuestion.query.filter(
+            BankQuestion.id == question_id,
+            BankQuestion.question_type == question_type,
+            BankQuestion.is_active == True,
+        )
+        if user_id:
+            q = q.filter(
+                or_(
+                    BankQuestion.visibility == 'public',
+                    BankQuestion.teacher_id == user_id,
+                )
+            )
+        else:
+            q = q.filter(BankQuestion.visibility == 'public')
+        return q.first()
+
+    for sec in sections:
+        sec_type = sec.get('type', 'mcq')
+        raw_questions = sec.get('questions', [])
+        if not raw_questions:
+            continue
+
+        if sec_type == 'mcq':
+            for item in raw_questions:
+                if item.get('source') == 'db' and item.get('id'):
+                    source = item.get('db_source')
+                    if source in (None, 'bank'):
+                        bq = _get_bank_question(item['id'], 'MCQ')
+                        if bq:
+                            mcq_questions.append({
+                                'question_text': bq.question_text or '',
+                                'answer_options': bq.answer_options or [],
+                                'correct_answer': bq.correct_answer or '',
+                                'type': 'simple',
+                                'chapter_id': bq.chapter_id,
+                            })
+                            all_mcq_ids.append(bq.id)
+                            continue
+                    q = Question.query.get(item['id'])
+                    if q and q.is_active:
+                        mcq_questions.append(q)
+                        all_mcq_ids.append(q.id)
+                elif item.get('source') == 'custom':
+                    mcq_questions.append({
+                        'question_text': item.get('question_text', ''),
+                        'answer_options': item.get('answer_options', []),
+                        'correct_answer': item.get('correct_answer', ''),
+                        'type': item.get('type', 'simple'),
+                        'sub_options': item.get('sub_options', []),
+                        'final_prompt': item.get('final_prompt', ''),
+                    })
+
+        elif sec_type == 'sq':
+            sq_list = []
+            for item in raw_questions:
+                if item.get('source') == 'db' and item.get('id'):
+                    source = item.get('db_source')
+                    if source in (None, 'bank'):
+                        bq = _get_bank_question(item['id'], 'SQ')
+                        if bq:
+                            sq_list.append({
+                                'question_text': bq.question_text or '',
+                                'marks': bq.marks or 2,
+                            })
+                            continue
+                    q = ShortQuestion.query.get(item['id'])
+                    if q and q.is_active:
+                        sq_list.append(q.to_dict())
+                elif item.get('source') == 'custom':
+                    sq_list.append({
+                        'question_text': item.get('question_text', ''),
+                        'marks': item.get('marks', 2),
+                    })
+            if sq_list:
+                sq_config = {
+                    'questions': sq_list,
+                    'answer_count': sec.get('answer_count', len(sq_list)),
+                    'marks_per_question': sec.get('marks_per_question', 2),
+                }
+
+        elif sec_type == 'cq':
+            cq_list = []
+            for item in raw_questions:
+                if item.get('source') == 'db' and item.get('id'):
+                    source = item.get('db_source')
+                    if source in (None, 'bank'):
+                        bq = _get_bank_question(item['id'], 'CQ')
+                        if bq:
+                            cq_list.append({
+                                'stem': bq.stem or bq.question_text or '',
+                                'part_ka': bq.part_ka or '',
+                                'part_kha': bq.part_kha or '',
+                                'part_ga': bq.part_ga or '',
+                                'part_gha': bq.part_gha or '',
+                                'marks_ka': bq.marks_ka or 0,
+                                'marks_kha': bq.marks_kha or 0,
+                                'marks_ga': bq.marks_ga or 0,
+                                'marks_gha': bq.marks_gha or 0,
+                                'total_marks': (bq.marks_ka or 0) + (bq.marks_kha or 0) + (bq.marks_ga or 0) + (bq.marks_gha or 0),
+                                'board': bq.board,
+                                'year': bq.year,
+                            })
+                            continue
+                    q = CQQuestion.query.get(item['id'])
+                    if q and q.is_active:
+                        cq_list.append(q.to_dict())
+                elif item.get('source') == 'custom':
+                    cq_list.append(item)
+            if cq_list:
+                cq_config = {
+                    'questions': cq_list,
+                    'answer_count': sec.get('answer_count', len(cq_list)),
+                }
+
+    if not mcq_questions and not sq_config and not cq_config:
+        return jsonify({'error': 'No questions in any section.'}), 400
+
+    # Calculate total marks
+    total_marks = len(mcq_questions)
+    if sq_config:
+        total_marks += sq_config['answer_count'] * sq_config['marks_per_question']
+    if cq_config:
+        cq_m = cq_config['questions'][0].get('total_marks', 10) if cq_config['questions'] else 10
+        total_marks += cq_config['answer_count'] * cq_m
+
+    paper_config = {
+        'title': paper_title,
+        'class_name': (class_obj.name_bn or class_obj.name) if class_obj else cfg.get('class_name', ''),
+        'subject_name': (subject_obj.name_bn or subject_obj.name) if subject_obj else cfg.get('subject_name', ''),
+        'time': time_minutes,
+        'marks': total_marks,
+    }
+
+    output_folder = current_app.config.get('OUTPUT_FOLDER', 'output')
+    try:
+        student_path, teacher_path = generate_paper_from_db(
+            mcq_questions, paper_config, output_folder,
+            omr_style=omr_style,
+            sq_config=sq_config,
+            cq_config=cq_config,
+        )
+    except Exception as e:
+        current_app.logger.error(f"Builder generate error: {e}")
+        return jsonify({'error': 'Failed to generate paper.'}), 500
+
+    # Compute effective question counts
+    total_q = len(mcq_questions)
+    if sq_config:
+        total_q += len(sq_config['questions'])
+    if cq_config:
+        total_q += len(cq_config['questions'])
+
+    # Get chapter_ids from MCQ questions
+    chapter_ids = set()
+    for q in mcq_questions:
+        if hasattr(q, 'chapter_id') and q.chapter_id:
+            chapter_ids.add(q.chapter_id)
+        elif isinstance(q, dict) and q.get('chapter_id'):
+            chapter_ids.add(q.get('chapter_id'))
+    chapter_ids = list(chapter_ids)
+
+    paper = GeneratedPaper(
+        title=paper_title,
+        class_id=class_id,
+        subject_id=subject_id,
+        chapter_ids=chapter_ids if chapter_ids else None,
+        question_ids=all_mcq_ids if all_mcq_ids else None,
+        question_count=total_q,
+        time_minutes=time_minutes,
+        file_path=student_path,
+        file_path_answers=teacher_path,
+        omr_style=omr_style,
+        custom_paper_config={
+            **paper_config,
+            'omr_style': omr_style,
+            'sq_config': sq_config,
+            'cq_config': cq_config,
+        } if (sq_config or cq_config) else None,
+    )
+    db.session.add(paper)
+    _log_generation(user['id'], gen_type='builder')
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'paper_id': paper.id,
+        'question_count': total_q,
+        'total_marks': total_marks,
+        'student_download': f'/download/{paper.id}/student',
+        'teacher_download': f'/download/{paper.id}/teacher',
+    })
 
 
 # ── Shareable Paper Links ─────────────────────────────────────

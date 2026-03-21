@@ -356,6 +356,34 @@ class QuestionSet(db.Model):
         return f'<QuestionSet {self.id} - {self.name}>'
 
 
+class OmrTemplate(db.Model):
+    """Saved OMR templates for public users."""
+    __tablename__ = 'omr_templates'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(100), nullable=False, index=True)
+    name = db.Column(db.String(200), nullable=False)
+    config_json = db.Column(db.JSON, nullable=False)
+    question_count = db.Column(db.Integer, nullable=False)
+    download_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'question_count': self.question_count,
+            'config_json': self.config_json,
+            'download_count': self.download_count or 0,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M') if self.updated_at else None,
+        }
+
+    def __repr__(self):
+        return f'<OmrTemplate {self.id} - {self.name}>'
+
+
 class GenerationLog(db.Model):
     """Track paper generations per user for the credit/usage system"""
     __tablename__ = 'generation_logs'

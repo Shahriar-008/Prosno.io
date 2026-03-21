@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Paper Builder - Prosno.io{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/builder.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="builder-section">
+    <div class="container-fluid px-lg-5">
+
+        <!-- ════════ Top Config Bar ════════ -->
+        <div class="builder-topbar" id="builderTopbar">
+            <div class="topbar-left">
+                <a href="{{ url_for('main.generate') }}" class="topbar-back">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <h1 class="topbar-title"><i class="bi bi-kanban"></i> Paper Builder</h1>
+                <span class="topbar-badge">Beta</span>
+            </div>
+            <div class="topbar-actions">
+                <span class="draft-indicator" id="draftIndicator" style="display:none;">
+                    <i class="bi bi-check-circle-fill text-success"></i> Draft saved
+                </span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="Builder.saveDraft()" title="Save Draft">
+                    <i class="bi bi-save me-1"></i> Save Draft
+                </button>
+                <button class="btn btn-sm btn-outline-primary" onclick="Builder.togglePreview()" title="Preview">
+                    <i class="bi bi-eye me-1"></i> Preview
+                </button>
+            </div>
+        </div>
+
+        <div class="row g-4">
+
+            <!-- ════════ Left Column — Paper Canvas ════════ -->
+            <div class="col-lg-8 col-xl-9" id="canvasColumn">
+
+                <!-- Paper Config Card -->
+                <div class="config-card">
+                    <div class="config-card-header">
+                        <h5><i class="bi bi-gear-fill"></i> Paper Configuration</h5>
+                        <button class="btn btn-sm btn-link" data-bs-toggle="collapse" data-bs-target="#configBody">
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                    </div>
+                    <div class="collapse show" id="configBody">
+                        <div class="config-card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Paper Title</label>
+                                    <input type="text" class="form-control" id="cfgTitle" value="Home Test"
+                                        placeholder="Enter paper title" onchange="Builder.updateConfig()">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Time (min)</label>
+                                    <input type="number" class="form-control" id="cfgTime" value="30" min="5" max="300"
+                                        onchange="Builder.updateConfig()">
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check form-switch mt-4">
+                                        <input class="form-check-input" type="checkbox" id="cfgOmr" checked
+                                            onchange="Builder.updateConfig()">
+                                        <label class="form-check-label" for="cfgOmr">OMR Circles</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Class</label>
+                                    <select class="form-select" id="cfgClass"
+                                        onchange="Builder.onClassChange(this.value)">
+                                        <option value="">-- Select Class --</option>
+                                        {% for c in classes %}
+                                        <option value="{{ c.id }}">{{ c.name_bn or c.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Subject</label>
+                                    <select class="form-select" id="cfgSubject" disabled
+                                        onchange="Builder.onSubjectChange(this.value)">
+                                        <option value="">-- Select Class First --</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Chapters</label>
+                                    <div class="chapter-chips" id="chapterChips">
+                                        <span class="text-muted small">Select class & subject first</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sections Container -->
+                <div class="sections-container" id="sectionsContainer">
+                    <!-- Sections will be rendered by JS -->
+                </div>
+
+                <!-- Add Section Button -->
+                <div class="add-section-bar">
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary btn-add-section dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown">
+                            <i class="bi bi-plus-lg me-1"></i> Add Section
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="Builder.addSection('mcq'); return false;">
+                                    <i class="bi bi-list-check me-2 text-primary"></i> MCQ Section
+                                </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="Builder.addSection('sq'); return false;">
+                                    <i class="bi bi-chat-square-text me-2 text-success"></i> Short Question Section
+                                </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="Builder.addSection('cq'); return false;">
+                                    <i class="bi bi-file-earmark-text me-2 text-warning"></i> Creative Question Section
+                                </a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Summary & Generate Bar -->
+                <div class="summary-bar" id="summaryBar">
+                    <div class="summary-stats">
+                        <div class="summary-stat">
+                            <span class="summary-stat-value" id="totalMCQ">0</span>
+                            <span class="summary-stat-label">MCQ</span>
+                        </div>
+                        <div class="summary-stat">
+                            <span class="summary-stat-value" id="totalSQ">0</span>
+                            <span class="summary-stat-label">SQ</span>
+                        </div>
+                        <div class="summary-stat">
+                            <span class="summary-stat-value" id="totalCQ">0</span>
+                            <span class="summary-stat-label">CQ</span>
+                        </div>
+                        <div class="summary-divider"></div>
+                        <div class="summary-stat summary-stat-total">
+                            <span class="summary-stat-value" id="totalMarks">0</span>
+                            <span class="summary-stat-label">Total Marks</span>
+                        </div>
+                    </div>
+                    <div class="summary-actions">
+                        <div class="btn-group">
+                            <button class="btn btn-primary btn-generate" id="generateBtn"
+                                onclick="Builder.generate('docx')">
+                                <i class="bi bi-file-earmark-word me-1"></i> Generate DOCX
+                            </button>
+                            <button type="button"
+                                class="btn btn-primary btn-generate dropdown-toggle dropdown-toggle-split"
+                                data-bs-toggle="dropdown"></button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" onclick="Builder.generate('docx'); return false;">
+                                        <i class="bi bi-file-earmark-word me-2 text-primary"></i> Generate DOCX
+                                    </a></li>
+                                <li><a class="dropdown-item" href="#" onclick="Builder.generate('pdf'); return false;">
+                                        <i class="bi bi-file-earmark-pdf me-2 text-danger"></i> Generate PDF
+                                    </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Result Card (shown after generation) -->
+                <div class="result-card" id="resultCard" style="display:none;">
+                    <div class="result-header">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size:2rem;"></i>
+                        <h3>Paper Generated Successfully!</h3>
+                        <p>Your paper with <strong id="resultCount">0</strong> questions (<strong
+                                id="resultMarks">0</strong> marks) is ready.</p>
+                    </div>
+                    <div class="download-buttons">
+                        <a href="#" id="dlStudent" class="btn btn-primary btn-lg">
+                            <i class="bi bi-download me-2"></i> Student Copy
+                        </a>
+                        <a href="#" id="dlTeacher" class="btn btn-success btn-lg">
+                            <i class="bi bi-download me-2"></i> Teacher Copy
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════════ Right Column — Question Bank Panel ════════ -->
+            <div class="col-lg-4 col-xl-3" id="bankColumn">
+                <div class="bank-panel" id="bankPanel">
+                    <div class="bank-panel-header">
+                        <h5><i class="bi bi-collection-fill"></i> Question Bank</h5>
+                        <button class="btn btn-sm btn-link d-lg-none" onclick="Builder.toggleBank()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+
+                    <div class="bank-panel-filters">
+                        <input type="text" class="form-control form-control-sm" id="bankSearch"
+                            placeholder="Search questions..." oninput="Builder.searchBank()">
+                        <div class="bank-filter-row">
+                            <select class="form-select form-select-sm" id="bankType"
+                                onchange="Builder.loadBank()">
+                                <option value="mcq">MCQ</option>
+                                <option value="sq">Short Question</option>
+                                <option value="cq">Creative Question</option>
+                            </select>
+                            <select class="form-select form-select-sm" id="bankDifficulty"
+                                onchange="Builder.loadBank()">
+                                <option value="">All Difficulty</option>
+                                <option value="easy">Easy</option>
+                                <option value="medium">Medium</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="bank-panel-body" id="bankList">
+                        <div class="bank-empty">
+                            <i class="bi bi-inbox"></i>
+                            <p>Select class, subject & chapters to browse questions</p>
+                        </div>
+                    </div>
+
+                    <div class="bank-panel-footer" id="bankFooter" style="display:none;">
+                        <button class="btn btn-sm btn-outline-primary w-100" onclick="Builder.loadMoreBank()">
+                            Load More
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- .row -->
+    </div><!-- .container-fluid -->
+</section>
+
+<!-- Mobile Bank Toggle FAB -->
+<button class="bank-fab d-lg-none" id="bankFab" onclick="Builder.toggleBank()">
+    <i class="bi bi-collection-fill"></i>
+</button>
+
+<!-- Write New Question Modal -->
+<div class="modal fade" id="newQuestionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i> Write New Question</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- MCQ form -->
+                <div id="newQFormMCQ">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Question Text <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="nqText" rows="2"
+                            placeholder="Enter your question..."></textarea>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">ক) Option 1</label>
+                            <input type="text" class="form-control" id="nqOpt1" placeholder="First option">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">খ) Option 2</label>
+                            <input type="text" class="form-control" id="nqOpt2" placeholder="Second option">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">গ) Option 3</label>
+                            <input type="text" class="form-control" id="nqOpt3" placeholder="Third option">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">ঘ) Option 4</label>
+                            <input type="text" class="form-control" id="nqOpt4" placeholder="Fourth option">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Correct Answer</label>
+                        <select class="form-select" id="nqAnswer">
+                            <option value="ক">ক) Option 1</option>
+                            <option value="খ">খ) Option 2</option>
+                            <option value="গ">গ) Option 3</option>
+                            <option value="ঘ">ঘ) Option 4</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- SQ form -->
+                <div id="newQFormSQ" style="display:none;">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Question Text <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="nqSqText" rows="2"
+                            placeholder="Enter short question..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Marks</label>
+                        <input type="number" class="form-control" id="nqSqMarks" value="2" min="1" max="20">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="Builder.addCustomQuestion()">
+                    <i class="bi bi-plus-lg me-1"></i> Add to Section
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="{{ url_for('static', filename='js/builder.js') }}"></script>
+{% endblock %}

@@ -1,11 +1,21 @@
 from app import create_app, db
-from app.models import GeneratedPaper, GenerationLog, QuestionSet
+from app.models import GeneratedPaper, GenerationLog, OmrTemplate, QuestionSet
+from app.utils.omr_generator import _build_general_layout, get_default_omr_config, get_omr_template_presets
 from config import TestingConfig
 
 
 def _login(client, user_id="user-1"):
     with client.session_transaction() as session:
         session["user"] = {"id": user_id, "email": "user@example.com"}
+
+
+def _valid_omr_payload(question_count=100):
+    config = get_default_omr_config()
+    config["question_count"] = question_count
+    return {
+        "name": f"OMR {question_count}",
+        "config_json": config,
+    }
 
 
 def test_generate_paper_success_creates_paper_record(client, seed_catalog, monkeypatch):
@@ -111,6 +121,96 @@ def test_healthz_is_not_throttled(tmp_path):
     for _ in range(100):
         response = client.get("/healthz")
         assert response.status_code == 200
+
+
+def test_legacy_subject_and_chapter_routes_are_unavailable(client, seed_catalog):
+    subjects_response = client.get(f"/get-subjects/{seed_catalog['class_id']}")
+    chapters_response = client.get(f"/get-chapters/{seed_catalog['subject_id']}")
+
+    assert subjects_response.status_code == 404
+    assert chapters_response.status_code == 404
+
+
+def test_generate_page_uses_api_subject_chapter_loaders(client):
+    response = client.get("/generate")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "/api/subjects/" in html
+    assert "/api/chapters/" in html
+    assert "/get-subjects/" not in html
+    assert "/get-chapters/" not in html
+
+
+def test_index_includes_seo_metadata(client, seed_catalog):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert '<meta name="robots" content="index,follow">' in html
+    assert '<link rel="canonical" href="http://localhost/">' in html
+    assert '<meta property="og:title"' in html
+    assert 'application/ld+json' in html
+
+
+def test_login_page_is_noindex(client):
+    response = client.get("/login")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert '<meta name="robots" content="noindex, nofollow">' in html
+    assert response.headers["X-Robots-Tag"] == "noindex, nofollow"
+
+
+def test_quiz_join_code_page_is_noindex_with_generic_canonical(client):
+    response = client.get("/quiz/join/1234")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert '<meta name="robots" content="noindex, nofollow">' in html
+    assert '<link rel="canonical" href="http://localhost/quiz/join">' in html
+
+
+def test_robots_txt_exposes_sitemap_and_private_paths(client):
+    response = client.get("/robots.txt")
+
+    assert response.status_code == 200
+    assert response.mimetype == "text/plain"
+    body = response.get_data(as_text=True)
+    assert "Sitemap: http://localhost/sitemap.xml" in body
+    assert "Disallow: /admin/" in body
+    assert "Disallow: /api/" in body
+
+
+def test_sitemap_includes_public_pages_and_shared_papers(client):
+    with client.application.app_context():
+        shared_set = QuestionSet(
+            user_id="shared-user",
+            name="Shared Algebra Set",
+            questions_json=[
+                {
+                    "question_text": "2 + 2 = ?",
+                    "answer_options": ["1", "2", "3", "4"],
+                    "correct_answer": "4",
+                    "type": "simple",
+                }
+            ],
+            paper_config={"title": "Shared Algebra Practice"},
+            share_token="shared-paper-1",
+            is_shared=True,
+        )
+        db.session.add(shared_set)
+        db.session.commit()
+
+    response = client.get("/sitemap.xml")
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/xml"
+    body = response.get_data(as_text=True)
+    assert "<loc>http://localhost/</loc>" in body
+    assert "<loc>http://localhost/generate</loc>" in body
+    assert "<loc>http://localhost/paper/shared-paper-1</loc>" in body
+    assert "<lastmod>" in body
 
 
 def test_generate_paper_missing_required_fields_returns_400(client):
@@ -270,3 +370,230 @@ def test_save_question_set_db_source_enriches_full_question_data(client, seed_ca
         assert saved.questions_json[0]["question_text"] == "2 + 2 = ?"
         assert saved.questions_json[0]["correct_answer"] == "4"
         assert saved.questions_json[0]["answer_options"] == ["1", "2", "3", "4"]
+
+
+def test_omr_builder_requires_login(client):
+    response = client.get("/omr-builder")
+
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_create_omr_template_requires_login(client):
+    response = client.post("/api/omr/templates", json=_valid_omr_payload())
+
+    assert response.status_code == 401
+    assert response.get_json()["login_required"] is True
+
+
+def test_create_and_fetch_omr_template_success(client):
+    _login(client, user_id="omr-user")
+
+    response = client.post("/api/omr/templates", json=_valid_omr_payload(question_count=80))
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["success"] is True
+    template_id = body["template"]["id"]
+
+    list_response = client.get("/api/omr/templates")
+    assert list_response.status_code == 200
+    assert any(item["id"] == template_id for item in list_response.get_json()["templates"])
+
+    get_response = client.get(f"/api/omr/templates/{template_id}")
+    assert get_response.status_code == 200
+    template = get_response.get_json()["template"]
+    assert template["name"] == "OMR 80"
+    assert template["question_count"] == 80
+    assert template["config_json"]["template_type"] == "exam_sheet_v1"
+
+    with client.application.app_context():
+        saved = OmrTemplate.query.get(template_id)
+        assert saved is not None
+        assert saved.user_id == "omr-user"
+
+
+def test_create_omr_template_rejects_invalid_question_count(client):
+    _login(client)
+    payload = _valid_omr_payload()
+    payload["config_json"]["question_count"] = 55
+
+    response = client.post("/api/omr/templates", json=payload)
+
+    assert response.status_code == 400
+    assert "Question count" in response.get_json()["error"]
+
+
+def test_create_general_omr_template_accepts_custom_question_count(client):
+    _login(client, user_id="general-omr-user")
+    payload = _valid_omr_payload(question_count=37)
+    payload["config_json"]["sheet_variant"] = "general"
+    payload["config_json"]["answer_columns"] = 2
+
+    response = client.post("/api/omr/templates", json=payload)
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["template"]["question_count"] == 37
+    assert body["template"]["config_json"]["sheet_variant"] == "general"
+    assert body["template"]["config_json"]["answer_columns"] == 2
+
+
+def test_create_general_omr_template_accepts_auto_flow_with_one_question(client):
+    _login(client, user_id="general-auto-user")
+    payload = _valid_omr_payload(question_count=1)
+    payload["config_json"]["sheet_variant"] = "general"
+    payload["config_json"]["answer_columns"] = 1
+
+    response = client.post("/api/omr/templates", json=payload)
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["template"]["question_count"] == 1
+    assert body["template"]["config_json"]["sheet_variant"] == "general"
+    assert body["template"]["config_json"]["answer_columns"] == 1
+
+
+def test_general_auto_flow_layout_tracks_actual_question_counts_per_column():
+    layout = _build_general_layout(40, 1)
+
+    assert layout["answer_grid"]["columns"] == 2
+    assert layout["answer_grid"]["rows"] == 25
+    assert layout["answer_grid"]["column_question_counts"] == [25, 15]
+
+
+def test_general_fixed_column_layout_balances_question_counts():
+    layout = _build_general_layout(17, 2)
+
+    assert layout["answer_grid"]["columns"] == 2
+    assert layout["answer_grid"]["rows"] == 9
+    assert layout["answer_grid"]["column_question_counts"] == [9, 8]
+
+
+def test_institutional_template_presets_are_count_specific():
+    templates = get_omr_template_presets()
+
+    assert templates[40]["answer_section_layout"]["columns"] == 4
+    assert templates[40]["answer_section_layout"]["column_question_counts"] == [10, 10, 10, 10]
+    assert templates[60]["answer_section_layout"]["column_question_counts"] == [15, 15, 15, 15]
+    assert templates[80]["answer_section_layout"]["column_question_counts"] == [20, 20, 20, 20]
+    assert templates[100]["answer_section_layout"]["column_question_counts"] == [25, 25, 25, 25]
+    assert templates[40]["top_marker_pattern"]["pattern"] != templates[60]["top_marker_pattern"]["pattern"]
+    assert templates[60]["top_marker_pattern"]["pattern"] != templates[80]["top_marker_pattern"]["pattern"]
+    assert templates[40]["side_markers"][0]["y_mm"] != templates[100]["side_markers"][0]["y_mm"]
+
+
+def test_create_general_omr_template_rejects_incompatible_column_count(client):
+    _login(client, user_id="general-invalid-user")
+    payload = _valid_omr_payload(question_count=80)
+    payload["config_json"]["sheet_variant"] = "general"
+    payload["config_json"]["answer_columns"] = 3
+
+    response = client.post("/api/omr/templates", json=payload)
+
+    assert response.status_code == 400
+    assert "columns support up to" in response.get_json()["error"]
+
+
+def test_create_omr_template_rejects_invalid_config_shape(client):
+    _login(client)
+
+    response = client.post("/api/omr/templates", json={"name": "Broken", "config_json": []})
+
+    assert response.status_code == 400
+    assert "JSON object" in response.get_json()["error"]
+
+
+def test_omr_template_owner_is_enforced(client):
+    _login(client, user_id="owner-user")
+    create_response = client.post("/api/omr/templates", json=_valid_omr_payload(question_count=60))
+    template_id = create_response.get_json()["template"]["id"]
+
+    _login(client, user_id="other-user")
+
+    get_response = client.get(f"/api/omr/templates/{template_id}")
+    assert get_response.status_code == 404
+
+    update_response = client.put(
+        f"/api/omr/templates/{template_id}",
+        json=_valid_omr_payload(question_count=40),
+    )
+    assert update_response.status_code == 404
+
+    delete_response = client.post(f"/api/omr/templates/{template_id}/delete")
+    assert delete_response.status_code == 404
+
+
+def test_render_omr_pdf_returns_pdf_for_supported_presets(client):
+    _login(client, user_id="pdf-user")
+
+    for question_count in (40, 60, 80, 100):
+        response = client.post("/api/omr/render", json=_valid_omr_payload(question_count=question_count))
+
+        assert response.status_code == 200
+        assert response.mimetype == "application/pdf"
+        assert len(response.data) > 1000
+
+
+def test_render_general_omr_pdf_returns_pdf(client):
+    _login(client, user_id="pdf-general-user")
+    payload = _valid_omr_payload(question_count=48)
+    payload["config_json"]["sheet_variant"] = "general"
+    payload["config_json"]["answer_columns"] = 2
+
+    response = client.post("/api/omr/render", json=payload)
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+    assert len(response.data) > 1000
+
+
+def test_render_general_auto_flow_omr_pdf_returns_pdf(client):
+    _login(client, user_id="pdf-general-auto-user")
+    payload = _valid_omr_payload(question_count=88)
+    payload["config_json"]["sheet_variant"] = "general"
+    payload["config_json"]["answer_columns"] = 1
+
+    response = client.post("/api/omr/render", json=payload)
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+    assert len(response.data) > 1000
+
+
+def test_render_omr_pdf_accepts_bengali_header(client):
+    _login(client, user_id="pdf-bn-user")
+    payload = _valid_omr_payload(question_count=40)
+    payload["name"] = "বাংলা ওএমআর"
+    payload["config_json"]["header"]["title"] = "বহুনির্বাচনি পরীক্ষা"
+    payload["config_json"]["header"]["subtitle"] = "শুধু একটি বৃত্ত পূরণ করুন"
+    payload["config_json"]["header"]["institution"] = "প্রশ্ন ডট আইও"
+
+    response = client.post("/api/omr/render", json=payload)
+
+    assert response.status_code == 200
+    assert response.mimetype == "application/pdf"
+    assert len(response.data) > 1000
+
+
+def test_dashboard_lists_saved_omr_templates(client):
+    _login(client, user_id="dashboard-user")
+
+    with client.application.app_context():
+        db.session.add(
+            OmrTemplate(
+                user_id="dashboard-user",
+                name="Board OMR",
+                config_json=get_default_omr_config(),
+                question_count=100,
+                download_count=2,
+            )
+        )
+        db.session.commit()
+
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert "Saved OMR Templates" in html
+    assert "Board OMR" in html

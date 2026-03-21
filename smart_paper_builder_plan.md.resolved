@@ -1,0 +1,373 @@
+# 🎯 Feature #1: Smart Question Paper Builder (Drag & Drop)
+
+## What It Does — Detailed Explanation
+
+### The Problem Today
+
+The current paper generation flow in [generate.html](file:///d:/Work/Programming/prosno.io/app/templates/main/generate.html) works like this:
+
+```
+Class → Subject → Chapters → [View Questions] → Check/Uncheck → Generate
+```
+
+While functional, it has several UX limitations:
+
+1. **No reordering** — Questions appear in the order they are in the DB. Teachers can't rearrange them
+2. **No section grouping** — MCQ, SQ, CQ are configured in separate isolated panels with no unified view
+3. **No visual preview** — Teachers can't see how the final paper will look before generating
+4. **No mixed-source papers** — You can't combine DB questions with custom-written ones in the same paper
+5. **No per-question marks editing** — MCQs are always 1 mark, no override
+6. **Flat question list** — No visual sections like "Part A: MCQ (30 marks)" and "Part B: Short Questions (20 marks)"
+
+### The Solution: A Visual Paper Canvas
+
+Think of it like building a **Notion document** or a **Google Forms** — but specifically designed for exam papers.
+
+#### Core Experience
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  📋 PAPER BUILDER                                    [Preview]  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  📝 Paper Title: "Half Yearly Exam 2026"    ⏱ 180 min          │
+│  📚 Class: নবম    📖 Subject: পদার্থবিজ্ঞান                       │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────┐      │
+│  │ SECTION A: বহুনির্বাচনি (MCQ)            30 marks    │      │
+│  │ ─────────────────────────────────────────────────────  │      │
+│  │ ≡ 1. S-এর ইলেকট্রন বিন্যাস কোনটি?    [1 mark] [✕]  │      │
+│  │ ≡ 2. নিচের কোনটি সঠিক?               [1 mark] [✕]   │      │
+│  │ ≡ 3. পানি কোন ধরণের যৌগ?              [1 mark] [✕]   │      │
+│  │    ...                                                │      │
+│  │ [+ Add from Bank] [+ Write New] [+ AI Generate]      │      │
+│  └───────────────────────────────────────────────────────┘      │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────┐      │
+│  │ SECTION B: সংক্ষিপ্ত প্রশ্ন (SQ)         20 marks   │      │
+│  │ ─────────────────────────────────────────────────────  │      │
+│  │ ≡ 1. তড়িৎ প্রবাহ কাকে বলে?           [2 marks] [✕]  │      │
+│  │ ≡ 2. নিউটনের তৃতীয় সূত্রটি লিখ        [2 marks] [✕]  │      │
+│  │ [+ Add from Bank] [+ Write New]                       │      │
+│  └───────────────────────────────────────────────────────┘      │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────┐      │
+│  │ SECTION C: সৃজনশীল প্রশ্ন (CQ)          50 marks    │      │
+│  │ ─────────────────────────────────────────────────────  │      │
+│  │ ≡ 1. [উদ্দীপক preview...]              [10 marks] [✕] │      │
+│  │ [+ Add from Bank] [+ Write New]                       │      │
+│  └───────────────────────────────────────────────────────┘      │
+│                                                                 │
+│  [+ Add New Section]                                            │
+│                                                                 │
+│  ═══════════════════════════════════════════════════             │
+│  Total: 100 marks │ 30 MCQ + 10 SQ + 5 CQ                      │
+│  [💾 Save Draft] [👁 Preview] [📄 Generate PDF] [📝 Generate DOCX] │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Key Interactions
+
+| Interaction | How It Works |
+|-------------|-------------|
+| **Drag to reorder** | Grip handle (≡) on each question — drag up/down within a section |
+| **Drag between sections** | Move a question from MCQ section to SQ section (if compatible) |
+| **Add from Bank** | Opens a side panel/modal to browse & search the Question Bank, click to add |
+| **Write New** | Inline form to write a new question directly in the canvas |
+| **AI Generate** | Opens AI generator (existing [ai_generator.py](file:///d:/Work/Programming/prosno.io/app/utils/ai_generator.py)) scoped to the current section |
+| **Remove** | Click ✕ to remove a question (returns it to the bank pool) |
+| **Edit marks** | Click the marks badge to change per-question marks |
+| **Section config** | Click section header to configure "Answer N out of M" rules |
+| **Live totals** | Bottom bar auto-calculates total marks and question counts |
+| **Preview** | Side panel shows a mini-render of the paper as it would appear in PDF |
+
+---
+
+## Step-by-Step Implementation Plan
+
+### Phase 1: Backend API Extensions (3-4 days)
+
+#### Step 1.1: New API Endpoint — Search & Fetch Questions for Builder
+
+The builder needs a rich question fetch endpoint that returns full question data across types.
+
+**File**: [main.py](file:///d:/Work/Programming/prosno.io/app/routes/main.py)
+
+```
+POST /api/builder/questions
+Body: {
+    "chapter_ids": [1,2,3],
+    "question_types": ["mcq", "sq", "cq"],  // filter by type
+    "search": "তড়িৎ",                       // optional text search
+    "difficulty": "medium",                  // optional
+    "page": 1,
+    "per_page": 20
+}
+Response: {
+    "mcq": [{ id, question_text, type, options, difficulty, chapter_name }],
+    "sq": [{ id, question_text, marks, chapter_name }],
+    "cq": [{ id, stem, parts, total_marks, chapter_name }],
+    "total_counts": { "mcq": 120, "sq": 45, "cq": 18 }
+}
+```
+
+> [!NOTE]
+> This extends the existing `/get-questions-for-chapters` endpoint but returns richer data including SQ and CQ in one call.
+
+#### Step 1.2: New API Endpoint — Generate Paper from Builder JSON
+
+The builder constructs a complete paper structure and sends it for generation.
+
+**File**: [main.py](file:///d:/Work/Programming/prosno.io/app/routes/main.py)
+
+```
+POST /api/builder/generate
+Body: {
+    "paper_config": {
+        "title": "Half Yearly 2026",
+        "class_id": 5,
+        "subject_id": 12,
+        "time_minutes": 180,
+        "omr_style": true
+    },
+    "sections": [
+        {
+            "type": "mcq",
+            "title": "বহুনির্বাচনি",
+            "answer_count": 30,    // answer N out of M
+            "marks_per_question": 1,
+            "questions": [
+                { "source": "db", "id": 101 },
+                { "source": "db", "id": 102 },
+                { "source": "custom", "question_text": "...", "options": [...], "correct_answer": "..." }
+            ]
+        },
+        {
+            "type": "sq",
+            "title": "সংক্ষিপ্ত প্রশ্ন",
+            "answer_count": 5,
+            "marks_per_question": 2,
+            "questions": [
+                { "source": "db", "id": 201 },
+                { "source": "custom", "question_text": "..." }
+            ]
+        },
+        {
+            "type": "cq",
+            "title": "সৃজনশীল প্রশ্ন",
+            "answer_count": 5,
+            "questions": [
+                { "source": "db", "id": 301 }
+            ]
+        }
+    ]
+}
+```
+
+> [!IMPORTANT]
+> This is a new endpoint that replaces `generate-paper` and `generate-custom-paper` with a unified, section-aware generation flow. The existing endpoints remain for backward compatibility.
+
+#### Step 1.3: Extend Document Generators
+
+**Files**:
+- [document_generator.py](file:///d:/Work/Programming/prosno.io/app/utils/document_generator.py)
+- [pdf_generator.py](file:///d:/Work/Programming/prosno.io/app/utils/pdf_generator.py)
+
+Add a new function `generate_paper_from_sections(sections, paper_config)` that accepts the structured sections format and renders them with proper section headers, numbering, and mixed DB + custom questions.
+
+---
+
+### Phase 2: Frontend — Paper Canvas UI (5-7 days)
+
+#### Step 2.1: Create New Template `builder.html`
+
+**File**: `app/templates/main/builder.html` [NEW]
+
+> This is a new page at `/builder` route, separate from the existing `/generate` page. The old page stays for backward compatibility / quick generation.
+
+Structure:
+```
+├── Paper Config Bar (title, class, subject, time — sticky top)
+├── Sections Container (sortable)
+│   ├── Section Card (MCQ)
+│   │   ├── Section Header (title, marks, answer config)
+│   │   ├── Question List (sortable within section)
+│   │   │   └── Question Card (question text, marks badge, drag handle, delete)
+│   │   └── Add Actions Bar (Add from Bank, Write New, AI Generate)
+│   ├── Section Card (SQ) — same structure
+│   └── Section Card (CQ) — same structure
+├── Add Section Button
+└── Summary Bar (total marks, counts, generate buttons)
+```
+
+#### Step 2.2: Implement Drag & Drop with SortableJS
+
+Use [SortableJS](https://sortablejs.github.io/Sortable/) (lightweight, no jQuery dependency, 8KB gzipped).
+
+- **Within sections**: Drag questions up/down to reorder
+- **Between sections**: Drag a question from one section to another (with type compatibility check)
+- **Section reordering**: Drag entire sections to change section order
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+```
+
+#### Step 2.3: Build the Question Bank Side Panel
+
+A slide-in panel (right side, 400px wide) that opens when "Add from Bank" is clicked:
+
+```
+┌──────────────────────────┐
+│ 📚 Question Bank          │
+│ ─────────────────────────│
+│ 🔍 [Search questions...] │
+│ Chapter: [All ▼]          │
+│ Difficulty: [All ▼]       │
+│ ─────────────────────────│
+│ ☐ Q: তড়িৎ প্রবাহ কাকে...  │
+│   Chapter 3 • Easy • ★4.2 │
+│                    [+ Add] │
+│ ─────────────────────────│
+│ ☐ Q: নিউটনের সূত্র লিখ... │
+│   Chapter 1 • Medium      │
+│                    [+ Add] │
+│ ─────────────────────────│
+│ Load More...               │
+└──────────────────────────┘
+```
+
+#### Step 2.4: Live Preview Panel
+
+A collapsible right panel or modal that shows a mini paper preview:
+- Renders the paper layout as it would appear in PDF
+- Updates in real-time as questions are added/removed/reordered
+- Uses CSS to mimic the PDF layout (two columns for MCQ, single column for CQ, etc.)
+
+#### Step 2.5: Section Management
+
+- **Add Section**: Button to add a new blank section with type selector (MCQ/SQ/CQ/Custom)
+- **Section Config**: Modal to set section title, "answer N out of M" rules, marks per question
+- **Delete Section**: With confirmation and option to move questions to another section
+- **Auto-totals**: JavaScript calculates total marks in real-time and shows in the footer bar
+
+---
+
+### Phase 3: State Management & Draft Saving (2-3 days)
+
+#### Step 3.1: Client-Side State Manager
+
+Build a lightweight JavaScript state manager (no framework needed):
+
+```javascript
+const PaperState = {
+    config: { title, class_id, subject_id, time_minutes, omr_style },
+    sections: [
+        {
+            id: 'section_1', type: 'mcq', title: '...', 
+            answer_count: 30, marks_per_question: 1,
+            questions: [{ source: 'db', id: 101, text: '...' }, ...]
+        },
+        ...
+    ],
+    
+    addQuestion(sectionId, question) { ... },
+    removeQuestion(sectionId, questionId) { ... },
+    reorder(sectionId, oldIndex, newIndex) { ... },
+    moveBetweenSections(fromSection, toSection, questionId) { ... },
+    getTotalMarks() { ... },
+    toJSON() { ... },     // for sending to backend
+    saveDraft() { ... },  // localStorage persistence
+    loadDraft() { ... },
+};
+```
+
+#### Step 3.2: Auto-Save to LocalStorage
+
+- Save state to `localStorage` every 30 seconds and on every change
+- On page load, check for existing draft and offer to restore
+- Show "Draft saved" indicator in the UI
+
+#### Step 3.3: Save Draft to Server (Optional, for logged-in users)
+
+- Add a `PaperDraft` model to save work-in-progress papers server-side
+- API: `POST /api/builder/drafts` and `GET /api/builder/drafts`
+- Dashboard shows drafts with "Continue Editing" button
+
+---
+
+### Phase 4: Integration & Polish (2-3 days)
+
+#### Step 4.1: Add Builder Link to Navigation
+
+- Add "Paper Builder" button to the existing generate page
+- Add link in the dashboard sidebar/nav
+- Optionally make the builder the default for logged-in users
+
+#### Step 4.2: Connect to Existing AI Generator
+
+- The "AI Generate" button in each section calls the existing [ai_generator.py](file:///d:/Work/Programming/prosno.io/app/utils/ai_generator.py)
+- Returns questions scoped to the current section type (MCQ/SQ/CQ)
+- Teacher can review and selectively add AI questions to the canvas
+
+#### Step 4.3: Responsive Design & Mobile
+
+- On mobile, the side panel becomes a full-screen overlay
+- Touch-friendly drag handles
+- Section collapse/expand for small screens
+
+#### Step 4.4: Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+S` | Save draft |
+| `Ctrl+P` | Preview |
+| `Ctrl+Enter` | Generate paper |
+| `Delete` | Remove selected question |
+| `Ctrl+Z` | Undo last action |
+
+---
+
+## File Summary
+
+| File | Action | Description |
+|------|--------|-------------|
+| [app/routes/main.py](file:///d:/Work/Programming/prosno.io/app/routes/main.py) | MODIFY | Add `/builder` route, `/api/builder/questions`, `/api/builder/generate` |
+| `app/templates/main/builder.html` | NEW | The Paper Builder page template |
+| `app/static/css/builder.css` | NEW | Styles for the builder UI (sections, drag handles, side panel) |
+| `app/static/js/builder.js` | NEW | State manager, SortableJS integration, API calls, preview |
+| [app/utils/document_generator.py](file:///d:/Work/Programming/prosno.io/app/utils/document_generator.py) | MODIFY | Add `generate_paper_from_sections()` function |
+| [app/utils/pdf_generator.py](file:///d:/Work/Programming/prosno.io/app/utils/pdf_generator.py) | MODIFY | Add section-aware PDF rendering |
+| [app/models.py](file:///d:/Work/Programming/prosno.io/app/models.py) | MODIFY (optional) | Add `PaperDraft` model for server-side draft saving |
+
+---
+
+## Estimated Timeline
+
+| Phase | Work | Days |
+|-------|------|------|
+| Phase 1 | Backend APIs + Generator extension | 3-4 days |
+| Phase 2 | Frontend UI (canvas, drag-drop, panels) | 5-7 days |
+| Phase 3 | State management & drafts | 2-3 days |
+| Phase 4 | Integration, polish, responsive | 2-3 days |
+| **Total** | | **12-17 days** |
+
+---
+
+## Key Design Decisions
+
+> [!IMPORTANT]
+> ### 1. New Page vs. Modify Existing
+> **Decision**: Create a **new `/builder` route** rather than modifying the existing `/generate` page.
+> 
+> **Why**: The existing generate page (2779 lines of HTML) is already complex. Adding drag-drop would make it unmaintainable. A clean new page also allows A/B testing between the old and new flows.
+
+> [!TIP]
+> ### 2. SortableJS over HTML5 Drag & Drop
+> **Decision**: Use [SortableJS](https://sortablejs.github.io/Sortable/) library.
+>
+> **Why**: Native HTML5 Drag & Drop is inconsistent across browsers and terrible on mobile. SortableJS handles cross-browser, touch, and accessibility out of the box. It's only 8KB.
+
+> [!NOTE]
+> ### 3. Backward Compatibility
+> The existing `/generate` page and API endpoints (`/generate-paper`, `/generate-custom-paper`) remain untouched. The builder is an **additive** feature. The old flow continues to work for users who prefer the simpler experience.

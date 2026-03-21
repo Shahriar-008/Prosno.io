@@ -1,4 +1,64 @@
 {% extends "base.html" %}
+{% block meta_description %}Generate MCQ question papers, answer keys, PDFs, shareable practice links, and live classroom quizzes for Bangladeshi students in minutes.{% endblock %}
+
+{% block structured_data %}
+<script type="application/ld+json">
+{{ {
+    "@context": "https://schema.org",
+    "@graph": [
+        {
+            "@type": "Organization",
+            "@id": site_url + "#organization",
+            "name": config.get("SITE_NAME", "Prosno.io"),
+            "url": site_url,
+            "logo": default_og_image_url(),
+            "contactPoint": [
+                {
+                    "@type": "ContactPoint",
+                    "contactType": "customer support",
+                    "email": config.get("SUPPORT_EMAIL", "support@prosno.io"),
+                    "availableLanguage": ["English", "Bengali"]
+                }
+            ],
+            "sameAs": [
+                "https://www.facebook.com/profile.php?id=61587428617635"
+            ]
+        },
+        {
+            "@type": "WebSite",
+            "@id": site_url + "#website",
+            "url": site_url,
+            "name": config.get("SITE_NAME", "Prosno.io"),
+            "inLanguage": ["bn-BD", "en"],
+            "publisher": {
+                "@id": site_url + "#organization"
+            }
+        },
+        {
+            "@type": "SoftwareApplication",
+            "@id": request.base_url + "#app",
+            "name": config.get("SITE_NAME", "Prosno.io"),
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Web",
+            "url": request.base_url,
+            "description": "Generate question papers, answer keys, PDFs, and live quizzes for Bangladeshi classrooms.",
+            "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+            },
+            "audience": {
+                "@type": "EducationalAudience",
+                "educationalRole": ["teacher", "student"]
+            },
+            "provider": {
+                "@id": site_url + "#organization"
+            }
+        }
+    ]
+}|tojson }}
+</script>
+{% endblock %}
 
 {% block title %}Prosno.io — Professional MCQ Question Paper Generator for Bangladeshi Educators{% endblock %}
 
@@ -199,6 +259,83 @@
     .lp-hero-trust i {
         color: #10b981;
         font-size: 0.9rem;
+    }
+
+    .lp-hero-omr-spotlight {
+        margin-top: 24px;
+        padding: 18px 20px;
+        border-radius: 16px;
+        border: 1px solid rgba(15, 118, 110, 0.22);
+        background: linear-gradient(135deg, rgba(236, 253, 245, 0.95) 0%, rgba(240, 249, 255, 0.95) 100%);
+        box-shadow: 0 10px 26px rgba(2, 132, 199, 0.12);
+        max-width: 560px;
+    }
+
+    .lp-hero-omr-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+        color: #0f172a;
+    }
+
+    .lp-hero-omr-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(13, 148, 136, 0.12);
+        color: #0f766e;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        text-transform: uppercase;
+    }
+
+    .lp-hero-omr-head strong {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .lp-hero-omr-points {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 12px;
+        color: #0f172a;
+        font-size: 0.84rem;
+    }
+
+    .lp-hero-omr-points li {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-weight: 500;
+    }
+
+    .lp-hero-omr-points i {
+        color: #0f766e;
+        font-size: 0.9rem;
+    }
+
+    .lp-hero-omr-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+        color: #0f766e;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .lp-hero-omr-link:hover {
+        color: #0d9488;
+        text-decoration: underline;
     }
 
     /* Hero Visual */
@@ -959,6 +1096,14 @@
             max-width: 100%;
         }
 
+        .lp-hero-omr-spotlight {
+            max-width: 100%;
+        }
+
+        .lp-hero-omr-points {
+            grid-template-columns: 1fr;
+        }
+
         .lp-hero-visual {
             margin-top: 48px;
         }
@@ -992,8 +1137,426 @@
         }
     }
 
+    /* ── DASHBOARD SECTION ── */
+    .lp-dashboard {
+        padding: 100px 0;
+        background: linear-gradient(180deg, #fff 0%, #f8f7ff 100%);
+    }
+
+    .lp-dashboard-visual {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .lp-dashboard-card {
+        background: #fff;
+        border-radius: 24px;
+        padding: 36px;
+        box-shadow: 0 25px 60px rgba(99, 102, 241, 0.1), 0 4px 20px rgba(0, 0, 0, 0.03);
+        width: 100%;
+        max-width: 600px;
+        border: 1px solid rgba(99, 102, 241, 0.08);
+    }
+
+    .lp-dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 28px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .lp-dashboard-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .lp-dashboard-tabs {
+        display: flex;
+        gap: 8px;
+    }
+
+    .lp-tab-btn {
+        padding: 6px 14px;
+        background: transparent;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .lp-tab-btn.active {
+        background: #f5f3ff;
+        border-color: #c7d2fe;
+        color: #6366f1;
+    }
+
+    .lp-kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        margin-bottom: 28px;
+    }
+
+    .lp-kpi-item {
+        background: #f8fafc;
+        border-radius: 16px;
+        padding: 20px;
+        border: 1px solid #f1f5f9;
+    }
+
+    .lp-kpi-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #6366f1;
+        margin-bottom: 4px;
+    }
+
+    .lp-kpi-label {
+        font-size: 0.85rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+
+    .lp-chart-container {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #f1f5f9;
+    }
+
+    .lp-chart-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 16px;
+    }
+
+    .lp-mini-chart {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 8px;
+    }
+
+    .lp-chart-bar {
+        height: 60px;
+        background: linear-gradient(180deg, #6366f1 0%, #818cf8 100%);
+        border-radius: 4px 4px 0 0;
+        position: relative;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        font-size: 0.7rem;
+        color: #6366f1;
+    }
+
+    .lp-chart-bar.high {
+        background: linear-gradient(180deg, #10b981 0%, #34d399 100%);
+        color: #10b981;
+    }
+
+    .lp-contributors-list {
+        margin-top: 24px;
+        padding-top: 24px;
+        border-top: 1px solid #f1f5f9;
+    }
+
+    .lp-contributor-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .lp-contributor-item:last-child {
+        border-bottom: none;
+    }
+
+    .lp-contributor-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1, #a855f7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+
+    .lp-contributor-info {
+        flex: 1;
+    }
+
+    .lp-contributor-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 2px;
+    }
+
+    .lp-contributor-role {
+        font-size: 0.78rem;
+        color: #94a3b8;
+    }
+
+    .lp-contributor-badge {
+        padding: 4px 8px;
+        background: linear-gradient(135deg, #f59e0b, #fbbf24);
+        color: #fff;
+        font-size: 0.65rem;
+        font-weight: 700;
+        border-radius: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    /* ── BUILDER SECTION ── */
+    .lp-builder {
+        padding: 100px 0;
+        background: #f8f7ff;
+    }
+
+    .lp-builder-visual {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .lp-builder-canvas {
+        background: #fff;
+        border-radius: 24px;
+        padding: 32px;
+        box-shadow: 0 25px 60px rgba(99, 102, 241, 0.12), 0 4px 20px rgba(0, 0, 0, 0.04);
+        width: 100%;
+        max-width: 580px;
+        border: 1px solid rgba(99, 102, 241, 0.08);
+    }
+
+    .lp-builder-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .lp-builder-meta-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .lp-builder-meta-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: #ecfdf5;
+        color: #10b981;
+        font-size: 0.78rem;
+        font-weight: 700;
+        border-radius: 100px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+
+    .lp-builder-sections {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .lp-builder-section {
+        background: #f8fafc;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 16px;
+        transition: all 0.3s ease;
+    }
+
+    .lp-builder-section:hover {
+        border-color: #c7d2fe;
+        background: #f5f3ff;
+    }
+
+    .lp-builder-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+    }
+
+    .lp-builder-section-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .lp-builder-section-marks {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #6366f1;
+    }
+
+    .lp-builder-question {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 0;
+        font-size: 0.85rem;
+        color: #475569;
+    }
+
+    .lp-builder-question-drag {
+        color: #cbd5e1;
+        cursor: grab;
+    }
+
+    .lp-builder-total {
+        margin-top: 20px;
+        padding: 16px;
+        background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+        border-radius: 12px;
+        border: 1px solid #c7d2fe;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    .lp-builder-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+    }
+
+    .lp-builder-btn {
+        flex: 1;
+        padding: 10px 14px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        background: #fff;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .lp-builder-btn:hover {
+        border-color: #c7d2fe;
+        background: #f5f3ff;
+        color: #6366f1;
+    }
+
+    .lp-builder-btn.primary {
+        background: #6366f1;
+        color: #fff;
+        border-color: #6366f1;
+    }
+
+    .lp-builder-btn.primary:hover {
+        background: #4f46e5;
+        border-color: #4f46e5;
+    }
+
+    /* ── COMMUNITY SECTION ── */
+    .lp-community {
+        padding: 100px 0;
+        background: #fff;
+    }
+
+    .lp-community-feature {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 28px;
+    }
+
+    .lp-community-card {
+        background: #fff;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 20px;
+        padding: 32px 28px;
+        text-align: center;
+        transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .lp-community-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--accent-color, #6366f1), var(--accent-end, #a855f7));
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .lp-community-card:hover {
+        border-color: #c7d2fe;
+        transform: translateY(-8px);
+        box-shadow: 0 16px 40px rgba(99, 102, 241, 0.12);
+    }
+
+    .lp-community-card:hover::before {
+        opacity: 1;
+    }
+
+    .lp-community-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        margin: 0 auto 20px;
+        background: var(--icon-bg, rgba(99, 102, 241, 0.1));
+    }
+
+    .lp-community-card h3 {
+        font-family: 'DM Sans', sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 12px;
+    }
+
+    .lp-community-card p {
+        font-size: 0.92rem;
+        line-height: 1.65;
+        color: #64748b;
+        margin: 0;
+    }
+
+    @media (max-width: 991px) {
+        .lp-community-feature {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .lp-kpi-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
     @media (max-width: 576px) {
         .lp-feature-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .lp-community-feature {
             grid-template-columns: 1fr;
         }
 
@@ -1022,6 +1585,14 @@
         .lp-btn-secondary {
             width: 100%;
             justify-content: center;
+        }
+
+        .lp-dashboard-card {
+            padding: 24px;
+        }
+
+        .lp-builder-canvas {
+            padding: 24px;
         }
     }
 </style>
@@ -1061,6 +1632,21 @@
                         <span><i class="bi bi-check-circle-fill"></i> No credit card</span>
                         <span><i class="bi bi-check-circle-fill"></i> .docx & PDF instant download</span>
                         <span><i class="bi bi-check-circle-fill"></i> 1,200+ teachers trust us</span>
+                    </div>
+                    <div class="lp-hero-omr-spotlight reveal visible">
+                        <div class="lp-hero-omr-head">
+                            <span class="lp-hero-omr-pill"><i class="bi bi-ui-radios-grid"></i> OMR Builder</span>
+                            <strong>Design board-style answer sheets in a few clicks</strong>
+                        </div>
+                        <ul class="lp-hero-omr-points">
+                            <li><i class="bi bi-check2-circle"></i> Save reusable OMR templates</li>
+                            <li><i class="bi bi-check2-circle"></i> Adjust bubbles, spacing, and margins</li>
+                            <li><i class="bi bi-check2-circle"></i> Export print-ready PDFs instantly</li>
+                            <li><i class="bi bi-check2-circle"></i> Keep every template private to your account</li>
+                        </ul>
+                        <a href="{{ url_for('main.omr_builder') }}" class="lp-hero-omr-link" id="hero-cta-omr">
+                            Open OMR Builder <i class="bi bi-arrow-right"></i>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -1377,6 +1963,276 @@
                         <div class="lp-testimonial-role">Math Teacher, Rajshahi</div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ████ DASHBOARD & ANALYTICS ████ -->
+<section class="lp-dashboard">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6 mb-5 mb-lg-0">
+                <div class="reveal">
+                    <span class="lp-section-eyebrow"><i class="bi bi-graph-up"></i> Teacher Analytics</span>
+                    <h2 class="lp-section-title" style="text-align:left;">Track Student Progress &<br><span class="gradient-text">Analyze Performance</span></h2>
+                    <p style="font-size: 1.08rem; color: #64748b; margin-bottom: 32px; line-height: 1.7;">
+                        Move beyond basic scores. Get deep insights into which questions challenge your students most, identify knowledge gaps, and track progress trends over time.
+                    </p>
+                    <ul class="lp-quiz-features">
+                        <li>
+                            <div class="lp-quiz-feat-icon"><i class="bi bi-bar-chart-fill"></i></div>
+                            <div class="lp-quiz-feat-text">
+                                <h4>Question-Level Analytics</h4>
+                                <p>See accuracy rates and time spent on each question — pinpoint weak spots</p>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="lp-quiz-feat-icon" style="background: #fce7f3; color: #ec4899;"><i class="bi bi-graph-up-arrow"></i></div>
+                            <div class="lp-quiz-feat-text">
+                                <h4>Performance Trends</h4>
+                                <p>Track student improvement across multiple quizzes and assignments over weeks</p>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="lp-quiz-feat-icon" style="background: #ecfdf5; color: #10b981;"><i class="bi bi-file-text-fill"></i></div>
+                            <div class="lp-quiz-feat-text">
+                                <h4>PDF Reports</h4>
+                                <p>Export analytics reports for parent meetings and progress documentation</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="lp-dashboard-visual reveal">
+                    <div class="lp-dashboard-card">
+                        <div class="lp-dashboard-header">
+                            <div class="lp-dashboard-title">Performance</div>
+                            <div class="lp-dashboard-tabs">
+                                <button class="lp-tab-btn active">Week</button>
+                                <button class="lp-tab-btn">Month</button>
+                            </div>
+                        </div>
+                        <div class="lp-kpi-grid">
+                            <div class="lp-kpi-item">
+                                <div class="lp-kpi-value">75.2%</div>
+                                <div class="lp-kpi-label">Class Avg.</div>
+                            </div>
+                            <div class="lp-kpi-item">
+                                <div class="lp-kpi-value">24</div>
+                                <div class="lp-kpi-label">Students Tested</div>
+                            </div>
+                            <div class="lp-kpi-item">
+                                <div class="lp-kpi-value">12.3</div>
+                                <div class="lp-kpi-label">Avg. Time (min)</div>
+                            </div>
+                            <div class="lp-kpi-item">
+                                <div class="lp-kpi-value">↑ 8%</div>
+                                <div class="lp-kpi-label">vs. Last Week</div>
+                            </div>
+                        </div>
+                        <div class="lp-chart-container">
+                            <div class="lp-chart-title">📊 Last 6 Days</div>
+                            <div class="lp-mini-chart">
+                                <div class="lp-chart-bar" style="height: 40px;"></div>
+                                <div class="lp-chart-bar" style="height: 55px;"></div>
+                                <div class="lp-chart-bar high" style="height: 70px;"></div>
+                                <div class="lp-chart-bar" style="height: 48px;"></div>
+                                <div class="lp-chart-bar high" style="height: 62px;"></div>
+                                <div class="lp-chart-bar high" style="height: 75px;"></div>
+                            </div>
+                        </div>
+                        <div class="lp-contributors-list">
+                            <div class="lp-chart-title">Top Performers</div>
+                            <div class="lp-contributor-item">
+                                <div class="lp-contributor-avatar">R</div>
+                                <div class="lp-contributor-info">
+                                    <div class="lp-contributor-name">Riyad Hasan</div>
+                                    <div class="lp-contributor-role">95% in Biology Exam</div>
+                                </div>
+                                <div class="lp-contributor-badge">🏆</div>
+                            </div>
+                            <div class="lp-contributor-item">
+                                <div class="lp-contributor-avatar" style="background: linear-gradient(135deg, #10b981, #34d399);">S</div>
+                                <div class="lp-contributor-info">
+                                    <div class="lp-contributor-name">Safia Ahmed</div>
+                                    <div class="lp-contributor-role">90% in History Test</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ████ SMART PAPER BUILDER ████ -->
+<section class="lp-builder">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6 order-lg-2 mb-5 mb-lg-0">
+                <div class="reveal">
+                    <span class="lp-section-eyebrow"><i class="bi bi-pencil-square"></i> Paper Builder</span>
+                    <h2 class="lp-section-title" style="text-align:left;">Drag, Drop &<br><span class="gradient-text">Perfect Papers</span></h2>
+                    <p style="font-size: 1.08rem; color: #64748b; margin-bottom: 32px; line-height: 1.7;">
+                        Our new visual paper builder puts you in complete control. Drag questions, reorder them, customize marks — and preview the final paper in real-time before you export.
+                    </p>
+                    <ul class="lp-quiz-features">
+                        <li>
+                            <div class="lp-quiz-feat-icon"><i class="bi bi-arrows-move"></i></div>
+                            <div class="lp-quiz-feat-text">
+                                <h4>Intuitive Drag & Drop</h4>
+                                <p>Organize questions visually with simple drag-and-drop interactions</p>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="lp-quiz-feat-icon" style="background: #fef3c7; color: #f59e0b;"><i class="bi bi-brackets"></i></div>
+                            <div class="lp-quiz-feat-text">
+                                <h4>Custom Sections</h4>
+                                <p>Group by MCQ, Short Answer, Creative — or create your own sections</p>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="lp-quiz-feat-icon" style="background: #dbeafe; color: #0ea5e9;"><i class="bi bi-eye-fill"></i></div>
+                            <div class="lp-quiz-feat-text">
+                                <h4>Real-Time Preview</h4>
+                                <p>See exactly how your paper will look before hitting the export button</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-lg-6 order-lg-1">
+                <div class="lp-builder-visual reveal">
+                    <div class="lp-builder-canvas">
+                        <div class="lp-builder-meta">
+                            <div class="lp-builder-meta-title">Half Yearly 2026</div>
+                            <div class="lp-builder-meta-badge">
+                                <i class="bi bi-clock"></i> 180 min
+                            </div>
+                        </div>
+                        <div class="lp-builder-sections">
+                            <!-- Section A: MCQ -->
+                            <div class="lp-builder-section">
+                                <div class="lp-builder-section-header">
+                                    <div class="lp-builder-section-title">📋 বহুনির্বাচনি (MCQ)</div>
+                                    <div class="lp-builder-section-marks">30 marks</div>
+                                </div>
+                                <div class="lp-builder-question">
+                                    <span class="lp-builder-question-drag"><i class="bi bi-grip-vertical"></i></span>
+                                    <span>S-এর ইলেকট্রন বিন্যাস কোনটি?</span>
+                                </div>
+                                <div class="lp-builder-question">
+                                    <span class="lp-builder-question-drag"><i class="bi bi-grip-vertical"></i></span>
+                                    <span>পানি কোন ধরণের যৌগ?</span>
+                                </div>
+                                <div class="lp-builder-question">
+                                    <span class="lp-builder-question-drag"><i class="bi bi-grip-vertical"></i></span>
+                                    <span>নিউটনের প্রথম সূত্র কি?</span>
+                                </div>
+                            </div>
+
+                            <!-- Section B: Short Answer -->
+                            <div class="lp-builder-section">
+                                <div class="lp-builder-section-header">
+                                    <div class="lp-builder-section-title">✏️ সংক্ষিপ্ত প্রশ্ন (SQ)</div>
+                                    <div class="lp-builder-section-marks">20 marks</div>
+                                </div>
+                                <div class="lp-builder-question">
+                                    <span class="lp-builder-question-drag"><i class="bi bi-grip-vertical"></i></span>
+                                    <span>তড়িৎ প্রবাহ কাকে বলে?</span>
+                                </div>
+                                <div class="lp-builder-question">
+                                    <span class="lp-builder-question-drag"><i class="bi bi-grip-vertical"></i></span>
+                                    <span>অক্সাইড কাকে বলে?</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Section C: Creative -->
+                            <div class="lp-builder-section">
+                                <div class="lp-builder-section-header">
+                                    <div class="lp-builder-section-title">🎯 সৃজনশীল (CQ)</div>
+                                    <div class="lp-builder-section-marks">50 marks</div>
+                                </div>
+                                <div class="lp-builder-question">
+                                    <span class="lp-builder-question-drag"><i class="bi bi-grip-vertical"></i></span>
+                                    <span>[উদ্দীপক: একটি বৈদ্যুতিক সার্কিট...]</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="lp-builder-total">
+                            <span>Total: 100 marks | 5 MCQ + 2 SQ + 1 CQ</span>
+                            <i class="bi bi-check-circle-fill" style="color: #10b981;"></i>
+                        </div>
+                        <div class="lp-builder-actions">
+                            <button class="lp-builder-btn">👁 Preview</button>
+                            <button class="lp-builder-btn primary">⬇️ Export PDF</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ████ COMMUNITY & COLLABORATION ████ -->
+<section class="lp-community">
+    <div class="container">
+        <div class="text-center reveal">
+            <span class="lp-section-eyebrow"><i class="bi bi-people-fill"></i> Community Features</span>
+            <h2 class="lp-section-title">Learn, Share & Grow Together</h2>
+            <p class="lp-section-desc">Prosno.io is more than a tool — it's a thriving community of Bangladesh's best educators.</p>
+        </div>
+
+        <div class="lp-community-feature">
+            <!-- Card 1: Question Bank Contributions -->
+            <div class="lp-community-card reveal"
+                style="--accent-color: #6366f1; --accent-end: #818cf8; --icon-bg: rgba(99,102,241,0.1);">
+                <div class="lp-community-icon"><i class="bi bi-book-fill"></i></div>
+                <h3>Contribute Questions</h3>
+                <p>Create questions, share with the community, and earn reputation points for quality content. Help others while building your teaching portfolio.</p>
+            </div>
+
+            <!-- Card 2: Curate Banks -->
+            <div class="lp-community-card reveal"
+                style="--accent-color: #10b981; --accent-end: #34d399; --icon-bg: rgba(16,185,129,0.1);">
+                <div class="lp-community-icon"><i class="bi bi-collection-fill"></i></div>
+                <h3>Curated Question Banks</h3>
+                <p>Browse question banks curated by top-rated teachers. Filter by subject, difficulty, and NCTB syllabus alignment.</p>
+            </div>
+
+            <!-- Card 3: Collaboration -->
+            <div class="lp-community-card reveal"
+                style="--accent-color: #f59e0b; --accent-end: #fbbf24; --icon-bg: rgba(245,158,11,0.1);">
+                <div class="lp-community-icon"><i class="bi bi-chat-dots-fill"></i></div>
+                <h3>Collaborate on Papers</h3>
+                <p>Invite co-teachers to collaborate on exam papers. Real-time editing, approval workflows, and version history built in.</p>
+            </div>
+
+            <!-- Card 4: Leaderboards -->
+            <div class="lp-community-card reveal"
+                style="--accent-color: #7c3aed; --accent-end: #a855f7; --icon-bg: rgba(124,58,237,0.1);">
+                <div class="lp-community-icon"><i class="bi bi-trophy-fill"></i></div>
+                <h3>Recognition & Badges</h3>
+                <p>Earn achievement badges for teaching excellence: "Question Master," "Community Hero," "Top Contributor" — plus teacher profiles.</p>
+            </div>
+
+            <!-- Card 5: Moderation -->
+            <div class="lp-community-card reveal"
+                style="--accent-color: #dc2626; --accent-end: #f87171; --icon-bg: rgba(220,38,38,0.1);">
+                <div class="lp-community-icon"><i class="bi bi-shield-check-fill"></i></div>
+                <h3>Quality Assured</h3>
+                <p>All community questions go through moderation to ensure accuracy, appropriate difficulty, and curriculum alignment before publishing.</p>
+            </div>
+
+            <!-- Card 6: Trust System -->
+            <div class="lp-community-card reveal"
+                style="--accent-color: #0ea5e9; --accent-end: #38bdf8; --icon-bg: rgba(14,165,233,0.1);">
+                <div class="lp-community-icon"><i class="bi bi-star-fill"></i></div>
+                <h3>Reputation System</h3>
+                <p>Build trust in the community. Your reputation grows as more teachers use and rate your questions, unlocking new privileges.</p>
             </div>
         </div>
     </div>

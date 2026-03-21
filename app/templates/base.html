@@ -4,8 +4,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Prosno.io - Professional MCQ Question Paper Generator for Students and Teachers">
-    <title>{% block title %}Prosno.io - Question Paper Generator{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}{{ config.get('DEFAULT_META_DESCRIPTION', 'Prosno.io helps Bangladeshi teachers generate question papers and live quizzes.') }}{% endblock %}">
+    <meta name="robots" content="{% block meta_robots %}{{ default_meta_robots() }}{% endblock %}">
+    <meta name="theme-color" content="#2563eb">
+    <link rel="canonical" href="{% block canonical_url %}{{ request.base_url }}{% endblock %}">
+    <meta property="og:locale" content="bn_BD">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:site_name" content="{{ config.get('SITE_NAME', 'Prosno.io') }}">
+    <meta property="og:title" content="{% block og_title %}{{ self.title()|striptags }}{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}{{ self.meta_description()|striptags }}{% endblock %}">
+    <meta property="og:url" content="{% block og_url %}{{ request.base_url }}{% endblock %}">
+    <meta property="og:image" content="{% block og_image %}{{ default_og_image_url() }}{% endblock %}">
+    <meta property="og:image:alt" content="{% block og_image_alt %}Prosno.io preview card{% endblock %}">
+    <meta name="twitter:card" content="{% block twitter_card %}summary_large_image{% endblock %}">
+    <meta name="twitter:title" content="{% block twitter_title %}{{ self.og_title()|striptags }}{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}{{ self.og_description()|striptags }}{% endblock %}">
+    <meta name="twitter:image" content="{% block twitter_image %}{{ self.og_image()|striptags }}{% endblock %}">
+    <title>{% block title %}{{ config.get('SITE_NAME', 'Prosno.io') }} - Question Paper Generator{% endblock %}</title>
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
@@ -29,6 +44,8 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 
+    {% block structured_data %}{% endblock %}
+    {% block extra_head %}{% endblock %}
     {% block extra_css %}{% endblock %}
 </head>
 
@@ -53,6 +70,14 @@
                 <a class="nav-link {% if request.endpoint == 'main.generate' %}active{% endif %}"
                     href="{{ url_for('main.generate') }}">
                     <i class="bi bi-plus-square-fill nav-link-icon"></i> Create
+                </a>
+                <a class="nav-link {% if request.endpoint == 'main.builder' %}active{% endif %}"
+                    href="{{ url_for('main.builder') }}">
+                    <i class="bi bi-kanban nav-link-icon"></i> Builder
+                </a>
+                <a class="nav-link {% if request.endpoint == 'main.omr_builder' %}active{% endif %}"
+                    href="{{ url_for('main.omr_builder') }}">
+                    <i class="bi bi-grid-3x3-gap-fill nav-link-icon"></i> OMR
                 </a>
                 <a class="nav-link {% if request.endpoint and request.endpoint.startswith('main.bank') %}active{% endif %}"
                     href="{{ url_for('main.bank_browse') }}">
@@ -179,6 +204,12 @@
             </a>
             <a class="nav-mobile-link" href="{{ url_for('main.generate') }}">
                 <i class="bi bi-plus-square-fill"></i> Create
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('main.builder') }}">
+                <i class="bi bi-kanban"></i> Paper Builder
+            </a>
+            <a class="nav-mobile-link" href="{{ url_for('main.omr_builder') }}">
+                <i class="bi bi-grid-3x3-gap-fill"></i> OMR Builder
             </a>
             <a class="nav-mobile-link" href="{{ url_for('main.bank_browse') }}">
                 <i class="bi bi-collection-fill"></i> Question Bank

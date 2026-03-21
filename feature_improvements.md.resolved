@@ -1,0 +1,250 @@
+# 🚀 Prosno.io — 10 Feature Improvement Ideas for UX
+
+> **Perspective**: Senior Product Engineer | **Date**: March 14, 2026  
+> Based on a deep audit of the current codebase: models, routes, templates, utilities, and existing feature set.
+
+---
+
+## 1. 🎯 Smart Question Paper Builder (Drag & Drop)
+
+**Problem**: The current generation flow is linear — pick class → subject → chapters → generate. Users can't visually curate or reorder questions before generating.
+
+**Proposed UX**:
+- Add a **drag-and-drop paper builder** where teachers can:
+  - Browse questions from the bank and drag them into a "paper canvas"
+  - Reorder questions visually, group by section (MCQ / SQ / CQ)
+  - Set per-section marks and time allocations
+  - Preview the final paper layout in real-time before export
+- Support **mixed-chapter papers** with visual chapter tags on each question
+
+**Impact**: Transforms paper creation from "slot machine randomizer" to a **professional authoring tool**. Teachers get full creative control.
+
+| Effort | Value | Priority |
+|--------|-------|----------|
+| High | Very High | ⭐ P0 |
+
+---
+
+## 2. 📊 Student Performance Analytics Dashboard
+
+**Problem**: After a quiz ends, teachers see basic scores. There's no longitudinal view of student performance or question-level analytics.
+
+**Proposed UX**:
+- **For Teachers**: A dashboard showing:
+  - Per-question accuracy rates (which questions were hardest?)
+  - Time-spent-per-question heatmap
+  - Student performance trends across multiple quizzes
+  - Class average vs. individual student comparisons
+  - Export analytics as PDF reports for parent-teacher meetings
+- **For Students** (future): A personal progress tracker showing strengths and weak chapters
+
+**Impact**: Turns Prosno from a **generation tool** into a **learning analytics platform**. Massive differentiation.
+
+| Effort | Value | Priority |
+|--------|-------|----------|
+| Medium | Very High | ⭐ P0 |
+
+---
+
+## 3. 🔄 Collaborative Paper Creation (Multi-Teacher)
+
+**Problem**: Currently, paper generation is single-user. In real schools, multiple teachers often collaborate on exam papers (e.g., subject coordinator + class teacher).
+
+**Proposed UX**:
+- Allow a teacher to **invite collaborators** to a question set via email/link
+- Collaborators can add/remove/reorder questions
+- Real-time presence indicators ("Rahim is editing...")
+- **Approval workflow**: One teacher suggests questions, the senior teacher approves
+- Version history showing who added which question
+
+**Impact**: Matches how exam papers are actually created in schools. Strong differentiator for institutional adoption.
+
+| Effort | Value | Priority |
+|--------|-------|----------|
+| High | High | P1 |
+
+---
+
+## 4. 📱 Progressive Web App (PWA) with Offline Mode
+
+**Problem**: Many teachers in Bangladesh have unreliable internet. The app is fully server-rendered with no offline capability.
+
+**Proposed UX**:
+- Convert to a **PWA** with:
+  - Offline access to previously generated papers and saved question sets
+  - Background sync — create papers offline, upload when back online
+  - Push notifications for bank question approvals, quiz results, badge awards
+  - "Install to Home Screen" prompt for mobile users
+- Cache the teacher's library and recent papers in IndexedDB
+
+**Impact**: Critical for the Bangladesh market. Teachers can prepare papers at home without internet and sync at school.
+
+| Effort | Value | Priority |
+|--------|-------|----------|
+| High | Very High | ⭐ P0 |
+
+---
+
+## 5. 🤖 AI-Powered Question Enhancement & Difficulty Calibration
+
+**Problem**: The AI generator ([ai_generator.py](file:///d:/Work/Programming/prosno.io/app/utils/ai_generator.py)) creates questions, but there's no way to refine, improve, or calibrate difficulty of existing questions — whether human-written or AI-generated.
+
+**Proposed UX**:
+- **"Enhance with AI" button** on any question:
+  - Suggests better distractors for MCQs (common misconception-based options)
+  - Rewrites unclear question stems for better readability
+  - Translates between English ↔ Bengali with educational context preserved
+- **Difficulty auto-calibration**:
+  - After quizzes, use actual student performance data to auto-tag question difficulty
+  - "85% of students got this right → Easy" vs. "Only 12% → Hard"
+- **Similar question generator**: "Generate 5 variations of this question"
+
+**Impact**: Bridges the gap between AI and human authoring. Makes every teacher's questions better.
+
+| Effort | Value | Priority |
+|--------|-------|----------|
+| Medium | High | P1 |
+
+---
+
+## 6. 🎮 Interactive Quiz Modes (Beyond MCQ)
+
+**Problem**: The quiz system ([quiz.py](file:///d:/Work/Programming/prosno.io/app/routes/quiz.py)) only supports MCQ-style questions. Short Questions and Creative Questions have no interactive quiz format.
+
+**Proposed UX**:
+- **Timed Short Answer mode**: Students type answers, AI evaluates with partial credit
+- **CQ Structured Response mode**: Multi-part question with expandable text fields for (ক), (খ), (গ), (ঘ) parts
+- **"Rapid Fire" mode**: Fast-paced MCQ with 10-second timers and combo scoring
+- **Team Quiz mode**: Split the class into teams, questions assigned round-robin
+- **Practice mode**: Students can take self-paced quizzes without a teacher present, with instant explanations
+
+**Impact**: Makes the quiz feature viable for more question types and learning scenarios. Huge engagement boost.
+
+| Effort | Value | Priority |
+|--------|-------|----------|
+| High | High | P1 |
+
+---
+
+## 7. 📋 Question Paper Templates & Institutional Branding
+
+**Problem**: Generated papers use a single fixed layout. Schools want their logo, specific formatting, custom headers/footers, and board-specific templates.
+
+**Proposed UX**:
+- **Template gallery**: Pre-built templates for SSC, HSC, JSC, PSC board exam formats
+- **Custom branding**: Upload school logo, set institution name, add signatures
+- **Layout customization**:
+  - Choose between single/double column
+  - Configure answer sheet format (OMR bubble vs. written)
+  - Set custom headers, footers, watermarks
+- **Save as institutional template** for reuse across the school
+
+**Impact**: Makes papers look professional and school-specific. Key feature for institutional sales.
+
+| Effort | Value | Priority |
+|--------|-------|----------|
+| Medium | High | P1 |
+
+---
+
+## 8. 🔔 Smart Notification & Activity Feed System
+
+**Problem**: The notification system ([bank_notifications.html](file:///d:/Work/Programming/prosno.io/app/templates/main/bank_notifications.html)) exists but is basic. Teachers miss important events and there's no engagement loop.
+
+**Proposed UX**:
+- **Rich activity feed** with categories:
+  - 🏆 "Your question was used in 15 papers this week!"
+  - ⭐ "Teacher Karim rated your Physics MCQ 5 stars"
+  - 📝 "3 new questions added to your favorite chapter"
+  - 🎖️ "You earned the 'Top Contributor' badge!"
+- **Digest emails**: Weekly summary of your impact (questions used, ratings received)
+- **Follow a teacher**: Get notified when they publish new questions
+- **Follow a chapter/subject**: Get notified when new quality questions are added
+
+**Impact**: Creates a **social engagement loop** that drives repeat usage and content contribution.
+
+| Effort | Value | Priority |
+|--------|-------|----------|
+| Medium | Medium | P2 |
+
+---
+
+## 9. 🔍 Advanced Search with Filters & Question Preview
+
+**Problem**: The search ([search.py](file:///d:/Work/Programming/prosno.io/app/utils/search.py) + Meilisearch) is functional but basic. No way to preview questions before adding them to a paper.
+
+**Proposed UX**:
+- **Advanced filter panel**:
+  - Filter by: difficulty, question type, board year, marks, rating, teacher reputation
+  - "Board exam frequency" tag: "This topic appeared in SSC 2023, 2024"
+  - Sort by: most used, highest rated, newest, most bookmarked
+- **Inline question preview**: Hover/click to see the full question with answer without navigating away
+- **"Add to Paper" one-click action** from search results
+- **Search history & saved searches**: "Show me all Hard CQs for Physics Chapter 3"
+- **Visual question cards** with metadata badges (difficulty pill, rating stars, usage count)
+
+**Impact**: Makes discovering quality questions effortless. Reduces time-to-paper from minutes to seconds.
+
+| Effort | Value | Priority |
+|--------|-------|----------|
+| Medium | High | P1 |
+
+---
+
+## 10. 🌐 Student Self-Study Portal
+
+**Problem**: Currently, students only interact via live quizzes. There's no self-paced study experience.
+
+**Proposed UX**:
+- **Chapter-wise practice**: Students select a chapter and get unlimited practice questions
+- **Spaced repetition**: System resurfaces questions the student got wrong after 1, 3, 7 days
+- **Progress tracking**: Visual chapter completion map ("You've mastered 70% of Chapter 4")
+- **Explained answers**: After answering, show the correct answer with a brief explanation (AI-generated or teacher-written)
+- **Weak area recommendations**: "You struggle with Optics. Here are 10 targeted questions."
+- **Peer comparison** (optional): "You're in the top 20% for this chapter"
+
+**Impact**: Transforms Prosno from a **teacher tool** to a **teacher + student platform**. Doubles the addressable market.
+
+| Effort | Value | Priority |
+|--------|-------|----------|
+| Very High | Very High | ⭐ P0 |
+
+---
+
+## Priority Matrix Summary
+
+```mermaid
+quadrantChart
+    title Feature Priority Matrix
+    x-axis Low Effort --> High Effort
+    y-axis Low Value --> High Value
+    quadrant-1 Do First
+    quadrant-2 Plan Carefully
+    quadrant-3 Quick Wins
+    quadrant-4 Deprioritize
+    Smart Paper Builder: [0.8, 0.95]
+    Student Analytics: [0.5, 0.9]
+    Collaborative Papers: [0.85, 0.75]
+    PWA Offline Mode: [0.75, 0.9]
+    AI Enhancement: [0.5, 0.8]
+    Interactive Quiz Modes: [0.8, 0.8]
+    Paper Templates: [0.45, 0.75]
+    Smart Notifications: [0.4, 0.55]
+    Advanced Search: [0.5, 0.78]
+    Student Portal: [0.95, 0.95]
+```
+
+## Recommended Roadmap
+
+| Phase | Features | Timeline |
+|-------|----------|----------|
+| **Phase 1** (Quick Wins) | Paper Templates, Advanced Search, Smart Notifications | 2-3 weeks |
+| **Phase 2** (Core UX) | Smart Paper Builder, Student Analytics, AI Enhancement | 4-6 weeks |
+| **Phase 3** (Growth) | PWA Offline Mode, Interactive Quiz Modes | 4-6 weeks |
+| **Phase 4** (Platform) | Student Portal, Collaborative Papers | 6-8 weeks |
+
+> [!TIP]
+> **Phase 1** items are low-hanging fruit that dramatically improve daily teacher workflow. Start here for maximum impact with minimum engineering effort.
+
+> [!IMPORTANT]
+> The **Student Self-Study Portal** (#10) is the highest strategic value feature — it shifts Prosno from B2B (teacher tool) to B2B2C (teacher + student platform), unlocking viral growth through students sharing with classmates.

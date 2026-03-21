@@ -15,6 +15,9 @@ env/
 # Instance folder
 instance/
 
+# Planning and generated analysis files
+.planning/
+
 # Database
 *.db
 *.sqlite
@@ -27,6 +30,9 @@ uploads/
 .vscode/
 .idea/
 *.sublime-*
+
+# Copilot/agent local skills (not project source)
+.agents/skills/
 
 # OS files
 .DS_Store
