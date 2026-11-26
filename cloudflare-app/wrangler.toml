@@ -1,0 +1,32 @@
+name = "prosno-io"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "prosno-db"
+database_id = "local-dev-db"
+migrations_dir = "migrations"
+
+# Optional Cloudflare KV for distributed rate limiting & caching
+# [[kv_namespaces]]
+# binding = "PROSNO_KV"
+# id = "your-kv-namespace-id"
+
+# Optional Cloudflare R2 for institute logos & cached PDFs
+# [[r2_buckets]]
+# binding = "PROSNO_R2"
+# bucket_name = "prosno-storage"
+
+# Optional Cloudflare Browser Rendering API for direct server-side .pdf binary downloads
+# [browser]
+# binding = "BROWSER"
+
+# Scheduled AI question generation cron (runs every 15 minutes)
+[triggers]
+crons = ["*/15 * * * *"]
