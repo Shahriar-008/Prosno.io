@@ -143,7 +143,12 @@ quizRoutes.get('/my-quizzes', requireTeacher, async (c) => {
 
 quizRoutes.get('/join', (c) => {
   const html = renderPageLayout(
-    { title: 'লাইভ কুইজে যোগ দিন', user: c.get('user'), activeNav: 'quiz' },
+    {
+      title: 'লাইভ কুইজে যোগ দিন',
+      user: c.get('user'),
+      activeNav: 'quiz',
+      breadcrumbs: [{ label: 'হোম', href: '/' }, { label: 'লাইভ কুইজ' }],
+    },
     `<section class="auth-section"><div class="container auth-card">
       <h1>লাইভ কুইজে যোগ দিন</h1>
       <p class="muted">শিক্ষকের দেওয়া ৪-সংখ্যার কুইজ কোড এবং আপনার নাম লিখুন।</p>
@@ -432,7 +437,7 @@ async function submitQuiz(e){
   });
   const data = await resp.json();
   if (data.redirect) location.href = data.redirect;
-  else alert(data.error || 'Failed');
+  else window.ProsnoUI?.toast(data.error || 'জমা দেওয়া যায়নি', 'error');
 }
 </script>`,
       },

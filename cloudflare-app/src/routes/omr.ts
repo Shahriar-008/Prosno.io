@@ -62,6 +62,7 @@ omrRoutes.get('/omr-builder', (c) => {
       description: 'Create scannable institutional and general OMR answer sheets with exact registration markers.',
       user,
       activeNav: 'omr',
+      breadcrumbs: [{ label: 'হোম', href: '/' }, { label: 'OMR শিট ডিজাইনার' }],
       extraScripts: `<script id="omr-bootstrap" type="application/json">${bootstrapJson}</script><script src="/js/omr-builder.js"></script>`,
     },
     `<section class="page-section">

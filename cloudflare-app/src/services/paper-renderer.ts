@@ -392,13 +392,17 @@ export function renderPaperStudioHtml(opts: RenderPaperStudioOptions): string {
 
     /* Studio Toolbar */
     .studio-toolbar {
-      max-width: 1100px;
-      margin: 0 auto 16px auto;
-      background: #ffffff;
+      position: sticky;
+      top: 10px;
+      z-index: 30;
+      max-width: 1120px;
+      margin: 0 auto 18px auto;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(10px);
       border: 1px solid #e2e8f0;
       border-radius: 14px;
-      padding: 14px 18px;
-      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+      padding: 12px 18px;
+      box-shadow: 0 8px 24px rgba(15, 36, 33, 0.08);
     }
 
     .toolbar-top {
@@ -411,7 +415,7 @@ export function renderPaperStudioHtml(opts: RenderPaperStudioOptions): string {
 
     .toolbar-brand h1 {
       margin: 0;
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 700;
       color: #0f172a;
     }
@@ -425,7 +429,7 @@ export function renderPaperStudioHtml(opts: RenderPaperStudioOptions): string {
     .toolbar-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 7px;
       align-items: center;
     }
 
@@ -433,8 +437,8 @@ export function renderPaperStudioHtml(opts: RenderPaperStudioOptions): string {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 8px 13px;
-      border-radius: 9px;
+      padding: 7px 12px;
+      border-radius: 8px;
       border: 1px solid #cbd5e1;
       background: #f8fafc;
       color: #1e293b;
@@ -446,13 +450,14 @@ export function renderPaperStudioHtml(opts: RenderPaperStudioOptions): string {
       transition: all 0.15s ease;
     }
     .st-btn:hover { background: #e2e8f0; }
-    .st-btn.active { background: #2563eb; border-color: #2563eb; color: #ffffff; }
-    .st-btn.emerald { background: #059669; border-color: #059669; color: #ffffff; }
-    .st-btn.emerald:hover { background: #047857; }
-    .st-btn.indigo { background: #4f46e5; border-color: #4f46e5; color: #ffffff; }
-    .st-btn.indigo:hover { background: #4338ca; }
-    .st-btn.amber { background: #d97706; border-color: #d97706; color: #ffffff; }
-    .st-btn.amber:hover { background: #b45309; }
+    .st-btn:active { transform: scale(0.98); }
+    .st-btn.active { background: #0f766e; border-color: #0f766e; color: #ffffff; }
+    .st-btn.emerald { background: #0f766e; border-color: #0f766e; color: #ffffff; }
+    .st-btn.emerald:hover { background: #115e59; }
+    .st-btn.indigo { background: #0f172a; border-color: #0f172a; color: #ffffff; }
+    .st-btn.indigo:hover { background: #1e293b; }
+    .st-btn.amber { background: #ffffff; border-color: #0f766e; color: #0f766e; }
+    .st-btn.amber:hover { background: #f0fdfa; }
 
     /* Customization Drawer */
     .studio-drawer {
@@ -460,7 +465,7 @@ export function renderPaperStudioHtml(opts: RenderPaperStudioOptions): string {
       padding-top: 14px;
       border-top: 1px solid #e2e8f0;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 10px 14px;
     }
     .ctrl-group {

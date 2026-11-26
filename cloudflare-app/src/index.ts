@@ -10,6 +10,7 @@ import { bankApiRoutes, bankPageRoutes } from './routes/bank';
 import { moderationRoutes } from './routes/moderation';
 import { adminRoutes } from './routes/admin';
 import { runAiGenerationCycle } from './services/ai-generator';
+import { renderPageLayout } from './views/layout';
 
 export function createApp() {
   const app = new Hono<AppContextEnv>();
@@ -40,7 +41,21 @@ export function createApp() {
     if (c.req.path.startsWith('/api/')) {
       return c.json({ error: 'Not found' }, 404);
     }
-    return c.html('<h1>404 - Page Not Found</h1><p><a href="/">Go Home</a></p>', 404);
+    return c.html(
+      renderPageLayout(
+        { title: 'পৃষ্ঠাটি পাওয়া যায়নি (৪০৪)', user: c.get('user') },
+        `<section class="auth-section"><div class="container auth-card" style="text-align:center;">
+          <span class="badge-pill">404</span>
+          <h1 class="mt-2">পৃষ্ঠাটি খুঁজে পাওয়া যায়নি</h1>
+          <p class="muted">আপনি যে ঠিকানায় যেতে চাইছেন তা সরানো হয়েছে বা ভুল।</p>
+          <div class="row-actions mt-3" style="justify-content:center;">
+            <a href="/" class="btn btn-primary">হোমে ফিরে যান</a>
+            <a href="/generate" class="btn btn-outline">দ্রুত প্রশ্ন তৈরি</a>
+          </div>
+        </div></section>`
+      ),
+      404
+    );
   });
 
   return app;

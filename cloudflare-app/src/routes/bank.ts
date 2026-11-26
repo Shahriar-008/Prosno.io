@@ -111,12 +111,12 @@ bankPageRoutes.get('/bank', async (c) => {
       title: 'কমিউনিটি প্রশ্ন ব্যাংক',
       user,
       activeNav: 'bank',
+      breadcrumbs: [{ label: 'হোম', href: '/' }, { label: 'প্রশ্ন ব্যাংক' }],
       extraScripts: '<script src="/js/bank.js"></script>',
     },
     `<section class="page-section"><div class="container">
       <div class="page-hero">
         <div>
-          <span class="badge-pill">Community Teacher Bank</span>
           <h1>শিক্ষক প্রশ্ন ব্যাংক ব্রাউজ ও সার্চ করুন</h1>
           <p>সারা বাংলাদেশের শিক্ষকদের শেয়ার করা NCTB প্রশ্ন দেখুন, সেভ করুন এবং নিজের প্রশ্নপত্রে ব্যবহার করুন।</p>
         </div>
@@ -129,7 +129,7 @@ bankPageRoutes.get('/bank', async (c) => {
 
       <div class="card">
         <div class="grid-3">
-          <input type="text" id="bankSearchInput" placeholder="কীওয়ার্ড দিয়ে সার্চ করুন (FTS5)...">
+          <input type="text" id="bankSearchInput" placeholder="কীওয়ার্ড দিয়ে সার্চ করুন...">
           <select id="bankTypeFilter">
             <option value="">সব ধরন</option>
             <option value="MCQ">MCQ</option>

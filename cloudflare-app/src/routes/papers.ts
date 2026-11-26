@@ -198,29 +198,33 @@ paperRoutes.get('/', async (c) => {
     `<section class="hero-banner">
       <div class="container hero-grid">
         <div>
-          <span class="badge-pill">Cloudflare Edge + Live Print Studio</span>
-          <h1>বাংলাদেশের শিক্ষকদের জন্য ১-ক্লিকে প্রিন্ট-রেডি প্রশ্নপত্র ও সমাধান স্টুডিও</h1>
-          <p class="hero-lead">NCTB সিলেবাস অনুযায়ী MCQ (বোর্ড প্রশ্ন ও জটিল বহুপদী), সংক্ষিপ্ত প্রশ্ন (খ-বিভাগ), সৃজনশীল (গ-বিভাগ), KaTeX গণিত ফর্মুলা, উত্তরমালা, প্রিন্ট-রেডি OMR শিট ও লাইভ কুইজ — সব এক প্ল্যাটফর্মে।</p>
+          <span class="badge-pill">বাংলাদেশের শিক্ষকদের ডিজিটাল স্টুডিও</span>
+          <h1>১-ক্লিকে বোর্ড-স্ট্যান্ডার্ড প্রশ্নপত্র, সমাধান ও OMR</h1>
+          <p class="hero-lead">NCTB সিলেবাস অনুযায়ী MCQ, সংক্ষিপ্ত ও সৃজনশীল প্রশ্নপত্র তৈরি করে মুহূর্তেই PDF, DOCX ও লাইভ কুইজে রূপান্তর করুন।</p>
           <div class="hero-actions">
             <a href="/generate" class="btn btn-primary btn-lg">দ্রুত প্রশ্ন তৈরি করুন</a>
             <a href="/builder" class="btn btn-outline btn-lg">স্মার্ট পেপার বিল্ডার</a>
-            <a href="/omr-builder" class="btn btn-ghost btn-lg">OMR ডিজাইনার</a>
           </div>
           <div class="hero-stats">
-            <div><strong>${toBengaliNumeral(classesRes.results?.length || 10)}+</strong><span>শ্রেণি (১ম-১০ম)</span></div>
-            <div><strong>${toBengaliNumeral(statsQ?.cnt || 0)}+</strong><span>প্রশ্ন ব্যাংক</span></div>
-            <div><strong>${toBengaliNumeral(statsP?.cnt || 0)}+</strong><span>তৈরিকৃত প্রশ্নপত্র</span></div>
+            <div><strong>${toBengaliNumeral(classesRes.results?.length || 10)} শ্রেণি</strong><span>১ম থেকে ১০ম</span></div>
+            <div><strong>${toBengaliNumeral(statsQ?.cnt || 0)}+ প্রশ্ন</strong><span>NCTB সিলেবাস</span></div>
+            <div><strong>${toBengaliNumeral(statsP?.cnt || 0)}+ পেপার</strong><span>তৈরিকৃত প্রশ্নপত্র</span></div>
           </div>
         </div>
         <div class="hero-preview-card">
-          <div class="mini-paper">
+          <div class="preview-tabs-bar">
+            <button type="button" class="preview-tab active" data-hp-tab="paper">প্রশ্নপত্র</button>
+            <button type="button" class="preview-tab" data-hp-tab="answer">উত্তরমালা ও সমাধান</button>
+            <button type="button" class="preview-tab" data-hp-tab="omr">OMR শিট</button>
+          </div>
+          <div class="mini-paper" id="hp-paper">
             <div class="mini-paper-head">
-              <strong>বিষয়: বিজ্ঞান | অধ্যায় ৫</strong>
+              <strong>বিষয়: বিজ্ঞান | অধ্যায় ৫: দেখতে হলে আলো চাই</strong>
               <span>সময়: ২৫ মিনিট | পূর্ণমান: ৫০</span>
             </div>
             <div class="mini-paper-cols">
               <div>
-                <p><strong>১.</strong> চোখের কোন অংশ ক্যামেরার ডায়াফ্রামের মতো কাজ করে? [ঢা. বো. ২০]</p>
+                <p><strong>১.</strong> চোখের কোন অংশ ক্যামেরার ডায়াফ্রামের মতো কাজ করে? <span class="muted">[ঢা. বো. ২০]</span></p>
                 <div class="mini-opts"><span>◯ (ক) রেটিনা</span><span>◯ (খ) আইরিশ</span><span>◯ (গ) কর্নিয়া</span><span>◯ (ঘ) অক্ষিগোলক</span></div>
               </div>
               <div>
@@ -229,33 +233,91 @@ paperRoutes.get('/', async (c) => {
               </div>
             </div>
           </div>
+          <div class="mini-paper" id="hp-answer" style="display:none;">
+            <div class="mini-paper-head"><strong>দ্রুত উত্তর সংকেত ও ব্যাখ্যা</strong></div>
+            <p class="small" style="margin:6px 0;"><strong>১. (খ) আইরিশ:</strong> আইরিশ পিউপিলের আকার পরিবর্তন করে আলো নিয়ন্ত্রণ করে।</p>
+            <p class="small" style="margin:6px 0;"><strong>২. (ক) 7:</strong> x² + 1/x² = (x + 1/x)² - 2 = 3² - 2 = 7।</p>
+          </div>
+          <div class="mini-paper" id="hp-omr" style="display:none;">
+            <div class="mini-paper-head"><strong>বহুনির্বাচনি অভীক্ষার উত্তরপত্র (OMR)</strong></div>
+            <p class="small muted" style="margin:6px 0;">রোল নম্বর, বিষয় কোড ও সেট কোডসহ ৪০/৬০/৮০/১০০ প্রশ্নের স্ক্যান-রেডি প্রিন্ট লেআউট।</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="workflow-section">
+      <div class="container workflow-grid">
+        <div class="workflow-step">
+          <span class="step-num">১</span>
+          <div><strong>অধ্যায় বা প্রশ্ন বাছাই</strong><span>NCTB ডাটাবেস, কমিউনিটি ব্যাংক বা নিজের প্রশ্ন যোগ করুন</span></div>
+        </div>
+        <div class="workflow-step">
+          <span class="step-num">২</span>
+          <div><strong>লাইভ প্রিন্ট স্টুডিওতে সাজান</strong><span>বাংলা ফন্ট, ১/২/৩ কলাম, লোগো ও ওয়াটারমার্ক ঠিক করুন</span></div>
+        </div>
+        <div class="workflow-step">
+          <span class="step-num">৩</span>
+          <div><strong>PDF, DOCX বা লাইভ কুইজ</strong><span>উত্তরমালাসহ প্রিন্ট করুন অথবা ৪-ডিজিট কোডে পরীক্ষা নিন</span></div>
         </div>
       </div>
     </section>
 
     <section class="features-section">
       <div class="container">
-        <h2 class="section-title">কেন Prosno.io বাংলাদেশের সেরা প্রশ্ন তৈরির প্ল্যাটফর্ম?</h2>
-        <div class="feature-grid">
-          <div class="feature-card">
-            <h3>লাইভ HTML প্রিন্ট ও PDF স্টুডিও</h3>
-            <p>কোনো ঝামেলা ছাড়াই Hind Siliguri, Noto Sans Bengali ও KaTeX গণিত সমীকরণসহ ১/২/৩ কলাম প্রিন্ট-রেডি PDF ও DOCX ডাউনলোড।</p>
-          </div>
-          <div class="feature-card">
-            <h3>উত্তরমালা + ব্যাখ্যাসহ সমাধান ট্যাব</h3>
-            <p>এক ক্লিকেই ১০-কলাম কুইক উত্তর সংকেত গ্রিড, প্রতিটি প্রশ্নের সংক্ষিপ্ত ব্যাখ্যা এবং OMR ভরাট শিক্ষক কপি।</p>
-          </div>
-          <div class="feature-card">
-            <h3>কোচিং ব্র্যান্ডিং ও ওয়াটারমার্ক</h3>
-            <p>প্রতিষ্ঠানের নাম, লোগো, কাস্টম হেডার প্রিসেট ও জলছাপ (Watermark) সেভ করে রাখুন।</p>
-          </div>
-          <div class="feature-card">
-            <h3>স্ক্যান-রেডি OMR + লাইভ কুইজ</h3>
-            <p>৪০/৬০/৮০/১০০ প্রশ্নের বোর্ড-স্টাইল OMR শিট এবং ৪-ডিজিট কোডে রিয়েল-টাইম অনলাইন কুইজ ও CSV রেজাল্ট।</p>
-          </div>
+        <h2 class="section-title">শিক্ষক ও কোচিং সেন্টারের জন্য প্রয়োজনীয় সবকিছু</h2>
+        <div class="bento-grid">
+          <article class="bento-card bento-wide">
+            <div>
+              <div class="bento-icon"><svg class="ui-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></div>
+              <h3>লাইভ HTML প্রিন্ট স্টুডিও (PDF ও DOCX)</h3>
+              <p>Hind Siliguri, Noto Sans Bengali ও KaTeX গণিত সমীকরণসহ ১, ২ বা ৩ কলামের পেপার-সেভার প্রিন্ট লেআউট। একই সাথে প্রশ্নপত্র, উত্তরমালা ও শিক্ষক কপি পান।</p>
+            </div>
+            <a href="/generate" class="bento-link">দ্রুত প্রশ্নপত্র তৈরি করুন →</a>
+          </article>
+          <article class="bento-card bento-narrow">
+            <div>
+              <div class="bento-icon"><svg class="ui-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg></div>
+              <h3>স্মার্ট পেপার বিল্ডার</h3>
+              <p>একই প্রশ্নপত্রে MCQ, খ-বিভাগ (সংক্ষিপ্ত) এবং গ-বিভাগ (সৃজনশীল) সেকশন যুক্ত করুন ও নম্বর বণ্টন নিয়ন্ত্রণ করুন।</p>
+            </div>
+            <a href="/builder" class="bento-link">বিল্ডার খুলুন →</a>
+          </article>
+          <article class="bento-card bento-narrow">
+            <div>
+              <div class="bento-icon"><svg class="ui-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></div>
+              <h3>স্ক্যান-রেডি OMR শিট ডিজাইনার</h3>
+              <p>রোল, বিষয় কোড, সেট কোড ও রেজিস্ট্রেশন মার্কারসহ ৪০ থেকে ১০০ প্রশ্নের ইনস্টিটিউশনাল বা জেনারেল OMR প্রিন্ট করুন।</p>
+            </div>
+            <a href="/omr-builder" class="bento-link">OMR ডিজাইন করুন →</a>
+          </article>
+          <article class="bento-card bento-wide">
+            <div>
+              <div class="bento-icon"><svg class="ui-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+              <h3>লাইভ অনলাইন কুইজ ও কমিউনিটি প্রশ্ন ব্যাংক</h3>
+              <p>সেভ করা প্রশ্ন সেট থেকে ৪-ডিজিট কোডে লাইভ পরীক্ষা নিন, CSV ফলাফল ডাউনলোড করুন এবং শিক্ষকদের শেয়ার করা প্রশ্ন সার্চ করুন।</p>
+            </div>
+            <div class="row-actions">
+              <a href="/quiz/join" class="bento-link">কুইজে যোগ দিন →</a>
+              <a href="/bank" class="bento-link">প্রশ্ন ব্যাংক দেখুন →</a>
+            </div>
+          </article>
         </div>
       </div>
-    </section>`
+    </section>
+    <script>
+      document.querySelectorAll('[data-hp-tab]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('[data-hp-tab]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const t = btn.getAttribute('data-hp-tab');
+          ['paper','answer','omr'].forEach(k => {
+            const el = document.getElementById('hp-' + k);
+            if (el) el.style.display = k === t ? '' : 'none';
+          });
+        });
+      });
+    </script>`
   );
   return c.html(html);
 });
@@ -275,20 +337,28 @@ paperRoutes.get('/generate', async (c) => {
       title: 'দ্রুত প্রশ্নপত্র তৈরি',
       user,
       activeNav: 'generate',
+      breadcrumbs: [{ label: 'হোম', href: '/' }, { label: 'দ্রুত প্রশ্ন তৈরি' }],
       extraScripts: '<script src="/js/generate.js"></script>',
     },
     `<section class="page-section"><div class="container">
       <div class="page-hero">
         <div>
-          <span class="badge-pill">Quick Paper Generator</span>
-          <h1>দ্রুত প্রশ্নপত্র ও উত্তরমালা তৈরি করুন</h1>
-          <p>ডাটাবেস থেকে অধ্যায় বেছে অথবা নিজের প্রশ্ন দিয়ে মুহূর্তেই প্রিন্ট স্টুডিওতে ওপেন করুন।</p>
+          <h1>দ্রুত প্রশ্নপত্র ও উত্তরমালা তৈরি</h1>
+          <p>শ্রেণি ও অধ্যায় বাছাই করুন অথবা নিজের প্রশ্ন লিখে প্রিন্ট স্টুডিওতে ওপেন করুন।</p>
         </div>
-        <div class="mode-switch">
-          <button type="button" class="btn btn-primary" id="modeDbBtn">ডাটাবেস মোড</button>
-          <button type="button" class="btn btn-outline" id="modeCustomBtn">কাস্টম (Guest) মোড</button>
+        <div class="segmented" role="tablist">
+          <button type="button" class="seg-btn active" id="modeDbBtn">ডাটাবেস মোড</button>
+          <button type="button" class="seg-btn" id="modeCustomBtn">কাস্টম (Guest) মোড</button>
         </div>
       </div>
+
+      <div class="step-bar">
+        <div class="step-pill active" id="step1Pill"><span class="step-num">১</span> শ্রেণি ও অধ্যায়</div>
+        <div class="step-pill" id="step2Pill"><span class="step-num">২</span> প্রশ্ন ও সময় নির্ধারণ</div>
+        <div class="step-pill" id="step3Pill"><span class="step-num">৩</span> প্রিন্ট স্টুডিও ও ডাউনলোড</div>
+      </div>
+
+      <div id="genErrorBanner" class="alert error mb-3" style="display:none;"></div>
 
       <div id="dbModePanel" class="card form-grid">
         <div class="grid-3">
@@ -298,24 +368,27 @@ paperRoutes.get('/generate', async (c) => {
           <label>বিষয়
             <select id="genSubject" disabled><option value="">-- আগে শ্রেণি বাছাই করুন --</option></select>
           </label>
-          <label>শিরোনাম
+          <label>পরীক্ষার শিরোনাম
             <input type="text" id="genTitle" value="মডেল টেস্ট">
           </label>
         </div>
 
-        <div class="mt-2">
-          <label>অধ্যায়সমূহ (সর্বোচ্চ ৫টি) <span id="genAvailCount" class="badge-pill">০টি প্রশ্ন</span></label>
-          <div id="genChaptersBox" class="chip-grid muted">শ্রেণি ও বিষয় বাছাই করুন</div>
+        <div class="mt-3">
+          <div class="row-between">
+            <label style="margin:0;">অধ্যায়সমূহ (সর্বোচ্চ ৫টি)</label>
+            <span id="genAvailCount" class="badge-pill">০টি প্রশ্ন</span>
+          </div>
+          <div id="genChaptersBox" class="chip-grid muted mt-1">শ্রেণি ও বিষয় বাছাই করলে অধ্যায় দেখা যাবে</div>
         </div>
 
-        <div class="grid-3 mt-2">
+        <div class="grid-3 mt-3">
           <label>প্রশ্ন সংখ্যা (সর্বোচ্চ ৫০)
             <input type="number" id="genCount" value="25" min="1" max="50">
           </label>
           <label>সময় (মিনিট)
             <input type="number" id="genTime" value="25" min="1" max="300">
           </label>
-          <div class="check-col">
+          <div class="check-col" style="justify-content:center;gap:8px;display:flex;flex-direction:column;">
             <label><input type="checkbox" id="genRandomize" checked> প্রশ্ন এলোমেলো (Shuffle)</label>
             <label><input type="checkbox" id="genOmr" checked> OMR বৃত্ত দেখান</label>
           </div>
@@ -331,15 +404,15 @@ paperRoutes.get('/generate', async (c) => {
 
       <div id="customModePanel" class="card" style="display:none;">
         <h3>কাস্টম প্রশ্ন যোগ করুন (লগইন ছাড়াই ব্যবহারযোগ্য)</h3>
-        <div class="grid-3">
+        <div class="grid-3 mt-2">
           <label>শিরোনাম <input type="text" id="custTitle" value="কাস্টম পরীক্ষা"></label>
           <label>সময় (মিনিট) <input type="number" id="custTime" value="30"></label>
-          <label><input type="checkbox" id="custOmr" checked> OMR বৃত্ত</label>
+          <label style="justify-content:flex-end;"><span style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="custOmr" checked style="width:auto;"> OMR বৃত্ত দেখান</span></label>
         </div>
         <div id="customQuestionsList" class="mt-2"></div>
-        <div class="row-actions mt-2">
+        <div class="row-actions mt-3">
           <button type="button" class="btn btn-outline" id="btnAddCustomQ">+ নতুন MCQ যোগ করুন</button>
-          <button type="button" class="btn btn-primary" id="btnGenerateCustom">প্রিন্ট স্টুডিওতে দেখুন</button>
+          <button type="button" class="btn btn-primary btn-lg" id="btnGenerateCustom">প্রিন্ট স্টুডিওতে দেখুন</button>
         </div>
       </div>
 
@@ -363,17 +436,14 @@ paperRoutes.get('/builder', async (c) => {
       title: 'স্মার্ট পেপার বিল্ডার',
       user,
       activeNav: 'builder',
+      breadcrumbs: [{ label: 'হোম', href: '/' }, { label: 'স্মার্ট পেপার বিল্ডার' }],
       extraScripts: '<script src="/js/builder.js"></script>',
     },
     `<section class="page-section"><div class="container">
       <div class="page-hero">
         <div>
-          <span class="badge-pill">Multi-Section Builder</span>
           <h1>স্মার্ট পেপার বিল্ডার (MCQ + সংক্ষিপ্ত + সৃজনশীল)</h1>
           <p>ডাটাবেস, কমিউনিটি ব্যাংক এবং কাস্টম প্রশ্ন মিলিয়ে পূর্ণাঙ্গ বোর্ড-স্ট্যান্ডার্ড প্রশ্নপত্র তৈরি করুন।</p>
-        </div>
-        <div class="hero-actions">
-          <button type="button" class="btn btn-primary" id="builderGenerateBtn">প্রিন্ট স্টুডিওতে তৈরি করুন</button>
         </div>
       </div>
 
@@ -381,21 +451,46 @@ paperRoutes.get('/builder', async (c) => {
         <div>
           <div class="card">
             <h3>প্রশ্নপত্র কনফিগারেশন</h3>
-            <div class="grid-3">
+            <div class="grid-3 mt-2">
               <label>শিরোনাম <input type="text" id="bldTitle" value="বার্ষিক পরীক্ষা ২০২৬"></label>
               <label>সময় (মিনিট) <input type="number" id="bldTime" value="60" min="5" max="300"></label>
               <label>শ্রেণি <select id="bldClass"><option value="">-- শ্রেণি --</option>${classOptions}</select></label>
               <label>বিষয় <select id="bldSubject" disabled><option value="">-- বিষয় --</option></select></label>
-              <label><input type="checkbox" id="bldOmr" checked> OMR বৃত্ত</label>
+              <label style="justify-content:flex-end;"><span style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="bldOmr" checked style="width:auto;"> OMR বৃত্ত দেখান</span></label>
             </div>
           </div>
 
           <div class="card mt-3">
             <div class="row-between">
-              <h3>নির্বাচিত প্রশ্নসমূহ (<span id="bldTotalMarks">০</span> নম্বর)</h3>
-              <button type="button" class="btn btn-sm btn-outline" id="bldAddCustomMcq">+ কাস্টম MCQ</button>
+              <h3 style="margin:0;">নির্বাচিত প্রশ্নসমূহ (<span id="bldTotalMarks">০</span> নম্বর)</h3>
+              <button type="button" class="btn btn-sm btn-outline" id="bldToggleCustomForm">+ কাস্টম MCQ যোগ</button>
             </div>
+
+            <div id="bldCustomMcqForm" class="inline-custom-box" style="display:none;">
+              <div class="stack-form">
+                <label>প্রশ্ন <input type="text" id="bldCustText" placeholder="প্রশ্ন লিখুন..."></label>
+                <div class="grid-2">
+                  <input type="text" id="bldCustO1" placeholder="অপশন ক">
+                  <input type="text" id="bldCustO2" placeholder="অপশন খ">
+                  <input type="text" id="bldCustO3" placeholder="অপশন গ">
+                  <input type="text" id="bldCustO4" placeholder="অপশন ঘ">
+                </div>
+                <div class="row-actions">
+                  <input type="text" id="bldCustAns" placeholder="সঠিক উত্তর (উপরে লেখা অপশনের সাথে মিলিয়ে)" style="flex:1;">
+                  <button type="button" class="btn btn-sm btn-primary" id="bldAddCustomConfirm">তালিকায় যোগ করুন</button>
+                </div>
+              </div>
+            </div>
+
             <div id="bldSelectedSections" class="mt-2"></div>
+          </div>
+
+          <div class="sticky-summary mt-3">
+            <div>
+              <strong id="bldSummaryCounts">MCQ: 0 • SQ: 0 • CQ: 0</strong>
+              <span class="muted small" style="margin-left:10px;">মোট নম্বর: <strong id="bldSummaryMarks">0</strong></span>
+            </div>
+            <button type="button" class="btn btn-primary" id="builderGenerateBtn">প্রিন্ট স্টুডিওতে তৈরি করুন</button>
           </div>
 
           <div id="builderResultCard" class="card success-card mt-3" style="display:none;"></div>
@@ -403,7 +498,7 @@ paperRoutes.get('/builder', async (c) => {
 
         <aside class="card">
           <h3>প্রশ্ন ব্যাংক প্যানেল</h3>
-          <div class="stack-form">
+          <div class="stack-form mt-2">
             <input type="text" id="bldSearch" placeholder="প্রশ্ন খুঁজুন...">
             <div class="row-actions">
               <select id="bldType">
@@ -458,10 +553,12 @@ paperRoutes.get('/dashboard', requireTeacher, async (c) => {
       return `<tr>
         <td><strong>${escapeHtml(s.name)}</strong><br><small class="muted">${toBengaliNumeral(qCount)}টি প্রশ্ন • ${escapeHtml(s.source)}</small></td>
         <td>
-          ${s.paper_id ? `<a class="btn btn-sm btn-primary" href="/papers/${s.paper_id}/studio">Print Studio</a>` : ''}
-          <button type="button" class="btn btn-sm btn-outline" onclick="createQuizFromSet(${s.id}, '${escapeHtml(s.name)}')">লাইভ কুইজ</button>
-          <button type="button" class="btn btn-sm btn-outline" onclick="toggleShareSet(${s.id})">${s.is_shared ? 'শেয়ার বন্ধ' : 'শেয়ার লিংক'}</button>
-          ${s.is_shared && s.share_token ? `<a class="btn btn-sm btn-ghost" href="/paper/${escapeHtml(s.share_token)}" target="_blank">লিঙ্ক</a>` : ''}
+          <div class="row-actions">
+            ${s.paper_id ? `<a class="btn btn-sm btn-primary" href="/papers/${s.paper_id}/studio">Print Studio</a>` : ''}
+            <button type="button" class="btn btn-sm btn-outline" onclick="createQuizFromSet(${s.id}, '${escapeHtml(s.name)}')">লাইভ কুইজ</button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="toggleShareSet(${s.id})">${s.is_shared ? 'শেয়ার বন্ধ' : 'শেয়ার লিংক'}</button>
+            ${s.is_shared && s.share_token ? `<a class="btn btn-sm btn-ghost" href="/paper/${escapeHtml(s.share_token)}" target="_blank">লিঙ্ক খুলুন</a>` : ''}
+          </div>
         </td>
       </tr>`;
     })
@@ -469,30 +566,36 @@ paperRoutes.get('/dashboard', requireTeacher, async (c) => {
 
   const omrRows = (omrRes.results || [])
     .map(
-      (o) => `<li><strong>${escapeHtml(o.name)}</strong> (${toBengaliNumeral(o.question_count)} প্রশ্ন) — <a href="/omr-builder?template=${o.id}">খুলুন</a></li>`
+      (o) => `<li class="row-between"><span><strong>${escapeHtml(o.name)}</strong> (${toBengaliNumeral(o.question_count)} প্রশ্ন)</span><a class="btn btn-sm btn-outline" href="/omr-builder?template=${o.id}">খুলুন</a></li>`
     )
     .join('');
 
   const quizRows = (quizzesRes.results || [])
     .map(
-      (q) => `<li><strong>${escapeHtml(q.title)}</strong> (কোড: <code>${escapeHtml(q.join_code)}</code> • ${escapeHtml(q.status)}) — <a href="/quiz/${escapeHtml(q.join_code)}/lobby">লবি</a> | <a href="/quiz/${escapeHtml(q.join_code)}/results">ফলাফল</a></li>`
+      (q) => `<li class="row-between"><span><strong>${escapeHtml(q.title)}</strong> <span class="chip">কোড: ${escapeHtml(q.join_code)}</span></span><span><a class="btn btn-sm btn-outline" href="/quiz/${escapeHtml(q.join_code)}/lobby">লবি</a> <a class="btn btn-sm btn-ghost" href="/quiz/${escapeHtml(q.join_code)}/results">ফলাফল</a></span></li>`
     )
     .join('');
+
+  const pctCredits = Math.round((credits.remaining / credits.limit) * 100);
 
   const html = renderPageLayout(
     {
       title: 'ড্যাশবোর্ড',
       user,
+      breadcrumbs: [{ label: 'হোম', href: '/' }, { label: 'ড্যাশবোর্ড' }],
       extraScripts: `<script>
 async function createQuizFromSet(setId, title) {
   const resp = await fetch('/quiz/create', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ question_set_id: setId, title }) });
   const data = await resp.json();
   if (data.lobby_url) location.href = data.lobby_url;
-  else alert(data.error || 'Failed');
+  else window.ProsnoUI.toast(data.error || 'কুইজ তৈরি করা যায়নি', 'error');
 }
 async function toggleShareSet(setId) {
   const resp = await fetch('/question-set/' + setId + '/share', { method: 'POST' });
-  if (resp.ok) location.reload();
+  if (resp.ok) {
+    window.ProsnoUI.toast('শেয়ারিং স্ট্যাটাস আপডেট হয়েছে', 'success');
+    setTimeout(() => location.reload(), 350);
+  }
 }
 </script>`,
     },
@@ -500,28 +603,51 @@ async function toggleShareSet(setId) {
       <div class="page-hero">
         <div>
           <h1>স্বাগতম, ${escapeHtml(user.display_name)}</h1>
-          <p>দৈনিক ক্রেডিট: <strong>${toBengaliNumeral(credits.remaining)}/${toBengaliNumeral(credits.limit)}</strong> বাকি আছে</p>
+          <p>আপনার সব প্রশ্নপত্র, OMR টেমপ্লেট, কুইজ এবং ব্র্যান্ডিং এক জায়গায়।</p>
         </div>
         <div class="hero-actions">
           <a href="/generate" class="btn btn-primary">+ নতুন প্রশ্নপত্র</a>
           <a href="/builder" class="btn btn-outline">স্মার্ট বিল্ডার</a>
-          <a href="/bank/profile" class="btn btn-ghost">টিচার প্রোফাইল</a>
+          <a href="/bank/profile" class="btn btn-ghost">টিচার ব্র্যান্ডিং</a>
+        </div>
+      </div>
+
+      <div class="grid-4 mb-3">
+        <div class="stat-card">
+          <span>দৈনিক ক্রেডিট বাকি</span>
+          <strong>${toBengaliNumeral(credits.remaining)} / ${toBengaliNumeral(credits.limit)}</strong>
+          <div class="progress-track"><div class="progress-fill" style="width:${pctCredits}%"></div></div>
+        </div>
+        <div class="stat-card">
+          <span>সেভ করা প্রশ্ন সেট</span>
+          <strong>${toBengaliNumeral(setsRes.results?.length || 0)}</strong>
+        </div>
+        <div class="stat-card">
+          <span>OMR টেমপ্লেট</span>
+          <strong>${toBengaliNumeral(omrRes.results?.length || 0)}</strong>
+        </div>
+        <div class="stat-card">
+          <span>লাইভ কুইজ</span>
+          <strong>${toBengaliNumeral(quizzesRes.results?.length || 0)}</strong>
         </div>
       </div>
 
       <div class="card">
-        <h3>সেভ করা প্রশ্ন সেটসমূহ</h3>
-        ${setRows ? `<table class="data-table"><tbody>${setRows}</tbody></table>` : '<p class="muted">এখনো কোনো প্রশ্ন সেট সেভ করা হয়নি।</p>'}
+        <div class="row-between mb-3">
+          <h3 style="margin:0;">সেভ করা প্রশ্ন সেটসমূহ</h3>
+          <a href="/generate" class="btn btn-sm btn-outline">+ নতুন তৈরি করুন</a>
+        </div>
+        ${setRows ? `<table class="data-table"><tbody>${setRows}</tbody></table>` : '<div class="empty-state"><strong>কোনো প্রশ্ন সেট সেভ করা নেই</strong><p>দ্রুত প্রশ্ন জেনারেটর বা পেপার বিল্ডার থেকে প্রথম প্রশ্নপত্র তৈরি করুন।</p><a href="/generate" class="btn btn-primary btn-sm">শুরু করুন</a></div>'}
       </div>
 
       <div class="grid-2 mt-3">
         <div class="card">
-          <h3>সেভ করা OMR টেমপ্লেট</h3>
-          ${omrRows ? `<ul class="clean-list">${omrRows}</ul>` : '<p class="muted">কোনো OMR টেমপ্লেট নেই। <a href="/omr-builder">তৈরি করুন</a></p>'}
+          <div class="row-between mb-3"><h3 style="margin:0;">সেভ করা OMR টেমপ্লেট</h3><a href="/omr-builder" class="btn btn-sm btn-outline">নতুন OMR</a></div>
+          ${omrRows ? `<ul class="clean-list">${omrRows}</ul>` : '<div class="empty-state"><strong>কোনো OMR টেমপ্লেট নেই</strong><p>৪০ থেকে ১০০ প্রশ্নের OMR শিট তৈরি করে সেভ করুন।</p><a href="/omr-builder" class="btn btn-outline btn-sm">OMR ডিজাইনার</a></div>'}
         </div>
         <div class="card">
-          <h3>লাইভ কুইজসমূহ</h3>
-          ${quizRows ? `<ul class="clean-list">${quizRows}</ul>` : '<p class="muted">কোনো লাইভ কুইজ নেই।</p>'}
+          <div class="row-between mb-3"><h3 style="margin:0;">লাইভ কুইজসমূহ</h3><a href="/quiz/join" class="btn btn-sm btn-outline">কুইজ জয়েন পেজ</a></div>
+          ${quizRows ? `<ul class="clean-list">${quizRows}</ul>` : '<div class="empty-state"><strong>কোনো লাইভ কুইজ নেই</strong><p>সেভ করা প্রশ্ন সেট থেকে "লাইভ কুইজ" বাটনে ক্লিক করে কুইজ শুরু করুন।</p></div>'}
         </div>
       </div>
     </div></section>`

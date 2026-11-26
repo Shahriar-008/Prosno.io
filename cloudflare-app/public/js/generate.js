@@ -5,6 +5,7 @@
   const genAvailCount = document.getElementById('genAvailCount');
   const pickerBox = document.getElementById('questionPickerBox');
   const resultCard = document.getElementById('genResultCard');
+  const errBanner = document.getElementById('genErrorBanner');
 
   const modeDbBtn = document.getElementById('modeDbBtn');
   const modeCustomBtn = document.getElementById('modeCustomBtn');
@@ -12,20 +13,37 @@
   const customPanel = document.getElementById('customModePanel');
   const customList = document.getElementById('customQuestionsList');
 
+  const step1 = document.getElementById('step1Pill');
+  const step2 = document.getElementById('step2Pill');
+  const step3 = document.getElementById('step3Pill');
+
   let selectedQuestionIds = new Set();
+
+  function showError(msg) {
+    if (errBanner) {
+      errBanner.textContent = msg;
+      errBanner.style.display = 'block';
+    }
+    window.ProsnoUI?.toast(msg, 'error');
+  }
+  function clearError() {
+    if (errBanner) errBanner.style.display = 'none';
+  }
 
   modeDbBtn?.addEventListener('click', () => {
     dbPanel.style.display = '';
     customPanel.style.display = 'none';
-    modeDbBtn.className = 'btn btn-primary';
-    modeCustomBtn.className = 'btn btn-outline';
+    modeDbBtn.classList.add('active');
+    modeCustomBtn.classList.remove('active');
+    clearError();
   });
 
   modeCustomBtn?.addEventListener('click', () => {
     dbPanel.style.display = 'none';
     customPanel.style.display = '';
-    modeCustomBtn.className = 'btn btn-primary';
-    modeDbBtn.className = 'btn btn-outline';
+    modeCustomBtn.classList.add('active');
+    modeDbBtn.classList.remove('active');
+    clearError();
     if (customList.children.length === 0) addCustomCard();
   });
 
@@ -34,11 +52,15 @@
   }
 
   genClass?.addEventListener('change', async () => {
+    clearError();
     const classId = genClass.value;
     genSubject.disabled = true;
-    genSubject.innerHTML = '<option value="">-- আগে শ্রেণি বাছাই করুন --</option>';
+    genSubject.innerHTML = '<option value="">লোড হচ্ছে...</option>';
     genChaptersBox.textContent = 'বিষয় বাছাই করুন';
-    if (!classId) return;
+    if (!classId) {
+      genSubject.innerHTML = '<option value="">-- আগে শ্রেণি বাছাই করুন --</option>';
+      return;
+    }
     const resp = await fetch('/api/subjects/' + classId);
     const subs = await resp.json();
     genSubject.innerHTML = '<option value="">-- বিষয় বাছাই করুন --</option>' + subs.map((s) => `<option value="${s.id}">${s.name_bn || s.name}</option>`).join('');
@@ -46,10 +68,14 @@
   });
 
   genSubject?.addEventListener('change', async () => {
+    clearError();
     const subjectId = genSubject.value;
-    genChaptersBox.innerHTML = '';
+    genChaptersBox.innerHTML = '<span class="muted">অধ্যায় লোড হচ্ছে...</span>';
     selectedQuestionIds.clear();
-    if (!subjectId) return;
+    if (!subjectId) {
+      genChaptersBox.textContent = 'বিষয় বাছাই করুন';
+      return;
+    }
     const resp = await fetch('/api/chapters/' + subjectId);
     const chaps = await resp.json();
     if (!chaps.length) {
@@ -64,9 +90,12 @@
         const ids = getSelectedChapters();
         if (ids.length > 5) {
           cb.checked = false;
-          alert('সর্বোচ্চ ৫টি অধ্যায় নির্বাচন করা যাবে।');
+          showError('সর্বোচ্চ ৫টি অধ্যায় নির্বাচন করা যাবে।');
           return;
         }
+        clearError();
+        if (ids.length > 0) step2?.classList.add('active');
+        else step2?.classList.remove('active');
         const r = await fetch('/get-question-count', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -79,8 +108,9 @@
   });
 
   document.getElementById('btnPreviewQuestions')?.addEventListener('click', async () => {
+    clearError();
     const ids = getSelectedChapters();
-    if (!ids.length) return alert('কমপক্ষে ১টি অধ্যায় বাছাই করুন।');
+    if (!ids.length) return showError('কমপক্ষে ১টি অধ্যায় বাছাই করুন।');
     const r = await fetch('/get-questions-for-chapters', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -92,7 +122,7 @@
       .map(
         (q) => `<label class="chapter-chip" style="display:flex;margin-bottom:6px;"><input type="checkbox" class="pick-q" value="${q.id}" ${selectedQuestionIds.has(q.id) ? 'checked' : ''}> <span>#${q.id}: ${q.full_text}</span></label>`
       )
-      .join('') || '<p class="muted">কোনো প্রশ্ন পাওয়া যায়নি</p>';
+      .join('') || '<p class="muted">এই অধ্যায়গুলোতে এখনো কোনো প্রশ্ন যোগ করা হয়নি।</p>';
     pickerBox.querySelectorAll('.pick-q').forEach((el) => {
       el.addEventListener('change', () => {
         const qid = Number(el.value);
@@ -103,19 +133,26 @@
   });
 
   function showResult(data) {
+    step1?.classList.add('active');
+    step2?.classList.add('active');
+    step3?.classList.add('active');
     resultCard.style.display = 'block';
     resultCard.innerHTML = `
-      <h3>প্রশ্নপত্র প্রস্তুত! (${data.question_count}টি প্রশ্ন)</h3>
+      <h3>প্রশ্নপত্র প্রস্তুত (${data.question_count}টি প্রশ্ন)</h3>
+      <p class="muted small">এখন প্রিন্ট স্টুডিওতে ফন্ট, কলাম, লোগো বা ওয়াটারমার্ক পরিবর্তন করে PDF বা DOCX ডাউনলোড করতে পারবেন।</p>
       <div class="row-actions mt-2">
-        <a href="${data.studio_url}" class="btn btn-primary">Live Print Studio খুলুন (PDF / DOCX / সমাধান)</a>
+        <a href="${data.studio_url}" class="btn btn-primary">Live Print Studio খুলুন</a>
         <a href="${data.studio_url}?tab=answers" class="btn btn-outline">উত্তরমালা ও সমাধান</a>
       </div>`;
+    window.ProsnoUI?.toast('প্রশ্নপত্র তৈরি সম্পন্ন হয়েছে', 'success');
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   document.getElementById('btnGenerateDb')?.addEventListener('click', async () => {
+    clearError();
     const chapterIds = getSelectedChapters();
     if (!genClass.value || !genSubject.value || !chapterIds.length) {
-      return alert('শ্রেণি, বিষয় ও অধ্যায় বাছাই করুন।');
+      return showError('অনুগ্রহ করে শ্রেণি, বিষয় এবং কমপক্ষে ১টি অধ্যায় বাছাই করুন।');
     }
     const resp = await fetch('/generate-paper', {
       method: 'POST',
@@ -133,29 +170,30 @@
       }),
     });
     const data = await resp.json();
-    if (!resp.ok) return alert(data.error || 'Generation failed');
+    if (!resp.ok) return showError(data.error || 'প্রশ্নপত্র তৈরি ব্যর্থ হয়েছে।');
     showResult(data);
   });
 
   function addCustomCard() {
     const idx = customList.children.length + 1;
     const div = document.createElement('div');
-    div.className = 'card mt-2 custom-q-item';
+    div.className = 'inline-custom-box custom-q-item';
     div.innerHTML = `
       <label>প্রশ্ন ${idx} <input type="text" class="cq-text" required placeholder="প্রশ্ন লিখুন..."></label>
-      <div class="grid-2 mt-1">
+      <div class="grid-2 mt-2">
         <input type="text" class="cq-o1" placeholder="অপশন ক" required>
         <input type="text" class="cq-o2" placeholder="অপশন খ" required>
         <input type="text" class="cq-o3" placeholder="অপশন গ" required>
         <input type="text" class="cq-o4" placeholder="অপশন ঘ" required>
       </div>
-      <label class="mt-1">সঠিক উত্তর <input type="text" class="cq-ans" placeholder="সঠিক অপশনের টেক্সট" required></label>`;
+      <label class="mt-2">সঠিক উত্তর <input type="text" class="cq-ans" placeholder="সঠিক অপশনের টেক্সট" required></label>`;
     customList.appendChild(div);
   }
 
   document.getElementById('btnAddCustomQ')?.addEventListener('click', addCustomCard);
 
   document.getElementById('btnGenerateCustom')?.addEventListener('click', async () => {
+    clearError();
     const items = Array.from(customList.querySelectorAll('.custom-q-item')).map((card) => ({
       question_text: card.querySelector('.cq-text').value.trim(),
       type: 'simple',
@@ -178,7 +216,7 @@
       }),
     });
     const data = await resp.json();
-    if (!resp.ok) return alert(data.error || 'Failed');
+    if (!resp.ok) return showError(data.error || 'সব প্রশ্নের ঘর সঠিকভাবে পূরণ করুন।');
     showResult(data);
   });
 })();
